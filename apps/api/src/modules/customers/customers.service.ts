@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CustomerStatus, Prisma, PrismaClient } from '@prisma/client';
-import { normalizePhoneToE164 } from '@grotec/shared';
+import { ACTIVE_CALL_STATUSES, normalizePhoneToE164 } from '@grotec/shared';
 import type { AuthEmployee } from '../../common/auth/auth-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
@@ -111,13 +111,29 @@ export class CustomersService {
   // ------------------------------------------------------------------- profile
 
   async detailOrThrow(id: string, actor: AuthEmployee) {
-    const where: Prisma.CustomerWhereInput = {
-      id,
-      deletedAt: null,
-      AND: [this.visibilityWhere(actor)],
-    };
+    await this.assertReadable(id, actor);
+    return this.fetchDetail(id);
+  }
+
+  /** Read check used by other modules (e.g. calls) before touching a customer. */
+  async assertReadable(id: string, actor: AuthEmployee): Promise<void> {
+    await this.scopedCustomer(id, actor);
+  }
+
+  /**
+   * Full customer context for the calling workspace (PRD §6.3.4/§6.3.5).
+   * Callers must already have established access via a call they placed (the
+   * resolves-to-existing-customer flow is the point); the agent visibility
+   * scope is intentionally not re-applied here so dialing any number can show
+   * the matched profile. CallsService enforces the call-ownership gate.
+   */
+  async detailForCallContext(id: string) {
+    return this.fetchDetail(id);
+  }
+
+  private async fetchDetail(id: string) {
     const customer = await this.prisma.customer.findFirst({
-      where,
+      where: { id, deletedAt: null },
       include: {
         createdBy: { select: { id: true, fullName: true } },
         phones: { where: LIVE_PHONE, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
@@ -217,6 +233,28 @@ export class CustomersService {
           crops: crops.length,
         },
       });
+
+      // PRD §6.3.5 — a customer created during an active call must not end the
+      // call; link any in-flight call dialed to one of these numbers instead.
+      const orphanedCalls = await tx.call.findMany({
+        where: { customerId: null, phoneNumber: { in: [...seen] }, status: { in: [...ACTIVE_CALL_STATUSES] } },
+      });
+      if (orphanedCalls.length > 0) {
+        await tx.call.updateMany({
+          where: { id: { in: orphanedCalls.map((call) => call.id) } },
+          data: { customerId: customer.id },
+        });
+        for (const call of orphanedCalls) {
+          await this.audit.record(tx, {
+            actorId: actor.id,
+            entityType: 'CALL',
+            entityId: call.id,
+            entityLabel: call.phoneNumber,
+            action: 'call.linked',
+            after: { customerId: customer.id },
+          });
+        }
+      }
       return customer.id;
     });
 

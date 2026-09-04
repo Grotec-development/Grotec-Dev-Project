@@ -11,6 +11,7 @@ import { CropsModule } from './modules/crops/crops.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { HealthModule } from './modules/health/health.module';
 import { LeadsModule } from './modules/leads/leads.module';
+import { CallsModule } from './modules/calls/calls.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { LeadsModule } from './modules/leads/leads.module';
     CustomersModule,
     CropsModule,
     LeadsModule,
+    CallsModule,
     HealthModule,
   ],
   providers: [
