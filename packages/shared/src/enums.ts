@@ -149,6 +149,7 @@ export const AuditAction = {
   FOLLOW_UP_CANCELLED: 'followup.cancelled',
   RELATIONSHIP_ASSIGNED: 'relationship.assigned',
   RELATIONSHIP_RELEASED: 'relationship.released',
+  CUSTOMER_NOTE_ADDED: 'customer.note_added',
   MESSAGE_SENT: 'message.sent',
   MESSAGE_FAILED: 'message.failed',
 } as const;

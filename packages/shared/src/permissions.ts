@@ -31,6 +31,9 @@ export const PERMISSIONS = {
   // Calls / agent workspace (Month 2)
   callRead: 'call.read',
   callManage: 'call.manage',
+  // Relationship ownership / RM workspace (Month 4)
+  relationshipRead: 'relationship.read',
+  relationshipManage: 'relationship.manage',
   // AI Assistant (replaces the Knowledge Base screen): use = chat, manage = content
   assistantUse: 'assistant.use',
   assistantManage: 'assistant.manage',
@@ -67,6 +70,8 @@ export const PROPOSED_ROLE_PERMISSIONS: Record<RoleCode, readonly PermissionCode
     PERMISSIONS.leadAssign,
     PERMISSIONS.callRead,
     PERMISSIONS.callManage,
+    PERMISSIONS.relationshipRead,
+    PERMISSIONS.relationshipManage,
     PERMISSIONS.assistantUse,
     PERMISSIONS.assistantManage,
   ],
