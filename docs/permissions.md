@@ -1,42 +1,49 @@
 # Permissions
 
-_Last updated: Month 1. **PROVISIONAL** — the PRD v2.1 permission matrix must be reviewed before
-release; corrections are data-only (seed update), not code changes._
+_Last updated: Month 1 — aligned with PRD v2.1 §5.2 (docs/reference/prd-v2.1.md)._
 
-## Roles (Phase 1 login roles only)
+## Roles (Phase 1 login roles only, PRD §5.1)
 
 - `FOUNDER` — Founder
 - `MANAGER` — Manager/Admin
 - `AGENT` — Telecaller/Agent
-- `STAFF` — Staff
+- `STAFF` — Staff (HRMS/payroll-oriented; **no CRM capability in Phase 1** per the §5.2 matrix)
 
-Relationship Manager is an **ownership concept**, not a login role. RM ownership (Month 4)
-is assigned to an employee regardless of role, per the PRD.
+Additional organisational roles arrive as login roles only when their workflow ships (§5.1).
+Relationship Manager is an ownership concept, not a login role (§6.4; open item on becoming one).
 
-## Permission codes
+## Permission codes (CRM foundation)
 
 | Code | Meaning |
 |---|---|
-| `employee.read` / `employee.create` / `employee.update` / `employee.deactivate` / `employee.reset_password` | Identity management |
-| `role.read` / `permission.read` | Read roles/permissions |
+| `employee.read` / `employee.create` / `employee.update` | Identity management (operational) |
+| `employee.deactivate` / `employee.reset_password` | Founder-only security controls |
 | `customer.read` / `customer.create` / `customer.update` / `customer.deactivate` | Farmer master |
-| `crop.read` / `crop.manage` | Crop catalog |
+| `crop.read` / `crop.manage` | Crop catalog (KB content-management prelude, §6.5) |
 | `lead.read` / `lead.create` / `lead.update` / `lead.assign` | Leads + ownership assignment |
-| `audit.read` | Audit log |
+| `audit.read` | Complete audit logs (Founder-only) |
 
-## Proposed seed matrix (provisional)
+## Role → permission seed matrix
 
-| Permission | FOUNDER | MANAGER | AGENT | STAFF |
+PRD §5.2 rows mapped to codes. Two §5.2 open items remain (Staff boundaries; exact
+Founder-restricted boundary) — see `open-items.md`.
+
+| PRD §5.2 capability | Founder | Manager | Agent | Staff |
 |---|---|---|---|---|
-| employee.read | ✅ | ✅ | — | — |
-| employee.create / update | ✅ | ✅ | — | — |
-| employee.deactivate / reset_password | ✅ | — | — | — |
-| customer.read / create / update | ✅ | ✅ | ✅ (scoped) | ✅ (read) |
-| customer.deactivate | ✅ | ✅ | — | — |
-| crop.read | ✅ | ✅ | ✅ | ✅ |
-| crop.manage | ✅ | ✅ | — | — |
-| lead.read / create / update | ✅ | ✅ | ✅ (own) | — |
-| lead.assign | ✅ | ✅ | — | — |
-| audit.read | ✅ | ✅ | — | — |
+| CRM — Dashboard / Agent / RM | yes | yes | yes (own workload) | no |
+| CRM — All customer records | yes | yes | **assigned only** (service-level scope) | no |
+| CRM — Knowledge Base search | yes | yes | yes | no |
+| CRM — KB content management | yes | yes | no | no |
+| Audit logs / security settings | **yes** | no | no | no |
+| System administration | yes | no | no | no |
 
-AGENT scope: customers/leads they created or currently own. STAFF scope: read-only (provisional).
+### Enforcement notes
+
+- **Backend-only.** A global `AuthGuard` validates the access token; `@RequirePermission`
+  gates every handler; `PermissionGuard` rejects missing permissions (UI checks are
+  supplementary).
+- **Record scoping in services.** `AGENT` customer reads resolve to customers they created
+  or currently own a lead on (`lead_ownership.released_at IS NULL`); `AGENT` lead reads to
+  leads they currently own. Manager/Founder see all records.
+- `STAFF` is seeded with no CRM permissions until HRMS ships.
+- Founder-role assignment and employee deactivation/reset are restricted to the Founder.

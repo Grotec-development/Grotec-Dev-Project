@@ -51,7 +51,7 @@ export class LocationInputDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  tehsil?: string;
+  taluk?: string;
 
   @IsOptional()
   @IsString()

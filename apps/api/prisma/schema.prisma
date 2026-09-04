@@ -131,8 +131,13 @@ model AuthSession {
 
 model Customer {
   id         String         @id @default(uuid()) @db.Uuid
+  // Unique Farmer ID (developer brief farmer-master list) — e.g. GF00000042,
+  // generated from farmer_code_seq. Nullable only for pre-alignment rows.
+  farmerCode String?        @unique @map("farmer_code") @db.VarChar(20)
   fullName   String         @map("full_name")
   status     CustomerStatus @default(ACTIVE)
+  // Preferred language is provisional; vocabulary TBD (open item).
+  preferredLanguage String? @map("preferred_language") @db.VarChar(10)
   createdById String?       @map("created_by") @db.Uuid
   createdBy  Employee?      @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt  DateTime       @default(now()) @map("created_at")
@@ -172,7 +177,7 @@ model CustomerLocation {
   addressLine String? @map("address_line")
   state      String?
   district   String?
-  tehsil     String?
+  taluk      String?
   village    String?
   pincode    String?
   latitude   Decimal? @db.Decimal(9, 6)

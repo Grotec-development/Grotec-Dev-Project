@@ -24,12 +24,20 @@ _Last updated: Month 1. Base path `/api/v1`. Interactive docs served by the API 
 | Crops | `POST /crops` · `PATCH /crops/:id` (activate/deactivate/edit) | MANAGER/FOUNDER ⚠ |
 | Leads | `GET /leads?status&owner&q&page` · `POST /leads` · `GET /leads/:id` · `PATCH /leads/:id` · `GET /leads/:id/ownership-history` | scoped (AGENT: own) |
 | Leads | `POST /leads/:id/assign` | FOUNDER/MANAGER (rules ⚠) |
-| Audit | `GET /audit?entityType&entityId&actorId&from&to&page` | FOUNDER/MANAGER ⚠ |
+| Audit | `GET /audit?entityType&entityId&actorId&action&from&to&page` | FOUNDER only (PRD §5.2) |
 
 List responses: `{ items: [], total, page, pageSize }`.
 
 ## Scope rules (backend-enforced)
 
 - `customer.read` for AGENT returns only customers the agent created or holds a current lead on.
-- MANAGER/FOUNDER (and STAFF read role, provisional) see all customers.
+- MANAGER/FOUNDER see all customers; STAFF has no CRM endpoints in Phase 1 (PRD §5.2).
 - Ownership checks run in the service layer, never only in the UI.
+
+## Customer record shape (Month 1)
+
+`id`, `farmerCode` (unique Farmer ID, `GF`+8 digits), `fullName`, `status`, `createdBy`,
+`phones[]` (canonical E.164 + `isPrimary` — alternate numbers are additional rows),
+`locations[]` (addressLine, village, **taluk**, district, state, pincode, geo),
+`crops[]` (crop + `acreage` + unit), `leads[]` (with `currentOwner`).
+`preferredLanguage` is reserved; vocabulary open.

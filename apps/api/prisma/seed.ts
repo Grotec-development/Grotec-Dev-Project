@@ -152,8 +152,11 @@ async function seedDemoCustomers(founderId: string, agentId: string | undefined,
     });
     if (existing) continue;
 
+    const codeRows = (await prisma.$queryRaw`SELECT nextval('farmer_code_seq') AS n`) as Array<{ n: bigint }>;
+    const farmerCode = `GF${String(Number(codeRows[0]?.n ?? 0)).padStart(8, '0')}`;
     const customer = await prisma.customer.create({
       data: {
+        farmerCode,
         fullName: demo.name,
         createdById: founderId,
         phones: {

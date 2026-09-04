@@ -28,11 +28,18 @@ describe('rbac', () => {
     expect(res.body.error.code).toBe('FORBIDDEN');
   });
 
-  it('allows founder + manager to read the audit log', async () => {
+  it('allows founder but not manager to read the audit log (PRD §5.2)', async () => {
     const founder = await loginToken(app, USERS.FOUNDER);
     const manager = await loginToken(app, USERS.MANAGER);
     await request(app.getHttpServer()).get('/api/v1/audit').set('Authorization', `Bearer ${founder}`).expect(200);
-    await request(app.getHttpServer()).get('/api/v1/audit').set('Authorization', `Bearer ${manager}`).expect(200);
+    await request(app.getHttpServer()).get('/api/v1/audit').set('Authorization', `Bearer ${manager}`).expect(403);
+  });
+
+  it('gives staff (HRMS/payroll role) no CRM access in Phase 1 (PRD §5.2)', async () => {
+    const staff = await loginToken(app, USERS.STAFF);
+    await request(app.getHttpServer()).get('/api/v1/customers').set('Authorization', `Bearer ${staff}`).expect(403);
+    await request(app.getHttpServer()).get('/api/v1/crops').set('Authorization', `Bearer ${staff}`).expect(403);
+    await request(app.getHttpServer()).get('/api/v1/employees').set('Authorization', `Bearer ${staff}`).expect(403);
   });
 
   it('blocks employees management for agents but allows manager read', async () => {

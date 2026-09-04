@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CustomerStatus, Prisma } from '@prisma/client';
+import { CustomerStatus, Prisma, PrismaClient } from '@prisma/client';
 import { normalizePhoneToE164 } from '@grotec/shared';
 import type { AuthEmployee } from '../../common/auth/auth-context';
 import { AuditService } from '../../common/audit/audit.service';
@@ -78,6 +78,7 @@ export class CustomersService {
     return toPage(
       rows.map((customer) => ({
         id: customer.id,
+        farmerCode: customer.farmerCode,
         fullName: customer.fullName,
         status: customer.status,
         primaryPhone: customer.phones[0]?.phoneE164 ?? null,
@@ -173,6 +174,7 @@ export class CustomersService {
     const created = await this.prisma.$transaction(async (tx) => {
       const customer = await tx.customer.create({
         data: {
+          farmerCode: await nextFarmerCode(tx),
           fullName: dto.fullName,
           createdById: actor.id,
         },
@@ -629,8 +631,15 @@ export class CustomersService {
   }
 }
 
-function locationLabel(l: { village?: string | null; district?: string | null; addressLine?: string | null }) {
-  return l.village || l.district || l.addressLine || 'location';
+function locationLabel(l: { village?: string | null; district?: string | null; taluk?: string | null; addressLine?: string | null }) {
+  return l.village || l.taluk || l.district || l.addressLine || 'location';
+}
+
+/** Next sequential Farmer ID (GF + 8 zero-padded digits) from farmer_code_seq. */
+async function nextFarmerCode(db: Prisma.TransactionClient | PrismaClient): Promise<string> {
+  const rows = (await db.$queryRaw`SELECT nextval('farmer_code_seq') AS n`) as Array<{ n: bigint }>;
+  const value = Number(rows[0]?.n ?? 0);
+  return `GF${String(value).padStart(8, '0')}`;
 }
 
 type CustomerWithRelations = Prisma.CustomerGetPayload<{
@@ -653,7 +662,9 @@ type CustomerWithRelations = Prisma.CustomerGetPayload<{
 function serializeCustomerDetail(customer: CustomerWithRelations) {
   return {
     id: customer.id,
+    farmerCode: customer.farmerCode,
     fullName: customer.fullName,
+    preferredLanguage: customer.preferredLanguage,
     status: customer.status,
     createdBy: customer.createdBy ?? null,
     createdAt: customer.createdAt,
@@ -671,7 +682,7 @@ function serializeCustomerDetail(customer: CustomerWithRelations) {
       addressLine: l.addressLine,
       state: l.state,
       district: l.district,
-      tehsil: l.tehsil,
+      taluk: l.taluk,
       village: l.village,
       pincode: l.pincode,
       latitude: l.latitude?.toNumber() ?? null,
