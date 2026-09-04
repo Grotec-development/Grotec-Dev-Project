@@ -9,7 +9,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 const GUIDANCE_SELECT = {
   id: true,
   cropId: true,
-  crop: { select: { id: true, code: true, name: true } },
+  crop: { select: { id: true, code: true, name: true, category: true } },
+  problemType: true,
   problemKeywords: true,
   recommendedProducts: true,
   usageGuidance: true,
@@ -22,6 +23,7 @@ const GUIDANCE_SELECT = {
 export interface GuidanceListQuery {
   includeInactive?: boolean;
   cropId?: string;
+  problemType?: string;
   q?: string;
 }
 
@@ -53,6 +55,7 @@ export class GuidanceService {
     const where: Prisma.CropProductGuidanceWhereInput = {
       ...(includeInactive ? {} : { isActive: true }),
       ...(query.cropId ? { cropId: query.cropId } : {}),
+      ...(query.problemType ? { problemType: query.problemType } : {}),
       ...(query.q
         ? {
             OR: [
@@ -70,7 +73,7 @@ export class GuidanceService {
     });
   }
 
-  async create(actor: AuthEmployee, input: { cropId: string; problemKeywords: string[]; recommendedProducts: string[]; usageGuidance?: string; notes?: string; isActive?: boolean }) {
+  async create(actor: AuthEmployee, input: { cropId: string; problemType?: string | null; problemKeywords: string[]; recommendedProducts: string[]; usageGuidance?: string; notes?: string; isActive?: boolean }) {
     const crop = await this.prisma.crop.findUnique({ where: { id: input.cropId } });
     if (!crop) throw ApiError.notFound('CROP_NOT_FOUND', 'Crop not found');
 
@@ -83,6 +86,7 @@ export class GuidanceService {
       const guidance = await tx.cropProductGuidance.create({
         data: {
           cropId: crop.id,
+          problemType: input.problemType ?? null,
           problemKeywords,
           recommendedProducts,
           usageGuidance: input.usageGuidance?.trim() || null,
@@ -98,14 +102,14 @@ export class GuidanceService {
         entityId: guidance.id,
         entityLabel: `${crop.name} / ${problemKeywords.join(', ')}`,
         action: AuditAction.CREATED,
-        after: { cropId: crop.id, problemKeywords, recommendedProducts },
+        after: { cropId: crop.id, problemType: guidance.problemType, problemKeywords, recommendedProducts },
       });
       return guidance;
     });
     return created;
   }
 
-  async update(actor: AuthEmployee, id: string, input: { cropId?: string; problemKeywords?: string[]; recommendedProducts?: string[]; usageGuidance?: string | null; notes?: string | null; isActive?: boolean }) {
+  async update(actor: AuthEmployee, id: string, input: { cropId?: string; problemType?: string | null; problemKeywords?: string[]; recommendedProducts?: string[]; usageGuidance?: string | null; notes?: string | null; isActive?: boolean }) {
     const existing = await this.prisma.cropProductGuidance.findUnique({ where: { id }, include: { crop: { select: { name: true } } } });
     if (!existing) throw ApiError.notFound('GUIDANCE_NOT_FOUND', 'Guidance record not found');
 
@@ -122,6 +126,7 @@ export class GuidanceService {
         where: { id },
         data: {
           cropId: input.cropId,
+          problemType: input.problemType === undefined ? undefined : input.problemType,
           problemKeywords,
           recommendedProducts,
           usageGuidance: input.usageGuidance === undefined ? undefined : input.usageGuidance?.trim() || null,
@@ -138,12 +143,14 @@ export class GuidanceService {
         action: AuditAction.UPDATED,
         before: {
           cropId: existing.cropId,
+          problemType: existing.problemType,
           problemKeywords: existing.problemKeywords,
           recommendedProducts: existing.recommendedProducts,
           isActive: existing.isActive,
         },
         after: {
           cropId: result.cropId,
+          problemType: result.problemType,
           problemKeywords: result.problemKeywords,
           recommendedProducts: result.recommendedProducts,
           isActive: result.isActive,

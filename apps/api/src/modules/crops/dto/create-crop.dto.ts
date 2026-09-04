@@ -1,4 +1,6 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+
+export const CROP_CATEGORIES = ['FIELD', 'TREE', 'PLANTATION', 'VEGETABLE', 'OTHER'] as const;
 
 export class CreateCropDto {
   @IsString()
@@ -15,4 +17,8 @@ export class CreateCropDto {
   @IsString()
   @MaxLength(120)
   localName?: string;
+
+  @IsOptional()
+  @IsIn(CROP_CATEGORIES)
+  category?: string;
 }

@@ -30,9 +30,10 @@ export class AssistantController {
     @CurrentEmployee() actor: AuthEmployee,
     @Query('includeInactive') includeInactive?: string,
     @Query('cropId') cropId?: string,
+    @Query('type') problemType?: string,
     @Query('q') q?: string,
   ) {
-    return this.guidance.list({ includeInactive: includeInactive === 'true', cropId, q }, actor);
+    return this.guidance.list({ includeInactive: includeInactive === 'true', cropId, problemType, q }, actor);
   }
 
   @Post('guidance')

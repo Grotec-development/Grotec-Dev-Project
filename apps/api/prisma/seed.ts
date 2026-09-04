@@ -23,47 +23,53 @@ const prisma = new PrismaClient();
  *   demo agent. Demo customer phone numbers are fixed so re-seeding is safe.
  */
 
-const PROVISIONAL_CROPS: Array<{ code: string; name: string; localName: string }> = [
-  { code: 'RICE', name: 'Rice (Paddy)', localName: 'Dhaan' },
-  { code: 'WHEAT', name: 'Wheat', localName: 'Gehu' },
-  { code: 'MAIZE', name: 'Maize', localName: 'Makka' },
-  { code: 'SUGARCANE', name: 'Sugarcane', localName: 'Ganna' },
-  { code: 'COTTON', name: 'Cotton', localName: 'Kapas' },
-  { code: 'SOYBEAN', name: 'Soybean', localName: 'Soyabean' },
-  { code: 'TOMATO', name: 'Tomato', localName: 'Tamatar' },
-  { code: 'POTATO', name: 'Potato', localName: 'Aloo' },
-  { code: 'ONION', name: 'Onion', localName: 'Pyaaz' },
-  { code: 'CHILLI', name: 'Chilli', localName: 'Mirch' },
-  { code: 'BANANA', name: 'Banana', localName: 'Kela' },
-  { code: 'MANGO', name: 'Mango', localName: 'Aam' },
-  { code: 'GROUNDNUT', name: 'Groundnut', localName: 'Moongphali' },
-  { code: 'MUSTARD', name: 'Mustard', localName: 'Sarson' },
-  { code: 'GRAM', name: 'Chickpea (Gram)', localName: 'Chana' },
+// PRD §6.5.2 / §11: crop catalog carries a category (field / tree / plantation /
+// vegetable / other). The seed splits the provisional catalog accordingly.
+const PROVISIONAL_CROPS: Array<{ code: string; name: string; localName: string; category: 'FIELD' | 'TREE' | 'PLANTATION' | 'VEGETABLE' | 'OTHER' }> = [
+  { code: 'RICE', name: 'Rice (Paddy)', localName: 'Dhaan', category: 'FIELD' },
+  { code: 'WHEAT', name: 'Wheat', localName: 'Gehu', category: 'FIELD' },
+  { code: 'MAIZE', name: 'Maize', localName: 'Makka', category: 'FIELD' },
+  { code: 'SUGARCANE', name: 'Sugarcane', localName: 'Ganna', category: 'FIELD' },
+  { code: 'COTTON', name: 'Cotton', localName: 'Kapas', category: 'FIELD' },
+  { code: 'SOYBEAN', name: 'Soybean', localName: 'Soyabean', category: 'FIELD' },
+  { code: 'TOMATO', name: 'Tomato', localName: 'Tamatar', category: 'VEGETABLE' },
+  { code: 'POTATO', name: 'Potato', localName: 'Aloo', category: 'VEGETABLE' },
+  { code: 'ONION', name: 'Onion', localName: 'Pyaaz', category: 'VEGETABLE' },
+  { code: 'CHILLI', name: 'Chilli', localName: 'Mirch', category: 'VEGETABLE' },
+  { code: 'BANANA', name: 'Banana', localName: 'Kela', category: 'PLANTATION' },
+  { code: 'MANGO', name: 'Mango', localName: 'Aam', category: 'TREE' },
+  { code: 'GROUNDNUT', name: 'Groundnut', localName: 'Moongphali', category: 'FIELD' },
+  { code: 'MUSTARD', name: 'Mustard', localName: 'Sarson', category: 'FIELD' },
+  { code: 'GRAM', name: 'Chickpea (Gram)', localName: 'Chana', category: 'FIELD' },
 ];
 
 // Provisional starter guidance for the AI Assistant, built from the real Grotec
 // product catalog (docs/company-context.md). Rows are editable by Founder/Manager
 // through the assistant content API; usage text is generic so nothing invents a
 // label claim — follow the product label (FCO 1985).
+// problemType follows the PRD §6.5.2 taxonomy (PEST | DISEASE |
+// NUTRIENT_DEFICIENCY | WEED | OTHER); provisional rows are tagged from their
+// own keywords — pest/disease claims need GROTEC curation before use.
 const GUIDANCE_SEED: Array<{
   cropCode: string;
+  problemType: 'PEST' | 'DISEASE' | 'NUTRIENT_DEFICIENCY' | 'WEED' | 'OTHER';
   problemKeywords: string[];
   recommendedProducts: string[];
   usageGuidance: string;
 }> = [
-  { cropCode: 'RICE', problemKeywords: ['leaf yellowing', 'nitrogen deficiency', 'poor tillering'], recommendedProducts: ['Azos', 'Bio Jeevan PF'], usageGuidance: 'Seed/soil application at sowing; repeat at tillering as per the Grotec label.' },
-  { cropCode: 'RICE', problemKeywords: ['low yield', 'general weakness', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Apply organic manure at land preparation; Azotob at sowing and 30 days after.' },
-  { cropCode: 'WHEAT', problemKeywords: ['yellowing', 'stunted growth', 'low tillering'], recommendedProducts: ['Azos', 'Bio Jeevan TV'], usageGuidance: 'Seed treatment at sowing; foliar follow-up during active growth per label.' },
-  { cropCode: 'SUGARCANE', problemKeywords: ['poor cane growth', 'ratoon recovery', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Soil application along the furrows; repeat after ratoon initiation as per label.' },
-  { cropCode: 'COTTON', problemKeywords: ['square drop', 'flower drop', 'growth stress'], recommendedProducts: ['Ultra Action +', 'Trishul'], usageGuidance: 'Foliar application at square formation and flowering stages; follow the Grotec label.' },
-  { cropCode: 'SOYBEAN', problemKeywords: ['poor nodulation', 'root development', 'phosphorus'], recommendedProducts: ['Rhizob', 'PHOS'], usageGuidance: 'Seed treatment before sowing so rhizobial + phosphate inoculants establish early.' },
-  { cropCode: 'GROUNDNUT', problemKeywords: ['poor pod filling', 'yellowing', 'root development'], recommendedProducts: ['Rhizob', 'Micromix'], usageGuidance: 'Seed treatment at sowing; Micromix as foliar/soil supplement per label.' },
-  { cropCode: 'TOMATO', problemKeywords: ['flower drop', 'poor fruit set', 'heat stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Spray during flowering to support fruit set; repeat as per the Grotec label.' },
-  { cropCode: 'POTATO', problemKeywords: ['weak growth', 'poor bulking', 'soil fertility'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan PF'], usageGuidance: 'Gel/formulation per the label; apply at early growth for healthy tuber bulking.' },
-  { cropCode: 'ONION', problemKeywords: ['poor bulbing', 'leaf yellowing', 'weak growth'], recommendedProducts: ['Bio Jeevan TV', 'Micromix'], usageGuidance: 'Soil/foliar application during bulb initiation; follow product label rates.' },
-  { cropCode: 'MANGO', problemKeywords: ['poor flowering', 'fruit drop', 'drought stress'], recommendedProducts: ['Thavam', 'Ultra Action +'], usageGuidance: 'Apply before flowering and again at fruit set; dosage per the Grotec label.' },
-  { cropCode: 'BANANA', problemKeywords: ['poor bunch weight', 'sucker growth', 'general weakness'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan TV'], usageGuidance: 'Apply during active vegetative growth; follow the label for stage-based repeats.' },
-  { cropCode: 'CHILLI', problemKeywords: ['flower drop', 'poor fruit set', 'stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Foliar at flowering; repeat as needed per the Grotec label.' },
+  { cropCode: 'RICE', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['leaf yellowing', 'nitrogen deficiency', 'poor tillering'], recommendedProducts: ['Azos', 'Bio Jeevan PF'], usageGuidance: 'Seed/soil application at sowing; repeat at tillering as per the Grotec label.' },
+  { cropCode: 'RICE', problemType: 'OTHER', problemKeywords: ['low yield', 'general weakness', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Apply organic manure at land preparation; Azotob at sowing and 30 days after.' },
+  { cropCode: 'WHEAT', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['yellowing', 'stunted growth', 'low tillering'], recommendedProducts: ['Azos', 'Bio Jeevan TV'], usageGuidance: 'Seed treatment at sowing; foliar follow-up during active growth per label.' },
+  { cropCode: 'SUGARCANE', problemType: 'OTHER', problemKeywords: ['poor cane growth', 'ratoon recovery', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Soil application along the furrows; repeat after ratoon initiation as per label.' },
+  { cropCode: 'COTTON', problemType: 'OTHER', problemKeywords: ['square drop', 'flower drop', 'growth stress'], recommendedProducts: ['Ultra Action +', 'Trishul'], usageGuidance: 'Foliar application at square formation and flowering stages; follow the Grotec label.' },
+  { cropCode: 'SOYBEAN', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['poor nodulation', 'root development', 'phosphorus'], recommendedProducts: ['Rhizob', 'PHOS'], usageGuidance: 'Seed treatment before sowing so rhizobial + phosphate inoculants establish early.' },
+  { cropCode: 'GROUNDNUT', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['poor pod filling', 'yellowing', 'root development'], recommendedProducts: ['Rhizob', 'Micromix'], usageGuidance: 'Seed treatment at sowing; Micromix as foliar/soil supplement per label.' },
+  { cropCode: 'TOMATO', problemType: 'OTHER', problemKeywords: ['flower drop', 'poor fruit set', 'heat stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Spray during flowering to support fruit set; repeat as per the Grotec label.' },
+  { cropCode: 'POTATO', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['weak growth', 'poor bulking', 'soil fertility'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan PF'], usageGuidance: 'Gel/formulation per the label; apply at early growth for healthy tuber bulking.' },
+  { cropCode: 'ONION', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['poor bulbing', 'leaf yellowing', 'weak growth'], recommendedProducts: ['Bio Jeevan TV', 'Micromix'], usageGuidance: 'Soil/foliar application during bulb initiation; follow product label rates.' },
+  { cropCode: 'MANGO', problemType: 'OTHER', problemKeywords: ['poor flowering', 'fruit drop', 'drought stress'], recommendedProducts: ['Thavam', 'Ultra Action +'], usageGuidance: 'Apply before flowering and again at fruit set; dosage per the Grotec label.' },
+  { cropCode: 'BANANA', problemType: 'OTHER', problemKeywords: ['poor bunch weight', 'sucker growth', 'general weakness'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan TV'], usageGuidance: 'Apply during active vegetative growth; follow the label for stage-based repeats.' },
+  { cropCode: 'CHILLI', problemType: 'OTHER', problemKeywords: ['flower drop', 'poor fruit set', 'stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Foliar at flowering; repeat as needed per the Grotec label.' },
 ];
 
 const DEMO_CUSTOMERS: Array<{ name: string; phone: string; village: string; district: string; state: string; cropIndex: number; acreage: number }> = [
@@ -158,8 +164,8 @@ async function seedCrops(): Promise<string[]> {
   for (const crop of PROVISIONAL_CROPS) {
     const row = await prisma.crop.upsert({
       where: { code: crop.code },
-      update: { name: crop.name, localName: crop.localName, isActive: true },
-      create: { code: crop.code, name: crop.name, localName: crop.localName },
+      update: { name: crop.name, localName: crop.localName, category: crop.category, isActive: true },
+      create: { code: crop.code, name: crop.name, localName: crop.localName, category: crop.category },
     });
     ids.push(row.id);
   }
@@ -177,10 +183,18 @@ async function seedGuidance(founderId: string): Promise<void> {
     const existing = await prisma.cropProductGuidance.findFirst({
       where: { cropId: crop.id, problemKeywords: { has: def.problemKeywords[0] ?? '' } },
     });
-    if (existing) continue;
+    if (existing) {
+      // Backfill taxonomy on rows seeded before problemType existed.
+      await prisma.cropProductGuidance.update({
+        where: { id: existing.id },
+        data: { problemType: def.problemType },
+      });
+      continue;
+    }
     await prisma.cropProductGuidance.create({
       data: {
         cropId: crop.id,
+        problemType: def.problemType,
         problemKeywords: def.problemKeywords,
         recommendedProducts: def.recommendedProducts,
         usageGuidance: def.usageGuidance,

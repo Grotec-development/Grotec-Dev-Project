@@ -1,4 +1,6 @@
-import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+
+export const CROP_CATEGORIES = ['FIELD', 'TREE', 'PLANTATION', 'VEGETABLE', 'OTHER'] as const;
 
 export class UpdateCropDto {
   @IsOptional()
@@ -11,6 +13,10 @@ export class UpdateCropDto {
   @IsString()
   @MaxLength(120)
   localName?: string | null;
+
+  @IsOptional()
+  @IsIn(CROP_CATEGORIES)
+  category?: string | null;
 
   @IsOptional()
   @IsBoolean()

@@ -1,4 +1,5 @@
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { PROBLEM_TYPES, type ProblemType } from './create-guidance.dto';
 
 export class UpdateGuidanceDto {
   @IsOptional()
@@ -22,6 +23,10 @@ export class UpdateGuidanceDto {
   @MinLength(2, { each: true })
   @MaxLength(80, { each: true })
   recommendedProducts?: string[];
+
+  @IsOptional()
+  @IsIn(PROBLEM_TYPES)
+  problemType?: ProblemType | null;
 
   @IsOptional()
   @IsString()

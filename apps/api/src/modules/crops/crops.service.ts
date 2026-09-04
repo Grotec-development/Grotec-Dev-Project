@@ -11,6 +11,7 @@ const CROP_SELECT = {
   code: true,
   name: true,
   localName: true,
+  category: true,
   isActive: true,
   createdAt: true,
 } satisfies Prisma.CropSelect;
@@ -29,7 +30,7 @@ export class CropsService {
     return this.prisma.crop.findMany({ where, select: CROP_SELECT, orderBy: { name: 'asc' } });
   }
 
-  async create(actor: AuthEmployee, input: { code: string; name: string; localName?: string }) {
+  async create(actor: AuthEmployee, input: { code: string; name: string; localName?: string; category?: string }) {
     const code = input.code.trim().toUpperCase().replace(/\s+/g, '_');
     if (!/^[A-Z][A-Z0-9_]{1,39}$/.test(code)) {
       throw ApiError.badRequest('INVALID_CROP_CODE', 'Crop code must be 2–40 chars: letters, digits, underscores');
@@ -43,6 +44,7 @@ export class CropsService {
           code,
           name: input.name,
           localName: input.localName ?? null,
+          category: input.category ?? null,
           createdById: actor.id,
         },
         select: CROP_SELECT,
@@ -53,14 +55,14 @@ export class CropsService {
         entityId: crop.id,
         entityLabel: code,
         action: AuditAction.CREATED,
-        after: { code, name: input.name },
+        after: { code, name: input.name, category: input.category ?? null },
       });
       return crop;
     });
     return created;
   }
 
-  async update(actor: AuthEmployee, id: string, input: { name?: string; localName?: string | null; isActive?: boolean }) {
+  async update(actor: AuthEmployee, id: string, input: { name?: string; localName?: string | null; category?: string | null; isActive?: boolean }) {
     const crop = await this.prisma.crop.findUnique({ where: { id } });
     if (!crop) throw ApiError.notFound('CROP_NOT_FOUND', 'Crop not found');
 
@@ -70,6 +72,7 @@ export class CropsService {
         data: {
           name: input.name ?? undefined,
           localName: input.localName === undefined ? undefined : input.localName,
+          category: input.category === undefined ? undefined : input.category,
           isActive: input.isActive ?? undefined,
         },
         select: CROP_SELECT,
@@ -80,8 +83,8 @@ export class CropsService {
         entityId: id,
         entityLabel: crop.code,
         action: AuditAction.UPDATED,
-        before: { name: crop.name, localName: crop.localName, isActive: crop.isActive },
-        after: { name: result.name, localName: result.localName, isActive: result.isActive },
+        before: { name: crop.name, localName: crop.localName, category: crop.category, isActive: crop.isActive },
+        after: { name: result.name, localName: result.localName, category: result.category, isActive: result.isActive },
       });
       return result;
     });

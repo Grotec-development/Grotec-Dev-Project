@@ -256,6 +256,7 @@ model Crop {
   code        String   @unique @db.VarChar(40)
   name        String   @db.VarChar(120)
   localName   String?  @map("local_name")
+  category    String?  @db.VarChar(40) // field | tree | plantation | vegetable | other (PRD §6.5.2)
   isActive    Boolean  @default(true) @map("is_active")
   createdById String?  @map("created_by") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
@@ -277,6 +278,7 @@ model CropProductGuidance {
   id                  String   @id @default(uuid()) @db.Uuid
   cropId              String   @map("crop_id") @db.Uuid
   crop                Crop     @relation(fields: [cropId], references: [id], onDelete: Restrict)
+  problemType         String?  @map("problem_type") // pest | disease | nutrient_deficiency | weed | other (PRD §6.5.2)
   problemKeywords     String[] @map("problem_keywords")
   recommendedProducts String[] @map("recommended_products")
   usageGuidance       String?  @map("usage_guidance")
@@ -288,6 +290,7 @@ model CropProductGuidance {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@index([cropId])
+  @@index([problemType])
   @@map("crop_product_guidance")
 }
 
