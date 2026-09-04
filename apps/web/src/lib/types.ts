@@ -139,6 +139,7 @@ export interface FollowUp {
   status: FollowUpStatus;
   completedAt: string | null;
   agent: { id: string; fullName: string } | null;
+  customer?: { id: string; fullName: string; farmerCode: string | null } | null;
 }
 
 export interface OutcomeRecordResult {
@@ -182,6 +183,62 @@ export interface CallContext {
   history: Call[];
   followUps: FollowUp[];
   relationshipOwner: { id: string; fullName: string } | null;
+}
+
+export interface RelationshipHolder {
+  id: string;
+  fullName: string;
+  email: string;
+  customerCount: number;
+}
+
+export interface RelationshipPortfolioItem {
+  customer: {
+    id: string;
+    farmerCode: string | null;
+    fullName: string;
+    status: 'ACTIVE' | 'INACTIVE';
+    primaryPhone: string | null;
+    location: { village: string | null; taluk: string | null; district: string | null; state: string | null } | null;
+    crops: Array<{ id: string; cropId: string; name: string; acreage: number; unit: string }>;
+  };
+  owner: { id: string; fullName: string } | null;
+  assignedAt: string | null;
+  reason: string | null;
+  convertedAt: string | null;
+  pendingFollowUps: number;
+  lastCall: {
+    id: string;
+    status: CallStatus;
+    outcome: CallOutcome | null;
+    nextAction: NextAction | null;
+    startedAt: string;
+    phoneNumber: string;
+  } | null;
+}
+
+export interface CustomerNote {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; fullName: string; email: string };
+}
+
+export interface DashboardSummary {
+  scope: 'me' | 'team';
+  calls: { dialedToday: number; connectedToday: number; completedToday: number; notAnsweredToday: number };
+  followUps: { pending: number; overdue: number; dueToday: number; completedToday: number };
+  leads: { open: number; newThisWeek: number; closedTotal: number };
+  customers: { total: number; converted: number; interested: number };
+  recentActivity: Array<{
+    kind: 'call';
+    id: string;
+    customerName: string | null;
+    phoneNumber: string;
+    status: CallStatus;
+    outcome: CallOutcome | null;
+    startedAt: string;
+  }>;
 }
 
 export interface QueueItem {

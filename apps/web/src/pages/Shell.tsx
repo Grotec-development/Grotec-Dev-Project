@@ -28,10 +28,13 @@ interface NavItem {
   badge?: string;
 }
 
+// CRM nav is role-filtered like every other group: Dashboard is available to
+// everyone with CRM access; the Agent workspace needs call.read; the RM
+// workspace needs relationship.read (Manager/Founder).
 const CRM_ITEMS: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: 'M5' },
-  { to: '/agent', label: 'Agent', icon: Phone, badge: 'M2' },
-  { to: '/relationship-manager', label: 'Relationship Manager', icon: UserRoundCheck, badge: 'M4' },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/agent', label: 'Agent workspace', icon: Phone, permission: 'call.read' },
+  { to: '/relationship-manager', label: 'Relationship Manager', icon: UserRoundCheck, permission: 'relationship.read' },
 ];
 
 const RECORD_ITEMS: NavItem[] = [
@@ -108,7 +111,7 @@ export function Shell() {
             </div>
           ) : (
             <>
-              <NavGroup title="CRM" items={CRM_ITEMS} />
+              <NavGroup title="CRM" items={CRM_ITEMS.filter((i) => !i.permission || hasPermission(i.permission))} />
               <NavGroup title="Records" items={RECORD_ITEMS.filter((i) => !i.permission || hasPermission(i.permission))} />
               <NavGroup title="Administration" items={ADMIN_ITEMS.filter((i) => !i.permission || hasPermission(i.permission))} />
             </>
