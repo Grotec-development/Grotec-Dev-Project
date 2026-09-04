@@ -29,7 +29,7 @@ export function CropsPage() {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Crops</h1>
-          <p className="text-sm text-slate-500">Reference catalog. Crop categories arrive with the Knowledge Base (Month 4).</p>
+          <p className="text-sm text-slate-500">Reference catalog. Crop categories arrive with the AI Assistant crop-product guidance (Month 4).</p>
         </div>
         {canManage ? (
           <Button onClick={() => setShowCreate(true)}>

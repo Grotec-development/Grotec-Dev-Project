@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Phone,
   UserRoundCheck,
-  BookOpen,
   Users,
   Contact,
   Sprout,
@@ -18,6 +17,8 @@ import { cx } from '../components/ui';
 import { useAuth } from '../auth/AuthContext';
 import { initialsOf } from '../lib/format';
 import { Spinner } from '../components/ui';
+import { AssistantProvider } from '../assistant/AssistantContext';
+import { AssistantWidget } from '../assistant/AssistantWidget';
 
 interface NavItem {
   to: string;
@@ -31,7 +32,6 @@ const CRM_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: 'M5' },
   { to: '/agent', label: 'Agent', icon: Phone, badge: 'M2' },
   { to: '/relationship-manager', label: 'Relationship Manager', icon: UserRoundCheck, badge: 'M4' },
-  { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, badge: 'M4' },
 ];
 
 const RECORD_ITEMS: NavItem[] = [
@@ -137,7 +137,10 @@ export function Shell() {
       </aside>
 
       <main className="ml-64 flex-1">
-        <Outlet />
+        <AssistantProvider>
+          <Outlet />
+          <AssistantWidget />
+        </AssistantProvider>
       </main>
     </div>
   );

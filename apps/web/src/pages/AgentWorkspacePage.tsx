@@ -5,6 +5,7 @@ import type { Call, CallContext, CustomerDetail, QueueItem } from '../lib/types'
 import { formatE164, formatDate } from '../lib/format';
 import { Alert, Badge, Button, Card, CardHeader, Input, Spinner, cx } from '../components/ui';
 import { NewCustomerModal } from './customers/NewCustomerModal';
+import { useAssistantContext } from '../assistant/AssistantContext';
 
 const ACTIVE_STATUSES = ['DIALING', 'RINGING', 'CONNECTED'];
 const isActive = (status?: string) => status != null && ACTIVE_STATUSES.includes(status);
@@ -34,6 +35,7 @@ export function AgentWorkspacePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const { setContext: setAssistantContext } = useAssistantContext();
 
   const callActive = isActive(activeCall?.status);
 
@@ -100,6 +102,21 @@ export function AgentWorkspacePage() {
     }, 1000);
     return () => window.clearInterval(id);
   }, [activeCall?.id, activeCall?.startedAt]);
+
+  // Auto-pass the active call's farmer + crop into the assistant widget so a
+  // telecaller can ask “what do I recommend for this crop?” without retyping it.
+  useEffect(() => {
+    const customer = context?.customer ?? null;
+    if (activeCall && customer) {
+      setAssistantContext({
+        customerId: customer.id,
+        cropId: customer.crops[0]?.crop.id,
+        customerName: customer.fullName,
+      });
+    } else {
+      setAssistantContext(null);
+    }
+  }, [activeCall, context?.customer, setAssistantContext]);
 
   async function dial(phoneNumber: string, customerId?: string, leadId?: string) {
     if (busy) return;

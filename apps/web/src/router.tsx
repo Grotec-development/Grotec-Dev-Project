@@ -4,7 +4,6 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AgentWorkspacePage } from './pages/AgentWorkspacePage';
 import { RelationshipManagerPage } from './pages/RelationshipManagerPage';
-import { KnowledgeBasePage } from './pages/KnowledgeBasePage';
 import { CustomersPage } from './pages/customers/CustomersPage';
 import { CustomerDetailPage } from './pages/customers/CustomerDetailPage';
 import { LeadsPage } from './pages/leads/LeadsPage';
@@ -23,7 +22,6 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'agent', element: <AgentWorkspacePage /> },
       { path: 'relationship-manager', element: <RelationshipManagerPage /> },
-      { path: 'knowledge-base', element: <KnowledgeBasePage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'leads', element: <LeadsPage /> },

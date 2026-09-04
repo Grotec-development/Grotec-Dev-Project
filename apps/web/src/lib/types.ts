@@ -101,6 +101,22 @@ export interface Employee {
   createdAt: string;
 }
 
+export interface AssistantSource {
+  id: string;
+  cropId: string;
+  cropName: string;
+  problemKeywords: string[];
+  recommendedProducts: string[];
+  usageGuidance: string | null;
+}
+
+export interface AssistantChatResponse {
+  status: 'answered' | 'unavailable';
+  conversationId: string;
+  answer: string;
+  sources: AssistantSource[];
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;
