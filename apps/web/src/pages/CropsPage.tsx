@@ -4,7 +4,8 @@ import { Plus, X } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import type { Crop } from '../lib/types';
 import { useAuth } from '../auth/AuthContext';
-import { Alert, Badge, Button, Card, Field, Input, Spinner, Table, TD, TH, THead } from '../components/ui';
+import { CROP_CATEGORIES, CROP_CATEGORY_LABELS, type CropCategory } from '../lib/reference';
+import { Alert, Badge, Button, Card, Field, Input, Select, Spinner, Table, TD, TH, THead } from '../components/ui';
 
 export function CropsPage() {
   const { hasPermission } = useAuth();
@@ -29,7 +30,9 @@ export function CropsPage() {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Crops</h1>
-          <p className="text-sm text-slate-500">Reference catalog. Crop categories arrive with the AI Assistant crop-product guidance (Month 4).</p>
+          <p className="text-sm text-slate-500">
+            Reference catalog of the crops GROTEC deals in — field, tree, plantation and vegetable crops (PRD §6.5.2).
+          </p>
         </div>
         {canManage ? (
           <Button onClick={() => setShowCreate(true)}>
@@ -49,6 +52,7 @@ export function CropsPage() {
               <tr>
                 <TH>Code</TH>
                 <TH>Name</TH>
+                <TH>Category</TH>
                 <TH>Local name</TH>
                 <TH>Status</TH>
                 {canManage ? <TH className="text-right">Actions</TH> : null}
@@ -59,6 +63,15 @@ export function CropsPage() {
                 <tr key={crop.id} className="hover:bg-slate-50">
                   <TD className="font-mono text-xs">{crop.code}</TD>
                   <TD className="font-medium">{crop.name}</TD>
+                  <TD>
+                    {crop.category ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                        {CROP_CATEGORY_LABELS[crop.category as CropCategory] ?? crop.category}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </TD>
                   <TD>{crop.localName ?? '—'}</TD>
                   <TD>
                     {crop.isActive ? <Badge tone="green">active</Badge> : <Badge tone="slate">inactive</Badge>}
@@ -91,6 +104,7 @@ function CreateCropModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const queryClient = useQueryClient();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [category, setCategory] = useState('');
   const [localName, setLocalName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,7 +113,7 @@ function CreateCropModal({ onClose, onCreated }: { onClose: () => void; onCreate
     setBusy(true);
     setError(null);
     try {
-      await api.post('/crops', { code, name, localName: localName || undefined });
+      await api.post('/crops', { code, name, category: (category as CropCategory) || undefined, localName: localName || undefined });
       await queryClient.invalidateQueries({ queryKey: ['crops'] });
       onCreated();
     } catch (err) {
@@ -125,6 +139,16 @@ function CreateCropModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </Field>
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Category" hint="Field / tree / plantation / vegetable crop (PRD §6.5.2)">
+            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">Select a category…</option>
+              {CROP_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {CROP_CATEGORY_LABELS[c]}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Local name (optional)">
             <Input value={localName} onChange={(e) => setLocalName(e.target.value)} />

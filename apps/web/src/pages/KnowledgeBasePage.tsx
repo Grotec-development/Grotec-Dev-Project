@@ -5,6 +5,7 @@ import { BookOpen, Pencil, Plus, Search, Sprout, X } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import type { Crop, KnowledgeGuidance } from '../lib/types';
 import { useAuth } from '../auth/AuthContext';
+import { PROBLEM_TYPES, PROBLEM_TYPE_TONES, PROBLEM_TYPE_LABELS, isProblemType, type ProblemType } from '../lib/reference';
 import { Alert, Badge, Button, Card, Field, Input, Select, Spinner, cx } from '../components/ui';
 
 /**
@@ -20,6 +21,7 @@ export function KnowledgeBasePage() {
 
   const [q, setQ] = useState('');
   const [cropId, setCropId] = useState('');
+  const [typeFilter, setTypeFilter] = useState<ProblemType | ''>('');
   const [showInactive, setShowInactive] = useState(false);
   const [editor, setEditor] = useState<{ mode: 'create' } | { mode: 'edit'; row: KnowledgeGuidance } | null>(null);
 
@@ -53,6 +55,7 @@ export function KnowledgeBasePage() {
 
   const rows = rowsQuery.data ?? [];
   const crops = cropsQuery.data ?? [];
+  const visibleRows = typeFilter ? rows.filter((row) => row.problemType === typeFilter) : rows;
 
   return (
     <div className="p-8">
@@ -94,18 +97,50 @@ export function KnowledgeBasePage() {
         ) : null}
       </div>
 
+      {/* Problem/issue type filter — the mid-call browse path (PRD §6.5.1–6.5.3) */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setTypeFilter('')}
+          className={cx(
+            'rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition-colors',
+            typeFilter === '' ? 'bg-slate-800 text-white ring-slate-800' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50',
+          )}
+        >
+          All issues · {rows.length}
+        </button>
+        {PROBLEM_TYPES.map((type) => {
+          const count = rows.filter((row) => row.problemType === type).length;
+          const active = typeFilter === type;
+          return (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setTypeFilter(active ? '' : type)}
+              className={cx(
+                'rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition-colors',
+                active ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50',
+              )}
+            >
+              {PROBLEM_TYPE_TONES[type].label} · {count}
+            </button>
+          );
+        })}
+      </div>
+
       {rowsQuery.isError ? <Alert tone="error">{errorMessage(rowsQuery.error)}</Alert> : null}
 
       <Card>
         {rowsQuery.isPending ? (
           <Spinner label="Loading Knowledge Base…" />
-        ) : rows.length === 0 ? (
+        ) : visibleRows.length === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-slate-400">
-            No entries found{canManage ? ' — add the first crop/product recommendation' : ''}.
+            No entries found{typeFilter ? ' for this problem type' : ''}
+            {canManage ? ' — add the first crop/product recommendation' : ''}.
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <li key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -113,6 +148,16 @@ export function KnowledgeBasePage() {
                       <Sprout className="h-3 w-3" />
                       {row.crop.name}
                     </span>
+                    {isProblemType(row.problemType) ? (
+                      <span className={cx('rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset', PROBLEM_TYPE_TONES[row.problemType].cls)}>
+                        {PROBLEM_TYPE_TONES[row.problemType].label}
+                      </span>
+                    ) : null}
+                    {row.crop.category ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                        {row.crop.category.replace('_', ' ').toLowerCase()}
+                      </span>
+                    ) : null}
                     {!row.isActive ? <Badge tone="slate">retired</Badge> : null}
                   </div>
                   <p className="mt-1.5 text-sm text-slate-500">
@@ -182,6 +227,7 @@ function GuidanceModal({
 }) {
   const editing = editor.mode === 'edit' ? editor.row : null;
   const [cropId, setCropId] = useState(editing?.cropId ?? '');
+  const [problemType, setProblemType] = useState<string>((editing?.problemType ?? '') as string);
   const [keywords, setKeywords] = useState(editing?.problemKeywords.join(', ') ?? '');
   const [products, setProducts] = useState(editing?.recommendedProducts.join(', ') ?? '');
   const [usage, setUsage] = useState(editing?.usageGuidance ?? '');
@@ -198,6 +244,7 @@ function GuidanceModal({
   async function submit() {
     const payload = {
       cropId,
+      problemType: (problemType as ProblemType) || null,
       problemKeywords: splitList(keywords),
       recommendedProducts: splitList(products),
       usageGuidance: usage.trim() || undefined,
@@ -239,6 +286,16 @@ function GuidanceModal({
               {crops.map((crop) => (
                 <option key={crop.id} value={crop.id}>
                   {crop.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Problem / issue type" hint="What kind of problem this entry addresses (PRD §6.5.2)">
+            <Select value={problemType} onChange={(e) => setProblemType(e.target.value)}>
+              <option value="">Select a type…</option>
+              {PROBLEM_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {PROBLEM_TYPE_LABELS[t]}
                 </option>
               ))}
             </Select>

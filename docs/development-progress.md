@@ -224,6 +224,13 @@ Goal: telecaller dashboard from real CRM data (PRD §6.2) plus the final hardeni
       profile); Today / 7 days / 30 days window control drives the call metrics; backend
       pipeline segmentation is a single SQL pass per role + `GET /dashboard/pipeline`
       drill-down endpoint (e2e: segmentation, drill-down items, range echo, 403s)
+- [x] PRD §6.5.2 content taxonomy (post-completion add-on): `crops.category`
+      (FIELD/TREE/PLANTATION/VEGETABLE/OTHER) and `crop_product_guidance.problem_type`
+      (PEST/DISEASE/NUTRIENT_DEFICIENCY/WEED/OTHER) via migration
+      `20260904180000_kb_taxonomy`; seeded across the full catalog + starter guidance; crops
+      table shows category + picker on Add crop; Knowledge Base gains problem-type filter chips
+      (with live counts) and type badges on every card + create/edit field; `?type=` browse
+      filter; e2e covers create/patch round-trip, type filter, invalid-type 400
 
 ### Notes
 

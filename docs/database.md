@@ -39,7 +39,8 @@ audit_events (standalone, append-only)
 | `customers` | Farmer master | soft delete; `status`; **unique `farmer_code`** (Farmer ID `GF`+8 digits, from `farmer_code_seq`) |
 | `customer_phones` | Farmer phone numbers | **partial unique `phone_e164`**; partial unique one primary per customer |
 | `customer_locations` | Address (village/taluk/district/state/pincode) + optional geo | one primary |
-| `crops` | Crop reference catalog | unique `code`; `is_active` |
+| `crops` | Crop reference catalog | unique `code`; `is_active`; `category` (FIELD/TREE/PLANTATION/VEGETABLE/OTHER, PRD §6.5.2) |
+| `crop_product_guidance` | Knowledge Base rows: crop → problem keywords + problem type → recommended Grotec product(s) + usage (drives the AI Assistant retrieval and the `/knowledge-base` page) | FK crop (RESTRICT); `problem_type` taxonomy PEST/DISEASE/NUTRIENT_DEFICIENCY/WEED/OTHER (nullable VARCHAR — configurable, no enum lock-in); `is_active` |
 | `customer_crops` | Farmer crop + acreage | partial unique (`customer_id`,`crop_id`) |
 | `leads` | Sales opportunity for a customer | FK customer; status OPEN/CLOSED (provisional vocabulary) |
 | `lead_ownership` | Agent ownership history | **partial unique (`lead_id`) WHERE `released_at IS NULL`** → exactly one current owner |
@@ -76,8 +77,8 @@ audit_events (standalone, append-only)
   authorised reassignment workflow, My Customers) and activates the `customer_notes` table
   (created with the Month 3 migration) via `GET/POST /customers/:id/notes`.
 - Real messaging/dialer vendor adapters once vendors are selected (⚠ OPEN).
-- `crop_product_guidance` (created with the AI Assistant) gains a crop **category** column
-  when the PRD crop taxonomy is confirmed.
+- The PRD crop taxonomy (field/tree/plantation categories on `crops`, problem-type taxonomy
+  on guidance) is **done** — see migration `20260904180000_kb_taxonomy` below.
 
 ## Notes
 
@@ -90,4 +91,6 @@ audit_events (standalone, append-only)
   migrations are authored as SQL and applied with `prisma migrate deploy`.
 - Migration `20260904150000_outcomes` (Month 3): outcome/next-action columns + `follow_ups` +
   `relationship_ownership` + `outbound_messages` + enums.
+- Migration `20260904180000_kb_taxonomy`: `crops.category` + `crop_product_guidance.problem_type`
+  (PRD §6.5.2 content structure; seeded for the provisional catalog + starter guidance).
 - Full-text/trigram search on customer name can be added later via raw-SQL migration if needed.

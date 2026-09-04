@@ -60,8 +60,13 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
 4. **Customer preferred-language vocabulary.** Column reserved (`preferred_language`); no list
    defined. Needed before multi-language content/messaging.
 5. **Crop master.** PRD defines crop *category* (field/tree/plantation, §6.5.1) but no canonical
-   crop list or acreage-unit/locale rules. Seed catalog (15 crops) is provisional; category
-   column arrives with the crop-product guidance content (AI Assistant) in Month 4.
+   crop list or acreage-unit/locale rules. ~~Seed catalog is provisional; category column arrives
+   with Month 4~~ → **done (Sept 4)**: `crops.category` (FIELD/TREE/PLANTATION/VEGETABLE/OTHER)
+   + `crop_product_guidance.problem_type` (PEST/DISEASE/NUTRIENT_DEFICIENCY/WEED/OTHER) shipped
+   with migration `20260904180000_kb_taxonomy`; every seeded crop carries a category, every
+   seeded guidance row a problem type; the Knowledge Base page filters by problem type and the
+   Crops page shows categories. Still open: the *canonical* crop list and acreage-unit/locale
+   rules GROTEC must confirm.
 6. **Farmer identity extras** from the brief (crop age/stage, farm profile). Not modelled yet;
    evaluate with the customer-profile build-out rather than speculatively.
 7. **Calling-queue formation rules.** Not defined by the PRD; provisional = agent's open owned

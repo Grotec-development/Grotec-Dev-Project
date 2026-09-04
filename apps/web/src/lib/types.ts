@@ -79,6 +79,7 @@ export interface Crop {
   code: string;
   name: string;
   localName: string | null;
+  category: string | null;
   isActive: boolean;
 }
 
@@ -113,7 +114,8 @@ export interface AssistantSource {
 export interface KnowledgeGuidance {
   id: string;
   cropId: string;
-  crop: { id: string; code: string; name: string };
+  crop: { id: string; code: string; name: string; category: string | null };
+  problemType: string | null;
   problemKeywords: string[];
   recommendedProducts: string[];
   usageGuidance: string | null;

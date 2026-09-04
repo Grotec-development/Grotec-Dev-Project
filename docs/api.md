@@ -21,7 +21,7 @@ _Last updated: Month 5. Base path `/api/v1`. Interactive docs served by the API 
 | Customers | `GET /customers?q&phone&status&cropId&ownerId&page&size` · `POST /customers` (409 on duplicate phone) · `GET /customers/:id` · `PATCH /customers/:id` · `GET /customers/lookup?phone=` | scoped |
 | Customer parts | `POST /customers/:id/phones` · `PATCH /customers/:id/phones/:phoneId` · `DELETE …/phones/:phoneId` · `POST /customers/:id/locations` · `PATCH/DELETE …/locations/:locationId` · `POST /customers/:id/crops` · `DELETE …/crops/:customerCropId` | scoped |
 | Crops | `GET /crops` | authenticated |
-| Crops | `POST /crops` · `PATCH /crops/:id` (activate/deactivate/edit) | MANAGER/FOUNDER ⚠ |
+| Crops | `POST /crops` · `PATCH /crops/:id` (activate/deactivate/edit) — crop carries `category` (`FIELD\|TREE\|PLANTATION\|VEGETABLE\|OTHER`, PRD §6.5.2) | MANAGER/FOUNDER ⚠ |
 | Leads | `GET /leads?status&owner&q&page` · `POST /leads` · `GET /leads/:id` · `PATCH /leads/:id` · `GET /leads/:id/ownership-history` | scoped (AGENT: own) |
 | Leads | `POST /leads/:id/assign` | FOUNDER/MANAGER (rules ⚠) |
 | Calls | `POST /calls` (auto-dial; resolves phone → customer; 409 `ACTIVE_CALL_EXISTS` while one call is live) · `GET /calls/queue?ownerId` (agent's calling workload) · `GET /calls/:id` (triggers provider status sync) · `GET /calls/:id/context` (call + customer profile + history) | AGENT (own calls/queue); MANAGER/FOUNDER (all, `ownerId` filter) |
@@ -31,7 +31,7 @@ _Last updated: Month 5. Base path `/api/v1`. Interactive docs served by the API 
 | Call history | `GET /customers/:id/calls` | `call.read` + customer scope |
 | Dialer webhooks | `POST /dialer/webhooks/:provider` (body: `{ providerCallId, status, … }`; header `x-webhook-secret`) | public, secret-guarded (vendor status pushes) |
 | Assistant | `POST /assistant/chat` (body `{ message, customerId?, cropId?, conversationId? }`) — retrieves crop-product guidance, calls the LLM with it + Grotec company context, audits the Q&A | `assistant.use` (FOUNDER/MANAGER/AGENT) |
-| Assistant | `GET /assistant/guidance?cropId&q&includeInactive` — Knowledge Base browse/search (active rows only for non-managers) | `assistant.use` (FOUNDER/MANAGER/AGENT) |
+| Assistant | `GET /assistant/guidance?cropId&type&q&includeInactive` — Knowledge Base browse/search (active rows only for non-managers); `type` filters by problem type (`PEST\|DISEASE\|NUTRIENT_DEFICIENCY\|WEED\|OTHER`, PRD §6.5.2) | `assistant.use` (FOUNDER/MANAGER/AGENT) |
 | Assistant | `POST /assistant/guidance` · `PATCH /assistant/guidance/:id` (content management; `includeInactive` list view manager-only) | `assistant.manage` (FOUNDER/MANAGER) |
 | Relationship | `GET /relationship/customers?rmId&q&unassigned=1` (portfolio; `unassigned=1` lists converted customers with no RM) · `GET /relationship/holders` (eligible RM holders + load) | `relationship.read` (FOUNDER/MANAGER; MANAGER scoped to own portfolio) |
 | Relationship | `POST /relationship/customers/:customerId/assign` `{ employeeId, reason? }` · `POST /relationship/customers/:customerId/release` `{ reason? }` (audited; one active RM per customer) | `relationship.manage` (FOUNDER any; MANAGER own portfolio / claim-to-self) |
