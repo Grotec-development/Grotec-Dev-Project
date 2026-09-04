@@ -52,6 +52,45 @@ export const CallDirection = {
 } as const;
 export type CallDirection = (typeof CallDirection)[keyof typeof CallDirection];
 
+/** Exactly three call outcomes (PRD §6.3.6). Outcome and Next Action are separate fields. */
+export const CallOutcome = {
+  INTERESTED: 'INTERESTED',
+  NOT_INTERESTED: 'NOT_INTERESTED',
+  NOT_ANSWERED: 'NOT_ANSWERED',
+} as const;
+export type CallOutcome = (typeof CallOutcome)[keyof typeof CallOutcome];
+
+export const CALL_OUTCOMES: readonly CallOutcome[] = ['INTERESTED', 'NOT_INTERESTED', 'NOT_ANSWERED'];
+
+/** Next Action for an Interested outcome (PRD §6.3.7) — exactly one, no default. */
+export const NextAction = {
+  CALLBACK: 'CALLBACK',
+  SALES: 'SALES',
+} as const;
+export type NextAction = (typeof NextAction)[keyof typeof NextAction];
+
+/** Follow-up lifecycle (provisional — vocabulary not fixed by the PRD). */
+export const FollowUpStatus = {
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+export type FollowUpStatus = (typeof FollowUpStatus)[keyof typeof FollowUpStatus];
+
+/** Outbound message lifecycle (integration failures are stored, never silent). */
+export const MessageStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED',
+} as const;
+export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus];
+
+/** Message types the CRM can auto-send (extended by later modules). */
+export const MessageType = {
+  PRODUCT_DETAILS: 'PRODUCT_DETAILS',
+} as const;
+export type MessageType = (typeof MessageType)[keyof typeof MessageType];
+
 /** Why an outbound call ended (Month 2: agent-ended or provider terminal). */
 export const CallDisconnectReason = {
   AGENT_ENDED: 'AGENT_ENDED',
@@ -75,6 +114,10 @@ export const AuditEntityType = {
   LEAD: 'LEAD',
   CALL: 'CALL',
   CALL_NOTE: 'CALL_NOTE',
+  FOLLOW_UP: 'FOLLOW_UP',
+  RELATIONSHIP_OWNERSHIP: 'RELATIONSHIP_OWNERSHIP',
+  OUTBOUND_MESSAGE: 'OUTBOUND_MESSAGE',
+  CUSTOMER_NOTE: 'CUSTOMER_NOTE',
 } as const;
 export type AuditEntityType = (typeof AuditEntityType)[keyof typeof AuditEntityType];
 
@@ -99,6 +142,15 @@ export const AuditAction = {
   NOTE_ADDED: 'call.note_added',
   // AI Assistant (question + answer, answered or unavailable)
   ASSISTANT_CHAT: 'assistant.chat',
+  // Call outcomes + follow-ups (Month 3)
+  CALL_OUTCOME_RECORDED: 'call.outcome_recorded',
+  FOLLOW_UP_CREATED: 'followup.created',
+  FOLLOW_UP_COMPLETED: 'followup.completed',
+  FOLLOW_UP_CANCELLED: 'followup.cancelled',
+  RELATIONSHIP_ASSIGNED: 'relationship.assigned',
+  RELATIONSHIP_RELEASED: 'relationship.released',
+  MESSAGE_SENT: 'message.sent',
+  MESSAGE_FAILED: 'message.failed',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 
