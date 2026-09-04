@@ -7,8 +7,10 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export class RolesController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Role/permission reference endpoints are part of the team tooling — anyone who
+  // can read employees (employee.read) may list roles to assign them.
   @Get('roles')
-  @RequirePermission(PERMISSIONS.roleRead)
+  @RequirePermission(PERMISSIONS.employeeRead)
   async listRoles() {
     const roles = await this.prisma.role.findMany({
       orderBy: { code: 'asc' },
@@ -24,8 +26,8 @@ export class RolesController {
     }));
   }
 
-  @Get('permissions')
-  @RequirePermission(PERMISSIONS.permissionRead)
+@Get('permissions')
+  @RequirePermission(PERMISSIONS.employeeRead)
   async listPermissions() {
     return this.prisma.permission.findMany({ orderBy: [{ module: 'asc' }, { code: 'asc' }] });
   }
