@@ -5,6 +5,7 @@ import { CurrentEmployee } from '../../common/decorators/current-employee.decora
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { AddNoteDto } from './dto/add-note.dto';
 import { PlaceCallDto } from './dto/place-call.dto';
+import { RecordOutcomeDto } from './dto/record-outcome.dto';
 import { CallsService } from './calls.service';
 
 @Controller('calls')
@@ -45,5 +46,11 @@ export class CallsController {
   @RequirePermission(PERMISSIONS.callManage)
   note(@CurrentEmployee() actor: AuthEmployee, @Param('id') id: string, @Body() dto: AddNoteDto) {
     return this.calls.addNote(id, actor, dto);
+  }
+
+  @Post(':id/outcome')
+  @RequirePermission(PERMISSIONS.callManage)
+  outcome(@CurrentEmployee() actor: AuthEmployee, @Param('id') id: string, @Body() dto: RecordOutcomeDto) {
+    return this.calls.recordOutcome(actor, id, dto);
   }
 }

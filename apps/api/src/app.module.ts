@@ -12,6 +12,8 @@ import { EmployeesModule } from './modules/employees/employees.module';
 import { HealthModule } from './modules/health/health.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { CallsModule } from './modules/calls/calls.module';
+import { FollowUpsModule } from './modules/followups/followups.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 
 @Module({
@@ -26,6 +28,8 @@ import { AssistantModule } from './modules/assistant/assistant.module';
     CropsModule,
     LeadsModule,
     CallsModule,
+    FollowUpsModule,
+    MessagingModule,
     AssistantModule,
     HealthModule,
   ],

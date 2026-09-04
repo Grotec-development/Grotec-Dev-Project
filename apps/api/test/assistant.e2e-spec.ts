@@ -82,7 +82,7 @@ describe('assistant — AI chat + guidance content (replaces Knowledge Base)', (
     const res = await request(app.getHttpServer())
       .post('/api/v1/assistant/chat')
       .set('Authorization', `Bearer ${agentToken}`)
-      .send({ message: 'What should I recommend for leaf yellowing on paddy?' })
+      .send({ message: 'What should I recommend for leaf yellowing on paddy?', cropId: row.cropId })
       .expect(201);
     const body = res.body as ChatBody;
     expect(body.status).toBe('answered');

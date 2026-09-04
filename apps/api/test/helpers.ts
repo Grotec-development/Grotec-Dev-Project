@@ -32,6 +32,10 @@ export async function createTestApp(): Promise<{ app: INestApplication; prisma: 
 /** Wipes mutable business data between tests; keeps RBAC + seeded employees/crops. */
 export async function resetData(prisma: PrismaService): Promise<void> {
   await prisma.$transaction([
+    prisma.customerNote.deleteMany(),
+    prisma.relationshipOwnership.deleteMany(),
+    prisma.outboundMessage.deleteMany(),
+    prisma.followUp.deleteMany(),
     prisma.leadOwnership.deleteMany(),
     prisma.auditEvent.deleteMany(),
     prisma.authSession.deleteMany(),
@@ -42,6 +46,9 @@ export async function resetData(prisma: PrismaService): Promise<void> {
     prisma.customerLocation.deleteMany(),
     prisma.customerPhone.deleteMany(),
     prisma.customer.deleteMany(),
+    // Assistant tests create their own guidance rows after reset; seeded rows
+    // are also cleared so retrieval is deterministic across repeated runs.
+    prisma.cropProductGuidance.deleteMany(),
   ]);
 }
 
