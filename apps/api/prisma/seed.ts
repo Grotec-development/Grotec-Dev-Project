@@ -41,6 +41,31 @@ const PROVISIONAL_CROPS: Array<{ code: string; name: string; localName: string }
   { code: 'GRAM', name: 'Chickpea (Gram)', localName: 'Chana' },
 ];
 
+// Provisional starter guidance for the AI Assistant, built from the real Grotec
+// product catalog (docs/company-context.md). Rows are editable by Founder/Manager
+// through the assistant content API; usage text is generic so nothing invents a
+// label claim — follow the product label (FCO 1985).
+const GUIDANCE_SEED: Array<{
+  cropCode: string;
+  problemKeywords: string[];
+  recommendedProducts: string[];
+  usageGuidance: string;
+}> = [
+  { cropCode: 'RICE', problemKeywords: ['leaf yellowing', 'nitrogen deficiency', 'poor tillering'], recommendedProducts: ['Azos', 'Bio Jeevan PF'], usageGuidance: 'Seed/soil application at sowing; repeat at tillering as per the Grotec label.' },
+  { cropCode: 'RICE', problemKeywords: ['low yield', 'general weakness', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Apply organic manure at land preparation; Azotob at sowing and 30 days after.' },
+  { cropCode: 'WHEAT', problemKeywords: ['yellowing', 'stunted growth', 'low tillering'], recommendedProducts: ['Azos', 'Bio Jeevan TV'], usageGuidance: 'Seed treatment at sowing; foliar follow-up during active growth per label.' },
+  { cropCode: 'SUGARCANE', problemKeywords: ['poor cane growth', 'ratoon recovery', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Soil application along the furrows; repeat after ratoon initiation as per label.' },
+  { cropCode: 'COTTON', problemKeywords: ['square drop', 'flower drop', 'growth stress'], recommendedProducts: ['Ultra Action +', 'Trishul'], usageGuidance: 'Foliar application at square formation and flowering stages; follow the Grotec label.' },
+  { cropCode: 'SOYBEAN', problemKeywords: ['poor nodulation', 'root development', 'phosphorus'], recommendedProducts: ['Rhizob', 'PHOS'], usageGuidance: 'Seed treatment before sowing so rhizobial + phosphate inoculants establish early.' },
+  { cropCode: 'GROUNDNUT', problemKeywords: ['poor pod filling', 'yellowing', 'root development'], recommendedProducts: ['Rhizob', 'Micromix'], usageGuidance: 'Seed treatment at sowing; Micromix as foliar/soil supplement per label.' },
+  { cropCode: 'TOMATO', problemKeywords: ['flower drop', 'poor fruit set', 'heat stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Spray during flowering to support fruit set; repeat as per the Grotec label.' },
+  { cropCode: 'POTATO', problemKeywords: ['weak growth', 'poor bulking', 'soil fertility'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan PF'], usageGuidance: 'Gel/formulation per the label; apply at early growth for healthy tuber bulking.' },
+  { cropCode: 'ONION', problemKeywords: ['poor bulbing', 'leaf yellowing', 'weak growth'], recommendedProducts: ['Bio Jeevan TV', 'Micromix'], usageGuidance: 'Soil/foliar application during bulb initiation; follow product label rates.' },
+  { cropCode: 'MANGO', problemKeywords: ['poor flowering', 'fruit drop', 'drought stress'], recommendedProducts: ['Thavam', 'Ultra Action +'], usageGuidance: 'Apply before flowering and again at fruit set; dosage per the Grotec label.' },
+  { cropCode: 'BANANA', problemKeywords: ['poor bunch weight', 'sucker growth', 'general weakness'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan TV'], usageGuidance: 'Apply during active vegetative growth; follow the label for stage-based repeats.' },
+  { cropCode: 'CHILLI', problemKeywords: ['flower drop', 'poor fruit set', 'stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Foliar at flowering; repeat as needed per the Grotec label.' },
+];
+
 const DEMO_CUSTOMERS: Array<{ name: string; phone: string; village: string; district: string; state: string; cropIndex: number; acreage: number }> = [
   { name: 'Ramesh Patel', phone: '9876543001', village: 'Kothapalli', district: 'Warangal', state: 'Telangana', cropIndex: 0, acreage: 4.5 },
   { name: 'Suresh Kumar', phone: '9876543002', village: 'Peddapalli', district: 'Karimnagar', state: 'Telangana', cropIndex: 5, acreage: 2.25 },
@@ -140,6 +165,31 @@ async function seedCrops(): Promise<string[]> {
   }
   console.log(`seeded ${PROVISIONAL_CROPS.length} crops (provisional catalog)`);
   return ids;
+}
+
+async function seedGuidance(founderId: string): Promise<void> {
+  for (const def of GUIDANCE_SEED) {
+    const crop = await prisma.crop.findUnique({ where: { code: def.cropCode } });
+    if (!crop) {
+      console.warn(`guidance seed: crop ${def.cropCode} missing — skipping`);
+      continue;
+    }
+    const existing = await prisma.cropProductGuidance.findFirst({
+      where: { cropId: crop.id, problemKeywords: { has: def.problemKeywords[0] ?? '' } },
+    });
+    if (existing) continue;
+    await prisma.cropProductGuidance.create({
+      data: {
+        cropId: crop.id,
+        problemKeywords: def.problemKeywords,
+        recommendedProducts: def.recommendedProducts,
+        usageGuidance: def.usageGuidance,
+        notes: 'Seed — provisional starter guidance; curate via the assistant content API.',
+        createdById: founderId,
+      },
+    });
+  }
+  console.log(`seeded ${GUIDANCE_SEED.length} crop/product guidance rows (assistant)`);
 }
 
 async function seedDemoCustomers(founderId: string, agentId: string | undefined, cropIds: string[]): Promise<void> {
@@ -269,6 +319,7 @@ async function main(): Promise<void> {
   await seedRoles();
   const { founderId, agentId } = await seedEmployees();
   const cropIds = await seedCrops();
+  await seedGuidance(founderId);
   await seedDemoCustomers(founderId, agentId, cropIds);
   await seedDemoCalls(agentId);
 
@@ -278,6 +329,7 @@ async function main(): Promise<void> {
     leads: await prisma.lead.count(),
     crops: await prisma.crop.count(),
     calls: await prisma.call.count(),
+    guidance: await prisma.cropProductGuidance.count(),
   };
   console.log('seed complete:', counts);
 }
