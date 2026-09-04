@@ -57,9 +57,6 @@ const cmd = process.argv[2] ?? 'status';
 const stateFile = path.join(root, '.pgdata', '.running-pid');
 
 async function isRunning() {
-  if (!fs.existsSync(stateFile)) return false;
-  const pid = Number(fs.readFileSync(stateFile, 'utf8').trim());
-  if (!pid) return false;
   try {
     const client = new pg.Client({ ...SUPER, database: 'postgres', connectionTimeoutMillis: 1500 });
     await client.connect();
@@ -70,20 +67,52 @@ async function isRunning() {
   }
 }
 
-if (cmd === 'start') {
+// After an unclean shutdown (machine/session restart) postgres leaves a stale
+// postmaster.pid whose process is gone. postgres refuses to start over it, so
+// clear it whenever the port is confirmed free.
+function clearStalePidFile() {
+  const pidFile = path.join(dataDir, 'postmaster.pid');
+  if (fs.existsSync(pidFile)) {
+    fs.rmSync(pidFile);
+    console.log('removed stale postmaster.pid');
+  }
+}
+
+async function bringUp() {
+  const pg = instance();
+  // initdb refuses a non-empty directory, so initialise() only applies on the
+  // very first run (when .pgdata/PG_VERSION does not exist yet).
+  const dataInitialised = fs.existsSync(path.join(dataDir, 'PG_VERSION'));
+  if (dataInitialised) {
+    console.log('data directory already initialised — skipping initdb');
+  } else {
+    console.log('initialising data directory (first run takes a moment)...');
+    await pg.initialise();
+  }
+  clearStalePidFile();
+  console.log('starting...');
+  await pg.start();
+  fs.writeFileSync(stateFile, String(process.pid));
+  console.log('started embedded postgres on 127.0.0.1:5432');
+  await ensureDatabases();
+  return pg;
+}
+
+if (cmd === 'start' || cmd === 'serve') {
   if (await isRunning()) {
     console.log('already running on port 5432');
   } else {
-    const pg = instance();
-    console.log('initialising data directory (first run takes a moment)...');
-    await pg.initialise();
-    console.log('starting...');
-    await pg.start();
-    fs.writeFileSync(stateFile, String(process.pid));
-    console.log('started embedded postgres on 127.0.0.1:5432');
-    await ensureDatabases();
-    // The spawned server keeps pipes open; exit explicitly or the CLI hangs.
-    process.exit(0);
+    const pg = await bringUp();
+    if (cmd === 'serve') {
+      // Hold this process open so the embedded postgres child stays alive.
+      // Detached launchers (see .freebuff/run.md) should use `serve`.
+      console.log('serve: holding process open (pid ' + process.pid + ')');
+      const hold = () => setTimeout(hold, 60_000);
+      hold();
+    } else {
+      // The spawned server keeps pipes open; exit explicitly or the CLI hangs.
+      process.exit(0);
+    }
   }
 } else if (cmd === 'stop') {
   if (await isRunning()) {
@@ -98,6 +127,6 @@ if (cmd === 'start') {
 } else if (cmd === 'status') {
   console.log((await isRunning()) ? 'running on 127.0.0.1:5432' : 'not running');
 } else {
-  console.error('usage: node infra/dev-db.mjs <start|stop|status>');
+  console.error('usage: node infra/dev-db.mjs <start|serve|stop|status>');
   process.exit(1);
 }
