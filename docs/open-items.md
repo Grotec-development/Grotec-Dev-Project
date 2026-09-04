@@ -1,7 +1,16 @@
 # Open Items
 
-_Last updated: Month 2 + AI Assistant feature change. PRD v2.1 + developer brief are
-reviewed (`docs/reference/`)._
+_Last updated: Month 3. PRD v2.1 + developer brief are reviewed (`docs/reference/`)._
+
+## Resolved at Month 3 kickoff (approved decisions)
+
+- **Lead status vocabulary on outcomes.** `leads.status` remains an OPEN/CLOSED operational
+  flag: Sales → CLOSED + agent ownership released (converted customer leaves the calling
+  queue; RM takes over); Not Interested → CLOSED; Callback and Not Answered leave it OPEN.
+  Interest history is the call outcomes on the customer's calls — no invented status ladder.
+- **RM on Sales.** Auto-assign the RM configured in `RELATIONSHIP_MANAGER_EMAIL` (seeded
+  default `manager@grotec.local`) → `relationship_ownership` (one active per customer).
+  Founder/Manager roster picker + authorised reassignment workflow land in Month 4.
 
 ## Resolved: Knowledge Base → AI Assistant (approved feature change, Sept 4)
 
@@ -34,10 +43,9 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
 
 ## Still OPEN — requires GROTEC confirmation (do not guess)
 
-1. **Lead-source taxonomy & lead status vocabulary.** PRD references "source/lead info" on the
-   customer and "interest status" but does not define the source list or the status values that
-   map onto Month 3 outcomes. Currently: `leads.source` is free text; `LeadStatus` = OPEN/CLOSED
-   provisional. Must be reconciled before Month 3.
+1. **Lead-source taxonomy.** PRD references "source/lead info" but defines no source list;
+   `leads.source` is free text. (Status vocabulary was resolved at the Month 3 kickoff —
+   OPEN/CLOSED operational flag; see above.)
 2. **Staff permission boundaries** (§5.1.4). Exact boundary is a PRD open item to be finalised
    during detailed design/UAT; staff currently has zero CRM permissions.
 3. **Exact "Founder-restricted" boundary** (§5.1.2). Working assumption: employee deactivate +
@@ -52,11 +60,18 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
 7. **Calling-queue formation rules.** Not defined by the PRD; provisional = agent's open owned
    leads + dial-any-number (approved at Month 2 kickoff). Revisit with the Month 5 dashboard.
 8. **One active call per agent.** Enforced (409) as a provisional working rule; not PRD-specified.
-9. **Auto-dialer & messaging vendors/channels** are TBD (PRD §6.3.10, §12); the dialer
-   abstraction ships with a mock adapter — the real vendor adapter + webhook contract
-   (payload shape, auth scheme) is confirmed when the vendor is selected.
+9. **Auto-dialer & messaging vendors/channels** are TBD (PRD §6.3.10, §12). Both abstractions
+   ship with mock adapters (`DIALER_PROVIDER`, `MESSAGING_PROVIDER`); the real vendor adapters
+   + webhook contracts (payload shape, auth scheme) are confirmed when vendors are selected.
+   The automatic product-message **channel and template** are also OPEN — content currently
+   composes from the customer's crops + `crop_product_guidance` with a generic Grotec fallback.
 10. **Not Answered retry behaviour** — explicitly open; never auto-invent (PRD §6.3.9).
-11. **RM as a distinct permissioned role** — deferred to Phase 2 (PRD §6.4, §18.4).
+11. **RM as a distinct permissioned role** — deferred to Phase 2 (PRD §6.4, §18.4). RM is an
+    ownership concept (existing MANAGER role holds RM ownership by default via
+    `RELATIONSHIP_MANAGER_EMAIL`).
+12. **Follow-up status vocabulary + scheduling timezone.** `PENDING/COMPLETED/CANCELLED` is
+    provisional; due-at timezone interpretation is currently server-local. Confirm before
+    multi-timezone rollout.
 
 ## Environment-driven deviations from the approved plan (approved at kickoff)
 

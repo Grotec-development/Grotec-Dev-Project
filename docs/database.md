@@ -1,6 +1,6 @@
 # Database
 
-_Last updated: Month 2. PostgreSQL + Prisma. Migrations live in `apps/api/prisma/migrations`._
+_Last updated: Month 3. PostgreSQL + Prisma. Migrations live in `apps/api/prisma/migrations`._
 
 ## Conventions
 
@@ -23,6 +23,9 @@ customers ──1:N──> customer_crops ──N:1 crops
 customers ──1:N──> leads ──1:N──> lead_ownership ──N:1 employees
 customers ──1:N──> calls ──1:N──> call_notes ──N:1 employees
 leads ──1:N──> calls (optional lead context)
+calls ──1:N──> follow_ups ──N:1 employees (agent) — from Interested→Callback outcomes
+customers ──1:N──> relationship_ownership ──N:1 employees (RM holder)
+customers ──1:N──> outbound_messages (automatic product-detail sends)
 audit_events (standalone, append-only)
 ```
 
@@ -40,8 +43,11 @@ audit_events (standalone, append-only)
 | `customer_crops` | Farmer crop + acreage | partial unique (`customer_id`,`crop_id`) |
 | `leads` | Sales opportunity for a customer | FK customer; status OPEN/CLOSED (provisional vocabulary) |
 | `lead_ownership` | Agent ownership history | **partial unique (`lead_id`) WHERE `released_at IS NULL`** → exactly one current owner |
-| `calls` | One row per outbound auto-dial call (Month 2) | unique `provider_call_id`; FK agent (RESTRICT); FK customer/lead **SET NULL**; indexes (agent,started_at), (customer,started_at), phone, status |
+| `calls` | One row per outbound auto-dial call | unique `provider_call_id`; FK agent (RESTRICT); FK customer/lead **SET NULL**; indexes (agent,started_at), (customer,started_at), phone, status; Month 3 adds nullable `outcome` + `next_action` (separate columns) |
 | `call_notes` | Agent notes on a call | FK call (CASCADE); FK author (RESTRICT); index call_id |
+| `follow_ups` | Callback schedule from an Interested outcome (Month 3) | FK customer (RESTRICT); FK call (RESTRICT); FK agent (RESTRICT); status `PENDING/COMPLETED/CANCELLED` ⚠ provisional; indexes (agent,due_at), (customer,due_at), status |
+| `relationship_ownership` | RM ownership history (Month 3 activation on Sales; Month 4 workspace) | FK customer; FK employee (RM holder) + assigned_by; **partial unique (`customer_id`) WHERE `released_at IS NULL`** → one active RM; append-only history |
+| `outbound_messages` | Automatic product-communication records (Month 3, PRD §6.3.10) | FK customer; FK call (SET NULL); type `PRODUCT_DETAILS`; provider + status `PENDING/SENT/FAILED`; attempts, error; real channel/template ⚠ OPEN (mock provider only) |
 | `audit_events` | Append-only audit | indexes on entity, actor, time |
 
 ## Month 2 details
@@ -56,14 +62,20 @@ audit_events (standalone, append-only)
   states; nothing is hard-coded into business logic.
 - `calls.provider` + `provider_call_id` are the integration seam; a future vendor adapter
   reuses the same rows (webhooks arrive at `POST /dialer/webhooks/:provider`).
-- Outcome/next-action columns are deliberately absent — they arrive with Month 3.
+- Outcome/next-action columns arrive with Month 3 (migration `20260904150000_outcomes`):
+  `calls.outcome` (`CallOutcome`: INTERESTED/NOT_INTERESTED/NOT_ANSWERED) and
+  `calls.next_action` (`NextAction`: CALLBACK/SALES) are **two separate nullable columns**;
+  `follow_ups`, `relationship_ownership` and `outbound_messages` tables; the new
+  `FollowUpStatus`/`MessageStatus` enums. Uniqueness for one active RM per customer and one
+  current lead owner per lead both use partial unique indexes on non-released rows.
 
 ## Deferred to later months (designed, not created)
 
-- Month 3: `follow_ups`, call outcome handling (exactly Interested / Not Interested /
-  Not Answered; outcome and next action stored as separate fields).
-- Month 4: `relationship_ownership`, knowledge base (`problems`, `solutions`, `kb_entries`).
-- `messages` when a MessagingProvider is integrated.
+- Month 4: relationship-manager workspace features on `relationship_ownership` (release /
+  authorised reassignment workflow, My Customers), customer-level notes if confirmed.
+- Real messaging/dialer vendor adapters once vendors are selected (⚠ OPEN).
+- `crop_product_guidance` (created with the AI Assistant) gains a crop **category** column
+  when the PRD crop taxonomy is confirmed.
 
 ## Notes
 
@@ -74,4 +86,6 @@ audit_events (standalone, append-only)
 - `20260904120000_prd_alignment` renamed tehsil→taluk, added `farmer_code` (sequence + backfill)
   and reserved `preferred_language`. Prisma `migrate dev` refuses non-TTY environments, so new
   migrations are authored as SQL and applied with `prisma migrate deploy`.
+- Migration `20260904150000_outcomes` (Month 3): outcome/next-action columns + `follow_ups` +
+  `relationship_ownership` + `outbound_messages` + enums.
 - Full-text/trigram search on customer name can be added later via raw-SQL migration if needed.

@@ -1,6 +1,6 @@
 # Business Rules
 
-_Last updated: Month 2. Rules marked ⚠ are provisional or pending PRD confirmation._
+_Last updated: Month 3. Rules marked ⚠ are provisional or pending PRD confirmation._
 
 ## Customer identity & phone numbers (Month 1)
 
@@ -42,24 +42,62 @@ _Last updated: Month 2. Rules marked ⚠ are provisional or pending PRD confirma
 - **Calling queue** ⚠ (PRD §6.2 scopes dashboard to own workload; queue formation rules are
   not defined): queue = the agent's open owned leads (+ phone search to dial anyone).
   Managers/founders see all with an `ownerId` filter. Approved at Month 2 kickoff.
-- **Outcomes are Month 3**: Month 2 records the call itself (records + notes + history);
-  `callOutcome`/`nextAction` fields do not exist yet.
+- Month 2 records the call itself; outcomes arrive in Month 3 (below).
 
 ## Ownership (Month 1 groundwork)
 
 - `lead_ownership` = agent's ownership of the prospect. A lead has exactly one **current**
   owner (partial unique index). History rows are append-only (`released_at`).
-- Relationship ownership (RM, Month 4) is a separate concept and will never reuse this field.
+- Relationship ownership (RM, activated in Month 3 on Sales, full workspace Month 4) is a
+  separate concept — never the same field.
+  - On a **Sales** outcome the CRM auto-assigns the configured RM (env
+    `RELATIONSHIP_MANAGER_EMAIL`) and records `relationship_ownership` (one active RM per
+    customer, partial unique index) with reason/assigned_by/assigned_at. Release + authorised
+    reassignment workflow is Month 4 (reassignment rules remain ⚠ open where the PRD is
+    silent).
 - Assignment/reassignment rules beyond "manager can assign" are ⚠ open.
 
-## Call outcomes (Month 3 — not implemented yet, rules fixed here for design)
+## Call outcomes (Month 3 — implemented, PRD §6.3.6–6.3.9)
 
-- Exactly three outcomes: **Interested**, **Not Interested**, **Not Answered**.
-- `callOutcome` and `nextAction` are always separate stored fields.
-- Interested requires exactly ONE next action: **Callback** or **Sales** (no default; both
-  rejected). Callback requires follow-up date/time/reason; Sales triggers RM handoff.
-- No automatic retry policy — retries are ⚠ open business decision; if implemented later it
-  must be configurable, never assumed.
+- Exactly three outcomes: **Interested**, **Not Interested**, **Not Answered**. Nothing else
+  (busy / wrong number / call later / converted / callback are never outcomes).
+- `calls.outcome` and `calls.next_action` are **separate stored columns** — never one combined
+  status (PRD §11.1).
+- **Interested** requires exactly ONE next action — **Callback** or **Sales**; no default;
+  both-at-once rejected; Interested with no next action rejected.
+- **Callback**: follow-up date + time + reason/note are required; creates a `follow_ups` row
+  (`PENDING`).
+- **Sales**: lead closes (`CLOSED`) and the agent's lead ownership is released — the converted
+  customer exits the calling queue; `relationship_ownership` is created (RM = env
+  `RELATIONSHIP_MANAGER_EMAIL`, seeded default `manager@grotec.local`) with one active RM per
+  customer (partial unique index); an automatic product-details `outbound_messages` row is
+  enqueued through the messaging provider (see below). Interest history lives on the call
+  outcomes themselves. (Progression vocabulary approved at Month 3 kickoff: `lead.status` stays
+  an OPEN/CLOSED operational flag.)
+- **Not Interested**: outcome + call/customer history stored; Callback/Sales never shown or
+  accepted. **Not Answered**: outcome + attempt history stored.
+- **Not Answered retries** are an ⚠ open business decision — no automatic retry policy is
+  invented or assumed; any future retry support must be configurable.
+- One outcome per call; recording requires a terminal call state (ENDED / NOT_ANSWERED).
+
+## Follow-ups (Month 3)
+
+- `follow_ups.due_at` stores date + time combined; `note` holds the reason.
+- Only `PENDING` follow-ups can be completed (→ `COMPLETED` + `completed_at`); status
+  vocabulary (`PENDING/COMPLETED/CANCELLED`) is ⚠ provisional. Scheduling timezone is ⚠ open
+  (currently server-local interpretation of the date/time inputs).
+- Agents see and complete the callbacks they scheduled; Manager/Founder see all with
+  `ownerId`/`status`/`customerId` filters.
+
+## Messaging / automatic product communication (Month 3, PRD §6.3.10)
+
+- The **channel, template and provider are ⚠ OPEN** — no real send happens yet. An internal
+  `MessagingProvider` abstraction + config-selected mock adapter (`MESSAGING_PROVIDER=mock`)
+  exists so nothing in CRM logic references a vendor.
+- On Sales, an `outbound_messages` row (type `PRODUCT_DETAILS`) is created and sent through the
+  mock provider; the body is composed from the customer's crops + `crop_product_guidance`
+  retrieval, falling back to a generic Grotec intro. Failures are stored (`FAILED` + error),
+  never silent, and surfaced on the customer context.
 
 ## Identity
 

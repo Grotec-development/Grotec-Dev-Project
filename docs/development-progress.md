@@ -3,7 +3,7 @@
 _Updated continuously. Five full months are dedicated to the CRM; each month ends with a
 review/stop gate before the next begins._
 
-## Month 1 — CRM Foundation (in progress)
+## Month 1 — CRM Foundation (complete)
 
 Goal: strong technical foundation — identity, RBAC, customer/farmer master + phone duplicate
 prevention, crops/acreage, leads + lead ownership, audit, API, responsive UI shell.
@@ -42,7 +42,7 @@ prevention, crops/acreage, leads + lead ownership, audit, API, responsive UI she
   Dashboard / Agent / Relationship Manager show month-placeholder pages until their build
   months (the Knowledge Base placeholder was replaced by the AI Assistant — see below).
 
-## Month 2 — Agent Calling Workspace (in progress)
+## Month 2 — Agent Calling Workspace (complete)
 
 Goal (PRD §6.3, priority #1): a full-screen calling workspace — dial, view customer context,
 record the call, without navigating away. Call outcomes are Month 3; Month 2 records the call.
@@ -68,7 +68,7 @@ record the call, without navigating away. Call outcomes are Month 3; Month 2 rec
       context panel (profile/location/crops/acreage/lead/call history/notes; follow-ups
       placeholder until Month 3), note composer, mid-call create-customer modal
 - [x] Live verified on `:5173` (dial → DIALING → CONNECTED → note → end) + smoke on `:3000`
-- [ ] Call outcome recording (Interested/Not Interested/Not Answered + next action) — Month 3
+- [x] Call outcome recording — completed in Month 3 (below)
 
 ### Month 2 summary
 
@@ -112,3 +112,55 @@ with a global AI-assisted chat widget across the whole authenticated app.
 - The earlier “no AI-assisted features” guardrail is superseded for CRM scope by this approved
   feature change (recorded in `open-items.md`). No vendor is hard-coded — the LLM provider is
   an internal abstraction configured by env (`LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL`).
+
+## Month 3 — Call outcomes + follow-ups + sales progression (complete)
+
+Goal (PRD §6.3.6–6.3.10, §11): the complete CRM call lifecycle — exactly three outcomes with
+`outcome` and `nextAction` stored separately, Callback → follow-up, Sales → RM handoff +
+automatic product message, all validated and tested.
+
+### Approved at kickoff
+
+- Progression model: `leads.status` stays OPEN/CLOSED (operational flag); Sales → CLOSED +
+  agent ownership released; Not Interested → CLOSED; interest history = call outcomes.
+- RM on Sales: auto-assign `RELATIONSHIP_MANAGER_EMAIL` (seeded `manager@grotec.local`) →
+  `relationship_ownership` (one active per customer). Roster/reassignment = Month 4.
+
+### Order of work
+
+- [x] Shared enums: `CallOutcome`, `NextAction`, `FollowUpStatus`, `MessageStatus` + audit
+      codes (`call.outcome_recorded`, `followup.created/completed`, `relationship.assigned`,
+      `message.product_details_sent/failed`) + entity types (`FOLLOW_UP`,
+      `RELATIONSHIP_OWNERSHIP`, `OUTBOUND_MESSAGE`)
+- [x] Schema (migration `20260904150000_outcomes`): `calls.outcome` + `calls.next_action`
+      (separate columns), `follow_ups`, `relationship_ownership` (partial-unique one active RM
+      per customer), `outbound_messages`
+- [x] `MessagingProvider` abstraction + registry + mock adapter (`MESSAGING_PROVIDER=mock`),
+      mirroring the dialer seam; outbound messages PENDING→SENT/FAILED, failures stored
+- [x] `POST /calls/:id/outcome` with the full validation matrix (exactly three outcomes;
+      Interested ⇔ exactly one of Callback|Sales; no default; Callback ⇔ date+time+reason;
+      one outcome per call; terminal state required). Sales path: close lead + release agent
+      ownership + assign RM + enqueue product message composed from crops + guidance
+- [x] Follow-ups module: `GET /follow-ups` (agent scoped to own; manager/founder all) +
+      `POST /follow-ups/:id/complete`; call context now returns follow-ups + RM owner
+- [x] Backend tests green — 66 total (outcomes e2e × 9: matrix rejections, happy paths incl.
+      follow-up creation, RM assignment, product message, audit rows; follow-up lifecycle +
+      RBAC; regression fixes for assistant suite)
+- [x] Workspace UI: record-outcome step with exactly three buttons; two-stage Interested
+      (Callback → date/time/reason form; Sales → handoff); outcome + next-action badges in
+      call history; RM chip + live follow-ups panel in customer context with Complete action
+- [x] Web typecheck + unit tests green; docs aligned (business-rules, database, api,
+      architecture, open-items #12, progress)
+
+### Month 3 summary
+
+- Call lifecycle is end-to-end: dial → outcome → follow-up or RM handoff, with no invented
+  retry policy and no hard-coded vendors (dialer + messaging both behind config-selected
+  internal abstractions). Open items carried: messaging channel/template, follow-up status
+  vocabulary + timezone, Not-Answered retry behaviour (open-items.md).
+
+## Month 4 — Relationship Manager ownership + AI Assistant (in progress → next)
+
+Remaining per plan: RM roster/assignment UI (My Customers, ownership release + authorised
+reassignment with audit trail), Relationship Manager workspace surfaced from
+`relationship_ownership`, plus Month 5 dashboard/hardening.

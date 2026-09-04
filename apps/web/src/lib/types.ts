@@ -128,6 +128,26 @@ export interface ApiErrorBody {
 
 export type CallStatus = 'DIALING' | 'RINGING' | 'CONNECTED' | 'ENDED' | 'NOT_ANSWERED' | 'FAILED';
 
+export type CallOutcome = 'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED';
+export type NextAction = 'CALLBACK' | 'SALES';
+export type FollowUpStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED';
+
+export interface FollowUp {
+  id: string;
+  dueAt: string;
+  note: string;
+  status: FollowUpStatus;
+  completedAt: string | null;
+  agent: { id: string; fullName: string } | null;
+}
+
+export interface OutcomeRecordResult {
+  call: Call;
+  followUp: FollowUp | null;
+  relationshipOwner: { id: string; fullName: string } | null;
+  messageStatus: 'PENDING' | 'SENT' | 'FAILED' | null;
+}
+
 export interface CallNote {
   id: string;
   body: string;
@@ -143,6 +163,8 @@ export interface Call {
   phoneNumber: string;
   direction: 'OUTBOUND';
   status: CallStatus;
+  outcome: CallOutcome | null;
+  nextAction: NextAction | null;
   provider: string;
   providerCallId: string;
   connectedAt: string | null;
@@ -158,6 +180,8 @@ export interface CallContext {
   call: Call;
   customer: CustomerDetail | null;
   history: Call[];
+  followUps: FollowUp[];
+  relationshipOwner: { id: string; fullName: string } | null;
 }
 
 export interface QueueItem {

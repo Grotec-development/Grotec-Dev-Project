@@ -1,6 +1,6 @@
 # Architecture
 
-_Last updated: Month 2 (Agent Calling Workspace)._
+_Last updated: Month 3 (call outcomes + follow-ups + sales progression)._
 
 ## System context
 
@@ -13,6 +13,10 @@ customer creation and call notes. The planned Knowledge Base *screen* was replac
 **AI Assistant** chat: structured crop-product guidance is retrieved for the message and fed
 (plus Grotec company context) to an LLM behind an internal provider abstraction; every
 question+answer is audited. The chat answers gracefully when no LLM is configured.
+Month 3 completes the call lifecycle: exactly three outcomes (`Interested` / `Not Interested` /
+`Not Answered`) recorded with `outcome` and `nextAction` kept as separate fields; Callback
+creates a follow-up; Sales closes the lead, hands the customer to Relationship-Manager ownership
+and enqueues an automatic product-details message behind a `MessagingProvider` abstraction.
 
 Future GROTEC modules (HRMS, inventory, sales transactions, etc.) must **extend** this system,
 not duplicate its identity, ownership, history, or audit infrastructure.
@@ -46,6 +50,13 @@ Telephony (Month 2):   CallsService → DialerRegistry → AutoDialerProvider (i
   Vendor status pushes → POST /dialer/webhooks/:provider (shared secret) → same seam.
   CRM business logic never imports a vendor SDK; the provider id is config (DIALER_PROVIDER).
 
+Messaging (Month 3):  CallsService (Sales outcome) → MessagingRegistry → MessagingProvider
+                                                ├── MockMessagingProvider (dev, default)
+                                                └── FutureVendorAdapter (SMS/WhatsApp, TBD)
+  Records land in outbound_messages (PENDING/SENT/FAILED) regardless of provider; failures are
+  stored and surfaced, never silent. Provider id is config (MESSAGING_PROVIDER). Channel and
+  template remain OPEN per PRD §6.3.10.
+
 Assistant (replaces KB screen):  AssistantService → GuidanceService (retrieval: rows from
   crop_product_guidance scored against the question + optional crop/customer context)
                                         │
@@ -76,6 +87,12 @@ Assistant (replaces KB screen):  AssistantService → GuidanceService (retrieval
 - **One active call per agent**: a 409 (`ACTIVE_CALL_EXISTS`) blocks a second in-flight call on
   the same workspace; calls in-flight on a dead provider reconcile to FAILED/UNKNOWN
   (provider returns no status → marked failed by the status-sync loop).
+- **Outcome model**: `calls.outcome` and `calls.next_action` are two columns, never one combined
+  status. Recording goes through one validated service method (transactional): Interested→
+  Callback creates `follow_ups`; Interested→Sales closes the lead, releases the agent's lead
+  ownership, assigns `relationship_ownership` to the configured RM (`RELATIONSHIP_MANAGER_EMAIL`,
+  one active RM per customer) and enqueues an `outbound_messages` row. Not Answered retries stay
+  un-automated (open business decision).
 - **UUID PKs** everywhere; `created_at`/`updated_at` timestamptz maintained by the app layer.
 - **Phone numbers**: normalized to canonical E.164 (digits stored with `+`, e.g. `+919876543210`)
   at the API boundary; stored canonical form is searchable; duplicate prevention is a partial

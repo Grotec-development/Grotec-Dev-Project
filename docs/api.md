@@ -1,8 +1,7 @@
 # API
 
-_Last updated: Month 2 + AI Assistant feature change. Base path `/api/v1`. Interactive docs
-served by the API at `/api/docs` (Swagger/OpenAPI). All routes require a valid access token
-unless marked public._
+_Last updated: Month 3. Base path `/api/v1`. Interactive docs served by the API at
+`/api/docs` (Swagger/OpenAPI). All routes require a valid access token unless marked public._
 
 ## Error envelope
 
@@ -27,6 +26,8 @@ unless marked public._
 | Leads | `POST /leads/:id/assign` | FOUNDER/MANAGER (rules ⚠) |
 | Calls | `POST /calls` (auto-dial; resolves phone → customer; 409 `ACTIVE_CALL_EXISTS` while one call is live) · `GET /calls/queue?ownerId` (agent's calling workload) · `GET /calls/:id` (triggers provider status sync) · `GET /calls/:id/context` (call + customer profile + history) | AGENT (own calls/queue); MANAGER/FOUNDER (all, `ownerId` filter) |
 | Calls | `POST /calls/:id/end` · `POST /calls/:id/notes` | AGENT (own call) / MANAGER / FOUNDER |
+| Outcome | `POST /calls/:id/outcome` (body `{ outcome, nextAction?, followUpDate?, followUpTime?, followUpNote? }`) — validates the Month 3 matrix (exactly three outcomes; Interested ⇔ exactly one of Callback\|Sales; Callback ⇔ date+time+reason; terminal call state required; one outcome per call) and creates follow-ups / RM ownership + product message on Sales | `call.manage` (AGENT own call) |
+| Follow-ups | `GET /follow-ups?customerId&status&ownerId` · `POST /follow-ups/:id/complete` | `call.read` (AGENT: own) / `call.manage` on complete (AGENT: own) |
 | Call history | `GET /customers/:id/calls` | `call.read` + customer scope |
 | Dialer webhooks | `POST /dialer/webhooks/:provider` (body: `{ providerCallId, status, … }`; header `x-webhook-secret`) | public, secret-guarded (vendor status pushes) |
 | Assistant | `POST /assistant/chat` (body `{ message, customerId?, cropId?, conversationId? }`) — retrieves crop-product guidance, calls the LLM with it + Grotec company context, audits the Q&A | `assistant.use` (FOUNDER/MANAGER/AGENT) |
@@ -35,13 +36,27 @@ unless marked public._
 
 List responses: `{ items: [], total, page, pageSize }`; `GET /calls/queue` returns an array.
 
-## Call record shape (Month 2)
+## Call record shape (Month 2/3)
 
 `id`, `customerId?`, `leadId?`, `agentId`, `phoneNumber` (canonical E.164, captured at dial),
 `direction` (`OUTBOUND`), `status` (`DIALING|RINGING|CONNECTED|ENDED|NOT_ANSWERED|FAILED`),
 `provider` + `providerCallId` (integration seam), `connectedAt?`, `startedAt`, `endedAt?`,
-`disconnectReason?`, `notes[]` (with author). Queue items add `customer` (farmer code, name,
-primary phone, crops+acreage) and `lastCall` per lead.
+`disconnectReason?`, `notes[]` (with author), and — once recorded — `outcome`
+(`INTERESTED|NOT_INTERESTED|NOT_ANSWERED`) and `nextAction` (`CALLBACK|SALES`) as **separate**
+fields (PRD §11.1). Queue items add `customer` (farmer code, name, primary phone, crops+acreage)
+and `lastCall` per lead.
+
+## Outcome / follow-up / handoff shape (Month 3)
+
+- `POST /calls/:id/outcome` returns `{ call, followUp, relationshipOwner, message }`:
+  `followUp` present for Interested→Callback (with `dueAt`, `note`, `status: PENDING`);
+  `relationshipOwner` + `message` present for Interested→Sales (auto-assigned RM from
+  `RELATIONSHIP_MANAGER_EMAIL`, `outbound_messages` row enqueued via the mock messaging
+  provider). Sales also closes the lead and releases the agent's lead ownership.
+- Follow-up record shape: `id`, `customer`, `agent`, `dueAt` (date+time combined), `note`,
+  `status` (`PENDING|COMPLETED|CANCELLED` — provisional vocabulary), `completedAt?`.
+- `GET /calls/:id/context` now also returns `followUps` (customer's follow-ups) and
+  `relationshipOwner` (active RM), so the workspace can show both.
 
 ## Assistant chat shape (replaces the Knowledge Base screen)
 

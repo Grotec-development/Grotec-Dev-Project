@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Phone, PhoneCall, PhoneOff, UserPlus, Sprout, StickyNote, RotateCcw, History, Loader2 } from 'lucide-react';
+import { Phone, PhoneCall, PhoneOff, UserPlus, Sprout, StickyNote, RotateCcw, History, Loader2, CheckCircle2 } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import type { Call, CallContext, CustomerDetail, QueueItem } from '../lib/types';
 import { formatE164, formatDate } from '../lib/format';
 import { Alert, Badge, Button, Card, CardHeader, Input, Spinner, cx } from '../components/ui';
 import { NewCustomerModal } from './customers/NewCustomerModal';
 import { useAssistantContext } from '../assistant/AssistantContext';
+import { OutcomeFlow, OUTCOME_META } from './workspace/OutcomeFlow';
+import type { FollowUp, OutcomeRecordResult } from '../lib/types';
 
 const ACTIVE_STATUSES = ['DIALING', 'RINGING', 'CONNECTED'];
 const isActive = (status?: string) => status != null && ACTIVE_STATUSES.includes(status);
@@ -134,6 +136,12 @@ export function AgentWorkspacePage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleRecorded(result: OutcomeRecordResult) {
+    setActiveCall(result.call);
+    void api.get<QueueItem[]>('/calls/queue').then((q) => setQueue(q.data)).catch(() => undefined);
+    if (result.call.id) void loadContext(result.call.id);
   }
 
   async function endCall() {
@@ -326,6 +334,24 @@ export function AgentWorkspacePage() {
                   </div>
                 )}
 
+                {/* Outcome recording — exactly three outcomes (PRD §6.3.6) */}
+                {!callActive && !activeCall.outcome && (activeCall.status === 'ENDED' || activeCall.status === 'NOT_ANSWERED') ? (
+                  <div className="mt-8 flex w-full flex-col items-center">
+                    <OutcomeFlow callId={activeCall.id} onRecorded={handleRecorded} />
+                  </div>
+                ) : null}
+                {!callActive && activeCall.outcome ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <Badge tone={OUTCOME_META[activeCall.outcome].tone}>{OUTCOME_META[activeCall.outcome].label}</Badge>
+                    {activeCall.nextAction ? (
+                      <span>
+                        Next action: <span className="font-medium text-slate-700">{activeCall.nextAction === 'SALES' ? 'Sales' : 'Callback'}</span>
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {/* Note composer — always available on the call */}
                 <div className="mt-10 text-left">
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -369,7 +395,15 @@ export function AgentWorkspacePage() {
             {!activeCall ? (
               <EmptyPanel text="Start a call to see the customer's profile, crops, history and notes." />
             ) : context?.customer ? (
-              <ProfilePanel customer={context.customer} history={context.history ?? []} />
+              <ProfilePanel
+                customer={context.customer}
+                history={context.history ?? []}
+                followUps={context.followUps ?? []}
+                relationshipOwner={context.relationshipOwner ?? null}
+                onChanged={() => {
+                  if (activeCall) void loadContext(activeCall.id);
+                }}
+              />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
@@ -397,7 +431,19 @@ function EmptyPanel({ text }: { text: string }) {
   );
 }
 
-function ProfilePanel({ customer, history }: { customer: CustomerDetail; history: Call[] }) {
+function ProfilePanel({
+  customer,
+  history,
+  followUps,
+  relationshipOwner,
+  onChanged,
+}: {
+  customer: CustomerDetail;
+  history: Call[];
+  followUps: FollowUp[];
+  relationshipOwner: { id: string; fullName: string } | null;
+  onChanged: () => void;
+}) {
   const primary = customer.phones.find((p) => p.isPrimary) ?? customer.phones[0];
   const location = customer.locations.find((l) => l.isPrimary) ?? customer.locations[0];
   const rows: Array<{ label: string; value: string | null }> = [];
@@ -406,6 +452,7 @@ function ProfilePanel({ customer, history }: { customer: CustomerDetail; history
     rows.push({ label: 'Location', value: parts.join(', ') || null });
   }
   rows.push({ label: 'Farmer ID', value: customer.farmerCode });
+  if (relationshipOwner) rows.push({ label: 'Relationship Manager', value: relationshipOwner.fullName });
 
   return (
     <div className="space-y-4 p-4">
@@ -479,7 +526,10 @@ function ProfilePanel({ customer, history }: { customer: CustomerDetail; history
               <li key={call.id} className="rounded-md border border-slate-100 px-2.5 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-slate-700">{formatE164(call.phoneNumber)}</span>
-                  <Badge tone={callStatusTone(call.status)}>{call.status.replace('_', ' ')}</Badge>
+                  <span className="flex items-center gap-1.5">
+                    {call.outcome ? <Badge tone={OUTCOME_META[call.outcome].tone}>{OUTCOME_META[call.outcome].label}</Badge> : null}
+                    <Badge tone={callStatusTone(call.status)}>{call.status.replace('_', ' ')}</Badge>
+                  </span>
                 </div>
                 <p className="mt-0.5 text-[11px] text-slate-400">{formatDate(call.startedAt)}</p>
                 {call.notes.length > 0 ? (
@@ -494,10 +544,42 @@ function ProfilePanel({ customer, history }: { customer: CustomerDetail; history
         )}
       </div>
 
-      {/* Follow-ups arrive with Month 3 call outcomes — empty state for now. */}
+      {/* Follow-ups (callback records from Month 3 outcomes) */}
       <div>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Follow-ups</p>
-        <p className="rounded-md bg-slate-50 px-2.5 py-2 text-xs text-slate-400">No follow-ups yet — call outcomes arrive with Month 3.</p>
+        <p className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <span>Follow-ups</span>
+          {followUps.filter((f) => f.status === 'PENDING').length > 0 ? (
+            <Badge tone="amber">{followUps.filter((f) => f.status === 'PENDING').length} pending</Badge>
+          ) : null}
+        </p>
+        {followUps.length === 0 ? (
+          <p className="rounded-md bg-slate-50 px-2.5 py-2 text-xs text-slate-400">No follow-ups yet — record an Interested → Callback outcome to schedule one.</p>
+        ) : (
+          <ul className="space-y-2">
+            {followUps.slice(0, 6).map((followUp) => (
+              <li key={followUp.id} className="rounded-md border border-slate-100 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-slate-700">{formatDate(followUp.dueAt)}</span>
+                  <span className="flex items-center gap-1.5">
+                    <Badge tone={followUp.status === 'COMPLETED' ? 'green' : followUp.status === 'CANCELLED' ? 'slate' : 'amber'}>{followUp.status.replace('_', ' ')}</Badge>
+                    {followUp.status === 'PENDING' ? (
+                      <button
+                        type="button"
+                        className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-50"
+                        onClick={() => {
+                          void api.post(`/follow-ups/${followUp.id}/complete`).then(onChanged).catch(() => undefined);
+                        }}
+                      >
+                        Complete
+                      </button>
+                    ) : null}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{followUp.note}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
