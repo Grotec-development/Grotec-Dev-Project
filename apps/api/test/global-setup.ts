@@ -17,6 +17,14 @@ export default function globalSetup(): void {
 
   process.env.DATABASE_URL = testUrl;
 
+  // Deterministic, fast mock-dialer timing for integration tests; the
+  // background status poller is disabled (DIALER_SYNC_MS=0) so specs drive
+  // reconciliation through GET /calls/:id instead of racing the loop.
+  process.env.DIALER_RING_MS = '10';
+  process.env.DIALER_CONNECT_MS = '20';
+  process.env.DIALER_ANSWER_RATE = '1';
+  process.env.DIALER_SYNC_MS = '0';
+
   const apiDir = path.resolve(__dirname, '..');
   const env = { ...process.env, DATABASE_URL: testUrl };
 

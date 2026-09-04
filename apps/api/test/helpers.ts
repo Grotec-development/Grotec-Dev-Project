@@ -35,6 +35,8 @@ export async function resetData(prisma: PrismaService): Promise<void> {
     prisma.leadOwnership.deleteMany(),
     prisma.auditEvent.deleteMany(),
     prisma.authSession.deleteMany(),
+    prisma.callNote.deleteMany(),
+    prisma.call.deleteMany(),
     prisma.lead.deleteMany(),
     prisma.customerCrop.deleteMany(),
     prisma.customerLocation.deleteMany(),
