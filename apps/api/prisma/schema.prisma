@@ -40,6 +40,21 @@ enum LeadStatus {
   CLOSED
 }
 
+// Canonical call states (PRD §6.3.3) — the final list is provider-dependent
+// (open item); these canonical states are what providers map onto.
+enum CallStatus {
+  DIALING
+  RINGING
+  CONNECTED
+  ENDED
+  NOT_ANSWERED
+  FAILED
+}
+
+enum CallDirection {
+  OUTBOUND
+}
+
 // ---------------------------------------------------------------------------
 // Identity & RBAC
 // ---------------------------------------------------------------------------
@@ -68,6 +83,8 @@ model Employee {
   audits            AuditEvent[]
   heldLeadOwnerships LeadOwnership[]  @relation("LeadOwnershipHolder")
   assignedLeadOwnerships LeadOwnership[] @relation("LeadOwnershipAssignedBy")
+  placedCalls       Call[]           @relation("CallPlacedBy")
+  writtenCallNotes  CallNote[]       @relation("CallNoteAuthor")
 
   @@map("employees")
 }
@@ -148,6 +165,7 @@ model Customer {
   locations CustomerLocation[]
   crops     CustomerCrop[]
   leads     Lead[]
+  calls     Call[]
 
   @@index([fullName])
   @@map("customers")
@@ -243,6 +261,7 @@ model Lead {
   deletedAt  DateTime?  @map("deleted_at")
 
   ownerships LeadOwnership[]
+  calls      Call[]
 
   @@index([customerId])
   @@index([status])
@@ -267,6 +286,56 @@ model LeadOwnership {
   @@index([leadId])
   @@index([employeeId])
   @@map("lead_ownership")
+}
+
+// ---------------------------------------------------------------------------
+// Calls — agent calling workspace (Month 2)
+// ---------------------------------------------------------------------------
+// One row per dialed outbound call. The call keeps its normalized phone number
+// independently of any customer so a call can exist (and continue) while a
+// customer record is being created/attached mid-call (PRD §6.3.5).
+// outcome/nextAction arrive in Month 3 and are deliberately absent here.
+model Call {
+  id            String        @id @default(uuid()) @db.Uuid
+  customerId    String?       @map("customer_id") @db.Uuid
+  customer      Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  leadId        String?       @map("lead_id") @db.Uuid
+  lead          Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  agentId       String        @map("agent_id") @db.Uuid
+  agent         Employee      @relation("CallPlacedBy", fields: [agentId], references: [id], onDelete: Restrict)
+  phoneNumber   String        @map("phone_number") @db.VarChar(20)
+  direction     CallDirection @default(OUTBOUND)
+  status        CallStatus
+  provider      String        @db.VarChar(40)
+  providerCallId String       @unique @map("provider_call_id") @db.VarChar(120)
+  startedAt     DateTime      @default(now()) @map("started_at")
+  connectedAt   DateTime?     @map("connected_at")
+  endedAt       DateTime?     @map("ended_at")
+  disconnectReason String?    @map("disconnect_reason") @db.VarChar(40)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  notes CallNote[]
+
+  @@index([agentId, startedAt])
+  @@index([customerId, startedAt])
+  @@index([leadId])
+  @@index([phoneNumber])
+  @@index([status])
+  @@map("calls")
+}
+
+model CallNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  callId    String   @map("call_id") @db.Uuid
+  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  authorId  String   @map("author_id") @db.Uuid
+  author    Employee @relation("CallNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([callId])
+  @@map("call_notes")
 }
 
 // ---------------------------------------------------------------------------

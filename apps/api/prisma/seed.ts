@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import {
   PERMISSION_CODES,
@@ -221,18 +222,62 @@ async function seedDemoCustomers(founderId: string, agentId: string | undefined,
   console.log('seeded demo leads (owned by demo agent)');
 }
 
+/** A few completed demo calls so the calling workspace has history to show. */
+async function seedDemoCalls(agentId: string | undefined): Promise<void> {
+  if (!agentId) return;
+  const leads = await prisma.lead.findMany({
+    where: { deletedAt: null, status: 'OPEN' },
+    include: { customer: true },
+    orderBy: { createdAt: 'asc' },
+    take: 3,
+  });
+  for (const lead of leads) {
+    const existing = await prisma.call.count({ where: { leadId: lead.id } });
+    if (existing > 0) continue;
+    const endedAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const startedAt = new Date(endedAt.getTime() - 2 * 60 * 1000);
+    const connectedAt = new Date(startedAt.getTime() + 30 * 1000);
+    const phone = await prisma.customerPhone.findFirst({
+      where: { customerId: lead.customer.id, deletedAt: null },
+      orderBy: { isPrimary: 'desc' },
+    });
+    await prisma.call.create({
+      data: {
+        customerId: lead.customer.id,
+        leadId: lead.id,
+        agentId,
+        phoneNumber: phone?.phoneE164 ?? '+919876543200',
+        direction: 'OUTBOUND',
+        status: 'ENDED',
+        provider: 'mock',
+        providerCallId: `seed_${randomUUID()}`,
+        startedAt,
+        connectedAt,
+        endedAt,
+        disconnectReason: 'AGENT_ENDED',
+        notes: {
+          create: [{ authorId: agentId, body: 'Intro call — farmer interested in seed availability for this season.' }],
+        },
+      },
+    });
+  }
+  console.log('seeded demo call history');
+}
+
 async function main(): Promise<void> {
   await seedPermissions();
   await seedRoles();
   const { founderId, agentId } = await seedEmployees();
   const cropIds = await seedCrops();
   await seedDemoCustomers(founderId, agentId, cropIds);
+  await seedDemoCalls(agentId);
 
   const counts = {
     employees: await prisma.employee.count(),
     customers: await prisma.customer.count(),
     leads: await prisma.lead.count(),
     crops: await prisma.crop.count(),
+    calls: await prisma.call.count(),
   };
   console.log('seed complete:', counts);
 }
