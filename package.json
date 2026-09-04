@@ -1,0 +1,43 @@
+{
+  "name": "grotec-farmos-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GROTEC FarmerOS — CRM (5-month incremental build). Monorepo: API + Web + Shared.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:shared": "npm run build --workspace @grotec/shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:api": "npm run build --workspace @grotec/shared && npm run start:dev --workspace @grotec/api",
+    "dev:web": "npm run dev --workspace @grotec/web",
+    "db:start": "node infra/dev-db.mjs start",
+    "db:stop": "node infra/dev-db.mjs stop",
+    "db:status": "node infra/dev-db.mjs status",
+    "migrate:dev": "npm run prisma:migrate-dev --workspace @grotec/api",
+    "seed": "npm run seed --workspace @grotec/api",
+    "test": "npm run test --workspace @grotec/shared --if-present && npm run test --workspace @grotec/api && npm run test --workspace @grotec/web",
+    "test:api": "npm run test --workspace @grotec/api",
+    "test:web": "npm run test --workspace @grotec/web",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "embedded-postgres": "18.4.0-beta.17",
+    "pg": "^8.13.1",
+    "prettier": "^3.3.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@embedded-postgres/windows-x64@18.4.0-beta.17": true,
+    "@nestjs/core@10.4.22": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true,
+    "prisma@6.19.3": true,
+    "@swc/core@1.16.1": true
+  }
+}
