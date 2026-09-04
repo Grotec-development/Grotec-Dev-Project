@@ -579,6 +579,49 @@ export class CustomersService {
     return this.detailOrThrow(customerId, actor);
   }
 
+  // -------------------------------------------------------------------- notes
+
+  async listNotes(customerId: string, actor: AuthEmployee) {
+    await this.assertReadable(customerId, actor);
+    const notes = await this.prisma.customerNote.findMany({
+      where: { customerId },
+      include: { author: { select: { id: true, fullName: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return notes.map((note) => ({
+      id: note.id,
+      body: note.body,
+      createdAt: note.createdAt,
+      author: note.author,
+    }));
+  }
+
+  async addNote(customerId: string, actor: AuthEmployee, body: string) {
+    const customer = await this.scopedCustomer(customerId, actor);
+    const note = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.customerNote.create({
+        data: { customerId, authorId: actor.id, body },
+        include: { author: { select: { id: true, fullName: true, email: true } } },
+      });
+      await this.audit.record(tx, {
+        actorId: actor.id,
+        entityType: 'CUSTOMER_NOTE',
+        entityId: created.id,
+        entityLabel: customer.fullName,
+        action: 'customer.note_added',
+        after: { customerId, body: body.slice(0, 200) },
+      });
+      return created;
+    });
+    return {
+      id: note.id,
+      body: note.body,
+      createdAt: note.createdAt,
+      author: note.author,
+    };
+  }
+
   // ------------------------------------------------------------------ helpers
 
   /** Data-visibility scope — agents see customers they created or hold a current lead on. */

@@ -8,6 +8,7 @@ import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { AddPhoneDto } from './dto/add-phone.dto';
+import { AddCustomerNoteDto } from './dto/add-note.dto';
 import { UpdatePhoneDto } from './dto/update-phone.dto';
 import { CropInputDto } from './dto/customer-input.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
@@ -149,5 +150,17 @@ export class CustomersController {
   @RequirePermission(PERMISSIONS.customerUpdate)
   async removeCrop(@CurrentEmployee() actor: AuthEmployee, @Param('id') id: string, @Param('customerCropId') customerCropId: string) {
     await this.customers.removeCrop(actor, id, customerCropId);
+  }
+
+  @Get(':id/notes')
+  @RequirePermission(PERMISSIONS.customerRead)
+  async listNotes(@CurrentEmployee() actor: AuthEmployee, @Param('id') id: string) {
+    return this.customers.listNotes(id, actor);
+  }
+
+  @Post(':id/notes')
+  @RequirePermission(PERMISSIONS.customerUpdate)
+  async addNote(@CurrentEmployee() actor: AuthEmployee, @Param('id') id: string, @Body() dto: AddCustomerNoteDto) {
+    return this.customers.addNote(id, actor, dto.body);
   }
 }
