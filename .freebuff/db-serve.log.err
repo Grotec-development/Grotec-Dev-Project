@@ -1,0 +1,618 @@
+pg: 2026-09-04 22:19:29.262 IST [19664] ERROR:  character with byte sequence 0xe2 0x86 0x92 in encoding "UTF8" has no equivalent in encoding "WIN1252"
+
+pg: 2026-09-04 22:41:16.040 IST [2540] ERROR:  column calls.nextAction does not exist at character 256
+2026-09-04 22:41:16.040 IST [2540] HINT:  Perhaps you meant to reference the column "calls.next_action".
+2026-09-04 22:41:16.040 IST [2540] STATEMENT:  SELECT "public"."calls"."id", "public"."calls"."customer_id", "public"."calls"."lead_id", "public"."calls"."agent_id", "public"."calls"."phone_number", "public"."calls"."direction"::text, "public"."calls"."status"::text, "public"."calls"."outcome"::text, "public"."calls"."nextAction"::text, "public"."calls"."provider", "public"."calls"."provider_call_id", "public"."calls"."started_at", "public"."calls"."connected_at", "public"."calls"."ended_at", "public"."calls"."disconnect_reason", "public"."calls"."created_at", "public"."calls"."updated_at" FROM "public"."calls" WHERE "public"."calls"."id" = $1 LIMIT $2 OFFSET $3
+
+pg: 2026-09-04 22:41:27.737 IST [15260] ERROR:  column calls.nextAction does not exist at character 256
+2026-09-04 22:41:27.737 IST [15260] HINT:  Perhaps you meant to reference the column "calls.next_action".
+2026-09-04 22:41:27.737 IST [15260] STATEMENT:  SELECT "public"."calls"."id", "public"."calls"."customer_id", "public"."calls"."lead_id", "public"."calls"."agent_id", "public"."calls"."phone_number", "public"."calls"."direction"::text, "public"."calls"."status"::text, "public"."calls"."outcome"::text, "public"."calls"."nextAction"::text, "public"."calls"."provider", "public"."calls"."provider_call_id", "public"."calls"."started_at", "public"."calls"."connected_at", "public"."calls"."ended_at", "public"."calls"."disconnect_reason", "public"."calls"."created_at", "public"."calls"."updated_at" FROM "public"."calls" WHERE "public"."calls"."id" = $1 LIMIT $2 OFFSET $3
+
+pg: 2026-09-04 22:41:36.067 IST [19872] ERROR:  column calls.nextAction does not exist at character 256
+2026-09-04 22:41:36.067 IST [19872] HINT:  Perhaps you meant to reference the column "calls.next_action".
+2026-09-04 22:41:36.067 IST [19872] STATEMENT:  SELECT "public"."calls"."id", "public"."calls"."customer_id", "public"."calls"."lead_id", "public"."calls"."agent_id", "public"."calls"."phone_number", "public"."calls"."direction"::text, "public"."calls"."status"::text, "public"."calls"."outcome"::text, "public"."calls"."nextAction"::text, "public"."calls"."provider", "public"."calls"."provider_call_id", "public"."calls"."started_at", "public"."calls"."connected_at", "public"."calls"."ended_at", "public"."calls"."disconnect_reason", "public"."calls"."created_at", "public"."calls"."updated_at" FROM "public"."calls" WHERE "public"."calls"."id" = $1 LIMIT $2 OFFSET $3
+
+pg: 2026-09-04 23:35:03.535 IST [7276] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:35:03.535 IST [7276] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:35:03.535 IST [7276] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by_id = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:35:04.025 IST [26000] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:35:04.025 IST [26000] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:35:04.025 IST [26000] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by_id = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:35:04.304 IST [7276] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:35:04.304 IST [7276] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:35:04.304 IST [7276] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by_id = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:35:21.943 IST [20584] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:35:21.943 IST [20584] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:35:21.943 IST [20584] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by_id = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:35:22.473 IST [24132] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:35:22.473 IST [24132] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:35:22.473 IST [24132] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by_id = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:35:22.807 IST [13668] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:35:22.807 IST [13668] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:35:22.807 IST [13668] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by_id = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:35:52.121 IST [23112] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:35:52.121 IST [23112] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:35:52.121 IST [23112] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by_id = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:36:25.057 IST [24820] FATAL:  password authentication failed for user "grotec"
+2026-09-04 23:36:25.057 IST [24820] DETAIL:  Password does not match for user "grotec".
+	Connection matched file "C:/Users/narra/OneDrive/Documents/grotec project/.pgdata/pg_hba.conf" line 117: "host    all             all             ::1/128                 password"
+
+pg: 2026-09-04 23:36:25.101 IST [25268] FATAL:  password authentication failed for user "grotec"
+2026-09-04 23:36:25.101 IST [25268] DETAIL:  Password does not match for user "grotec".
+	Connection matched file "C:/Users/narra/OneDrive/Documents/grotec project/.pgdata/pg_hba.conf" line 115: "host    all             all             127.0.0.1/32            password"
+
+pg: 2026-09-04 23:36:25.174 IST [23924] FATAL:  password authentication failed for user "grotec"
+2026-09-04 23:36:25.174 IST [23924] DETAIL:  Password does not match for user "grotec".
+	Connection matched file "C:/Users/narra/OneDrive/Documents/grotec project/.pgdata/pg_hba.conf" line 117: "host    all             all             ::1/128                 password"
+
+pg: 2026-09-04 23:36:25.213 IST [25516] FATAL:  password authentication failed for user "grotec"
+2026-09-04 23:36:25.213 IST [25516] DETAIL:  Password does not match for user "grotec".
+	Connection matched file "C:/Users/narra/OneDrive/Documents/grotec project/.pgdata/pg_hba.conf" line 115: "host    all             all             127.0.0.1/32            password"
+
+pg: 2026-09-04 23:36:34.666 IST [13024] ERROR:  column c.created_by_id does not exist at character 719
+2026-09-04 23:36:34.666 IST [13024] HINT:  Perhaps you meant to reference the column "c.created_by".
+2026-09-04 23:36:34.666 IST [13024] STATEMENT:  
+	  SELECT c.id AS id,
+	    CASE
+	      WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	      WHEN EXISTS (
+	        SELECT 1 FROM leads l
+	        WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	      ) THEN 'open'
+	      WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	      WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	      ELSE 'never_reached'
+	    END AS state
+	  FROM customers c
+	  LEFT JOIN LATERAL (
+	    SELECT ca.outcome FROM calls ca
+	    WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	    ORDER BY ca.started_at DESC LIMIT 1
+	  ) lc ON TRUE
+	  LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	  WHERE c.deleted_at IS NULL AND (
+	  c.created_by_id = $1
+	  OR EXISTS (SELECT 1 FROM lead_ownership lo0 JOIN leads l0 ON l0.id = lo0.lead_id WHERE l0.customer_id = c.id AND lo0.employee_id = $1)
+	  OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	)
+
+pg: 2026-09-04 23:36:59.146 IST [7232] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:36:59.146 IST [7232] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:36:59.146 IST [7232] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:36:59.826 IST [16508] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:36:59.826 IST [16508] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:36:59.826 IST [16508] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:00.387 IST [16508] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:37:00.387 IST [16508] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:00.387 IST [16508] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:17.739 IST [22588] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:37:17.739 IST [22588] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:17.739 IST [22588] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:18.340 IST [24592] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:37:18.340 IST [24592] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:18.340 IST [24592] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:18.792 IST [25928] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:37:18.792 IST [25928] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:18.792 IST [25928] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:40.371 IST [24840] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:37:40.371 IST [24840] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:40.371 IST [24840] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:40.855 IST [22648] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:37:40.855 IST [22648] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:40.855 IST [22648] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:41.185 IST [22164] ERROR:  operator does not exist: uuid = text at character 348
+2026-09-04 23:37:41.185 IST [22164] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:41.185 IST [22164] STATEMENT:  
+	        SELECT c.id AS id,
+	          CASE
+	            WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	            WHEN EXISTS (
+	              SELECT 1 FROM leads l
+	              JOIN lead_ownership lo ON lo.lead_id = l.id
+	              WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	                AND lo.employee_id = $2 AND lo.released_at IS NULL
+	            ) THEN 'open'
+	            WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	            WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	            ELSE 'never_reached'
+	          END AS state
+	        FROM customers c
+	        LEFT JOIN LATERAL (
+	          SELECT ca.outcome FROM calls ca
+	          WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	          ORDER BY ca.started_at DESC LIMIT 1
+	        ) lc ON TRUE
+	        LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	        WHERE c.deleted_at IS NULL AND (
+	          c.created_by = $1
+	          OR EXISTS (
+	            SELECT 1 FROM lead_ownership lo0
+	            JOIN leads l0 ON l0.id = lo0.lead_id
+	            WHERE l0.customer_id = c.id AND lo0.employee_id = $1
+	          )
+	          OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	        )
+
+pg: 2026-09-04 23:37:53.591 IST [2988] ERROR:  operator does not exist: uuid = text at character 300
+2026-09-04 23:37:53.591 IST [2988] HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+2026-09-04 23:37:53.591 IST [2988] STATEMENT:  
+	  SELECT c.id AS id,
+	    CASE
+	      WHEN rm.customer_id IS NOT NULL THEN 'converted'
+	      WHEN EXISTS (
+	        SELECT 1 FROM leads l
+	        JOIN lead_ownership lo ON lo.lead_id = l.id
+	        WHERE l.customer_id = c.id AND l.deleted_at IS NULL AND l.status = 'OPEN'
+	          AND lo.employee_id = $2 AND lo.released_at IS NULL
+	      ) THEN 'open'
+	      WHEN lc.outcome = 'INTERESTED' THEN 'interested'
+	      WHEN lc.outcome = 'NOT_INTERESTED' THEN 'not_interested'
+	      ELSE 'never_reached'
+	    END AS state
+	  FROM customers c
+	  LEFT JOIN LATERAL (
+	    SELECT ca.outcome FROM calls ca
+	    WHERE ca.customer_id = c.id AND ca.outcome IS NOT NULL
+	    ORDER BY ca.started_at DESC LIMIT 1
+	  ) lc ON TRUE
+	  LEFT JOIN relationship_ownership rm ON rm.customer_id = c.id AND rm.released_at IS NULL
+	  WHERE c.deleted_at IS NULL AND (
+	    c.created_by = $1
+	    OR EXISTS (SELECT 1 FROM lead_ownership lo0 JOIN leads l0 ON l0.id = lo0.lead_id WHERE l0.customer_id = c.id AND lo0.employee_id = $1)
+	    OR EXISTS (SELECT 1 FROM calls ca0 WHERE ca0.customer_id = c.id AND ca0.agent_id = $1)
+	  )
+
+pg: 2026-09-04 23:50:22.026 IST [11704] ERROR:  character with byte sequence 0xe2 0x86 0x92 in encoding "UTF8" has no equivalent in encoding "WIN1252"
+
+pg: 2026-09-04 23:50:51.184 IST [24928] ERROR:  character with byte sequence 0xe2 0x86 0x92 in encoding "UTF8" has no equivalent in encoding "WIN1252"
+

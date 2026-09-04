@@ -1,0 +1,3 @@
+data directory already initialised — skipping initdb
+starting...
+started embedded postgres on 127.0.0.1:5432

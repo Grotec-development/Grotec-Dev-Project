@@ -1,0 +1,44 @@
+
+> @grotec/web@0.1.0 dev
+> vite --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m483[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m10:19:07 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/TeamPage.tsx, /src/index.css[22m
+[2m10:19:11 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/TeamPage.tsx, /src/index.css[22m
+[2m10:24:32 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/KnowledgeBasePage.tsx, /src/index.css[22m
+[2m10:24:35 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/lib/types.ts[22m
+[2m10:24:53 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Shell.tsx, /src/index.css[22m
+[2m10:25:01 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router.tsx[22m
+[2m10:25:01 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/AgentWorkspacePage.tsx, /src/index.css[22m
+[2m10:30:22 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/CropsPage.tsx, /src/index.css[22m
+[2m10:37:00 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/TeamPage.tsx, /src/index.css[22m
+[2m10:45:37 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/lib/types.ts[22m
+[2m10:46:09 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/AgentWorkspacePage.tsx, /src/index.css[22m
+[2m10:46:17 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/AgentWorkspacePage.tsx, /src/index.css[22m
+[2m10:46:28 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/AgentWorkspacePage.tsx, /src/index.css[22m
+[2m10:52:25 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/TeamPage.tsx, /src/index.css[22m
+[2m10:52:25 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/TeamPage.tsx, /src/index.css[22m
+[2m11:00:48 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/lib/types.ts[22m
+[2m11:00:56 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Shell.tsx, /src/index.css[22m
+[2m11:01:51 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/RelationshipManagerPage.tsx, /src/index.css[22m
+[2m11:01:59 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/RelationshipManagerPage.tsx, /src/index.css[22m
+[2m11:02:04 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/RelationshipManagerPage.tsx, /src/index.css[22m
+[2m11:02:19 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/RelationshipManagerPage.tsx, /src/index.css[22m
+[2m11:04:52 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/DashboardPage.tsx, /src/index.css[22m
+[2m11:04:58 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/lib/types.ts[22m
+[2m11:04:58 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/DashboardPage.tsx, /src/index.css[22m
+[2m11:14:27 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/lib/types.ts[22m
+[2m11:14:28 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/Shell.tsx, /src/index.css[22m
+[2m11:14:28 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router.tsx[22m
+[2m11:14:43 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/KnowledgeBasePage.tsx[22m
+[2m11:25:32 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/customers/CustomerDetailPage.tsx, /src/index.css[22m
+[2m11:39:41 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/lib/types.ts[22m
+[2m11:40:13 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/DashboardPage.tsx, /src/index.css[22m
+[2m11:40:21 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/DashboardPage.tsx, /src/index.css[22m
+[2m11:48:49 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/lib/types.ts[22m
+[2m11:48:58 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/CropsPage.tsx, /src/index.css[22m
+[2m11:49:10 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/KnowledgeBasePage.tsx, /src/index.css[22m
+[2m11:49:15 pm[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/KnowledgeBasePage.tsx, /src/index.css[22m
