@@ -15,6 +15,8 @@ import { CallsModule } from './modules/calls/calls.module';
 import { FollowUpsModule } from './modules/followups/followups.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
+import { RelationshipModule } from './modules/relationship/relationship.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { AssistantModule } from './modules/assistant/assistant.module';
     CallsModule,
     FollowUpsModule,
     MessagingModule,
+    RelationshipModule,
+    DashboardModule,
     AssistantModule,
     HealthModule,
   ],

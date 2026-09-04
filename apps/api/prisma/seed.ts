@@ -314,6 +314,58 @@ async function seedDemoCalls(agentId: string | undefined): Promise<void> {
   console.log('seeded demo call history');
 }
 
+/**
+ * Month 4 demo: two converted (Sales) customers under the seeded Manager's RM
+ * ownership, with a customer note + pending follow-up each, so the Relationship
+ * Manager workspace has real content on first run. Idempotent per customer.
+ */
+async function seedRelationshipDemo(): Promise<void> {
+  const manager = await prisma.employee.findUnique({ where: { email: (process.env.RELATIONSHIP_MANAGER_EMAIL ?? 'manager@grotec.local').toLowerCase() } });
+  const agent = await prisma.employee.findFirst({ where: { role: { code: 'AGENT' }, status: 'ACTIVE' } });
+  if (!manager || !agent) {
+    console.warn('seedRelationshipDemo: manager or agent missing — skipping');
+    return;
+  }
+  // Demo customers 004/005 (not the queue's 001-003, which keep call history).
+  const demoCustomers = await prisma.customer.findMany({
+    where: { phones: { some: { phoneE164: { in: ['+919876543004', '+919876543005'] }, deletedAt: null } } },
+    orderBy: { createdAt: 'asc' },
+  });
+  for (const customer of demoCustomers) {
+    const already = await prisma.relationshipOwnership.count({ where: { customerId: customer.id, releasedAt: null } });
+    if (already > 0) continue;
+    await prisma.$transaction(async (tx) => {
+      // Convert: close the demo lead and release the agent's ownership.
+      const lead = await tx.lead.findFirst({ where: { customerId: customer.id, deletedAt: null, status: 'OPEN' } });
+      if (lead) {
+        await tx.lead.update({ where: { id: lead.id }, data: { status: 'CLOSED' } });
+        await tx.leadOwnership.updateMany({ where: { leadId: lead.id, releasedAt: null }, data: { releasedAt: new Date() } });
+      }
+      const row = await tx.relationshipOwnership.create({
+        data: { customerId: customer.id, employeeId: manager.id, assignedById: manager.id, reason: 'conversion_sales' },
+      });
+      await tx.customerNote.create({
+        data: {
+          customerId: customer.id,
+          authorId: manager.id,
+          body: 'Converted over a follow-up visit plan — follow the label advice for this season; prefers evening calls.',
+        },
+      });
+      await tx.followUp.create({
+        data: {
+          customerId: customer.id,
+          leadId: lead?.id ?? null,
+          agentId: agent.id,
+          dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+          note: customer.fullName === 'Lakshmi Devi' ? 'Share Ultra Action + plan ahead of mango flowering; check orchard size.' : 'Share the recommended Grotec plan for this season; confirm next visit window.',
+          status: 'PENDING',
+        },
+      });
+      console.log(`demo RM customer: ${customer.fullName} (ownership ${row.id.slice(0, 8)}…)`);
+    });
+  }
+}
+
 async function main(): Promise<void> {
   await seedPermissions();
   await seedRoles();
@@ -322,6 +374,7 @@ async function main(): Promise<void> {
   await seedGuidance(founderId);
   await seedDemoCustomers(founderId, agentId, cropIds);
   await seedDemoCalls(agentId);
+  await seedRelationshipDemo();
 
   const counts = {
     employees: await prisma.employee.count(),
