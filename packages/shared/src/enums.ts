@@ -29,6 +29,38 @@ export const LeadStatus = {
 } as const;
 export type LeadStatus = (typeof LeadStatus)[keyof typeof LeadStatus];
 
+/**
+ * Canonical call states (PRD §6.3.3). The PRD marks the final list provider-
+ * dependent (open item); these are the canonical states the CRM understands.
+ * Providers map their own vocabulary onto these — see docs/open-items.md.
+ */
+export const CallStatus = {
+  DIALING: 'DIALING',
+  RINGING: 'RINGING',
+  CONNECTED: 'CONNECTED',
+  ENDED: 'ENDED',
+  NOT_ANSWERED: 'NOT_ANSWERED',
+  FAILED: 'FAILED',
+} as const;
+export type CallStatus = (typeof CallStatus)[keyof typeof CallStatus];
+
+export const ACTIVE_CALL_STATUSES: readonly CallStatus[] = ['DIALING', 'RINGING', 'CONNECTED'];
+export const TERMINAL_CALL_STATUSES: readonly CallStatus[] = ['ENDED', 'NOT_ANSWERED', 'FAILED'];
+
+export const CallDirection = {
+  OUTBOUND: 'OUTBOUND',
+} as const;
+export type CallDirection = (typeof CallDirection)[keyof typeof CallDirection];
+
+/** Why an outbound call ended (Month 2: agent-ended or provider terminal). */
+export const CallDisconnectReason = {
+  AGENT_ENDED: 'AGENT_ENDED',
+  NOT_ANSWERED: 'NOT_ANSWERED',
+  FAILED: 'FAILED',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+export type CallDisconnectReason = (typeof CallDisconnectReason)[keyof typeof CallDisconnectReason];
+
 /** Entity types written to the audit log. */
 export const AuditEntityType = {
   AUTH: 'AUTH',
@@ -39,6 +71,8 @@ export const AuditEntityType = {
   CUSTOMER_CROP: 'CUSTOMER_CROP',
   CROP: 'CROP',
   LEAD: 'LEAD',
+  CALL: 'CALL',
+  CALL_NOTE: 'CALL_NOTE',
 } as const;
 export type AuditEntityType = (typeof AuditEntityType)[keyof typeof AuditEntityType];
 
@@ -56,6 +90,11 @@ export const AuditAction = {
   DEACTIVATED: 'deactivated',
   // Ownership
   OWNERSHIP_ASSIGNED: 'ownership.assigned',
+  // Calls (Month 2)
+  CALL_PLACED: 'call.placed',
+  CALL_ENDED: 'call.ended',
+  CALL_LINKED: 'call.linked',
+  NOTE_ADDED: 'call.note_added',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 

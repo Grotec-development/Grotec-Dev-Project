@@ -28,6 +28,9 @@ export const PERMISSIONS = {
   leadCreate: 'lead.create',
   leadUpdate: 'lead.update',
   leadAssign: 'lead.assign',
+  // Calls / agent workspace (Month 2)
+  callRead: 'call.read',
+  callManage: 'call.manage',
   // Audit
   auditRead: 'audit.read',
 } as const;
@@ -59,6 +62,8 @@ export const PROPOSED_ROLE_PERMISSIONS: Record<RoleCode, readonly PermissionCode
     PERMISSIONS.leadCreate,
     PERMISSIONS.leadUpdate,
     PERMISSIONS.leadAssign,
+    PERMISSIONS.callRead,
+    PERMISSIONS.callManage,
   ],
   AGENT: [
     PERMISSIONS.customerRead,
@@ -68,6 +73,8 @@ export const PROPOSED_ROLE_PERMISSIONS: Record<RoleCode, readonly PermissionCode
     PERMISSIONS.leadRead,
     PERMISSIONS.leadCreate,
     PERMISSIONS.leadUpdate,
+    PERMISSIONS.callRead,
+    PERMISSIONS.callManage,
   ],
   // PRD §5.2: Staff has no CRM capability in Phase 1 (HRMS/payroll role).
   STAFF: [],
