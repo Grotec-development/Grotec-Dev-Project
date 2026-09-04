@@ -14,12 +14,17 @@ _Last updated: Month 3. PRD v2.1 + developer brief are reviewed (`docs/reference
   roster + reassignment (`POST /relationship/customers/:id/assign`) and release
   (`…/release`), audit trail on every ownership change, customer notes on the RM panel.
 
-## Resolved: Knowledge Base → AI Assistant (approved feature change, Sept 4)
+## Resolved: Knowledge Base + AI Assistant (approved feature change, Sept 4)
 
 - The planned Knowledge Base *screen* was replaced by a global AI-assisted chat widget
   (`assistant.use`/`assistant.manage`, `docs/permissions.md`). Its structured data
   (crop → problem → recommended Grotec product + usage) lives in `crop_product_guidance`
   and is used as retrieval context for the chat instead of a browsable table.
+- **Restored (same day, user request "add knowledge base also")**: the browsable Knowledge
+  Base page is back at `/knowledge-base` alongside the chat — both read the same
+  `crop_product_guidance` rows. Telecallers browse/search active rows (`assistant.use`);
+  Founder/Manager create, edit and retire entries (`assistant.manage`; retired rows visible
+  only to managers via `includeInactive`).
 - This supersedes the earlier "no AI-assisted features" guardrail for the CRM scope, per the
   feature-change request. LLM provider stays behind an internal abstraction
   (`ASSISTANT_LLM_PROVIDER`) — no vendor is hard-coded; chat answers "assistant

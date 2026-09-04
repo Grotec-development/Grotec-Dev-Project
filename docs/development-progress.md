@@ -107,6 +107,14 @@ with a global AI-assisted chat widget across the whole authenticated app.
       verified (widget appears per-role; mid-call question carries “Helping Ramesh Patel ·
       crop context attached”; graceful no-key answer)
 
+### Knowledge Base page restored (same day, user request “add knowledge base also”)
+
+- The browsable Knowledge Base is back at `/knowledge-base` alongside the chat — both use the
+  same `crop_product_guidance` data. View/search = `assistant.use` (agents can now `GET
+  /assistant/guidance`, active rows only); create/edit/retire = `assistant.manage` (Founder/
+  Manager, incl. `includeInactive`). Crop/problem/product search + filters + entry editor UI.
+  Backend e2e updated (agent browse happy path + retired-row visibility) — 76 API tests green.
+
 ### Notes
 
 - The earlier “no AI-assisted features” guardrail is superseded for CRM scope by this approved

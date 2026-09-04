@@ -16,10 +16,12 @@ Month 1 delivered the foundation: shared employee identity, RBAC, customer/farme
 phone duplicate prevention, crops/acreage, leads + lead ownership, audit, REST API, responsive UI.
 Month 2 delivers the Agent calling workspace: full-screen workspace UI, auto-dial behind an
 internal provider abstraction, call records + status synchronisation, calling queue, mid-call
-customer creation and call notes. The planned Knowledge Base *screen* was replaced by an
-**AI Assistant** chat: structured crop-product guidance is retrieved for the message and fed
-(plus Grotec company context) to an LLM behind an internal provider abstraction; every
-question+answer is audited. The chat answers gracefully when no LLM is configured.
+customer creation and call notes. Crop-product guidance powers **two surfaces over the
+same data**: a browsable **Knowledge Base** page (crop → problem → recommended Grotec
+product + usage; telecaller quick lookup) and a global **AI Assistant** chat that retrieves
+that structured guidance for the message and feeds it (plus Grotec company context) to an LLM
+behind an internal provider abstraction; every question+answer is audited. The chat answers
+gracefully when no LLM is configured.
 Month 3 completes the call lifecycle: exactly three outcomes (`Interested` / `Not Interested` /
 `Not Answered`) recorded with `outcome` and `nextAction` kept as separate fields; Callback
 creates a follow-up; Sales closes the lead, hands the customer to Relationship-Manager ownership
@@ -64,7 +66,12 @@ Messaging (Month 3):  CallsService (Sales outcome) → MessagingRegistry → Mes
   stored and surfaced, never silent. Provider id is config (MESSAGING_PROVIDER). Channel and
   template remain OPEN per PRD §6.3.10.
 
-Assistant (replaces KB screen):  AssistantService → GuidanceService (retrieval: rows from
+Knowledge Base + Assistant:     GuidanceService — crop_product_guidance rows (crop →
+  problem keywords → recommended Grotec products → usage) feed BOTH the browsable
+  Knowledge Base page (view/search = assistant.use, content mgmt = assistant.manage)
+  and the AI Assistant chat.
+
+Assistant:                      AssistantService → GuidanceService (retrieval: rows from
   crop_product_guidance scored against the question + optional crop/customer context)
                                         │
                                         ▼

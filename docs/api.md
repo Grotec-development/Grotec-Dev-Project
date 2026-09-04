@@ -31,7 +31,8 @@ _Last updated: Month 5. Base path `/api/v1`. Interactive docs served by the API 
 | Call history | `GET /customers/:id/calls` | `call.read` + customer scope |
 | Dialer webhooks | `POST /dialer/webhooks/:provider` (body: `{ providerCallId, status, … }`; header `x-webhook-secret`) | public, secret-guarded (vendor status pushes) |
 | Assistant | `POST /assistant/chat` (body `{ message, customerId?, cropId?, conversationId? }`) — retrieves crop-product guidance, calls the LLM with it + Grotec company context, audits the Q&A | `assistant.use` (FOUNDER/MANAGER/AGENT) |
-| Assistant | `GET /assistant/guidance?cropId&q&includeInactive` · `POST /assistant/guidance` · `PATCH /assistant/guidance/:id` | `assistant.manage` (FOUNDER/MANAGER) |
+| Assistant | `GET /assistant/guidance?cropId&q&includeInactive` — Knowledge Base browse/search (active rows only for non-managers) | `assistant.use` (FOUNDER/MANAGER/AGENT) |
+| Assistant | `POST /assistant/guidance` · `PATCH /assistant/guidance/:id` (content management; `includeInactive` list view manager-only) | `assistant.manage` (FOUNDER/MANAGER) |
 | Relationship | `GET /relationship/customers?rmId&q&unassigned=1` (portfolio; `unassigned=1` lists converted customers with no RM) · `GET /relationship/holders` (eligible RM holders + load) | `relationship.read` (FOUNDER/MANAGER; MANAGER scoped to own portfolio) |
 | Relationship | `POST /relationship/customers/:customerId/assign` `{ employeeId, reason? }` · `POST /relationship/customers/:customerId/release` `{ reason? }` (audited; one active RM per customer) | `relationship.manage` (FOUNDER any; MANAGER own portfolio / claim-to-self) |
 | Customer notes | `GET /customers/:id/notes` · `POST /customers/:id/notes` `{ body }` (audited `customer.note_added`) | `customer.read` / `customer.update` + customer scope |
@@ -85,7 +86,7 @@ interested }, recentActivity: [...] }`. “Connected” counts calls that ended 
 (team) or farmers the agent moved to Sales (agent); every number is a live aggregate — no
 mock metrics.
 
-## Assistant chat shape (replaces the Knowledge Base screen)
+## Knowledge Base (browse) + Assistant chat shapes
 
 `POST /assistant/chat` answers with `{ status, conversationId, answer, sources }`:
 - `status`: `answered` (LLM answer) or `unavailable` (no `LLM_API_KEY` configured, network

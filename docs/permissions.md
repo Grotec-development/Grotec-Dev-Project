@@ -27,8 +27,8 @@ Relationship Manager is an ownership concept, not a login role (§6.4; open item
 | `call.read` / `call.manage` | Calling workspace: queue, dial, end, notes, record outcome |
 | `relationship.read` | RM workspace — customers under relationship ownership (Manager: own portfolio; Founder: all) |
 | `relationship.manage` | Assign / reassign / release RM ownership (Manager: own portfolio; Founder: any) |
-| `assistant.use` | AI Assistant chat (question → retrieved guidance → answer; every Q&A audited) |
-| `assistant.manage` | Crop-product guidance content management (create/edit/list rows) |
+| `assistant.use` | AI Assistant chat + Knowledge Base browse/search (question → retrieved guidance → answer; every Q&A audited) |
+| `assistant.manage` | Knowledge Base content management — create/edit/retire `crop_product_guidance` rows (incl. listing retired rows) |
 | `audit.read` | Complete audit logs (Founder-only) |
 
 ## Role → permission seed matrix
@@ -42,8 +42,8 @@ Founder-restricted boundary) — see `open-items.md`.
 | CRM — Agent calling workspace | yes | yes | yes (own calls) | no |
 | CRM — Relationship Manager workspace | yes | yes | no | no |
 | CRM — All customer records | yes | yes | **assigned only** (service-level scope) | no |
-| CRM — AI Assistant (chat) | yes | yes | yes | no |
-| CRM — AI Assistant content mgmt | yes | yes | no | no |
+| CRM — Knowledge Base browse + AI Assistant (chat) | yes | yes | yes | no |
+| CRM — Knowledge Base content mgmt | yes | yes | no | no |
 | Audit logs / security settings | **yes** | no | no | no |
 | System administration | yes | no | no | no |
 
@@ -52,9 +52,11 @@ Founder-restricted boundary) — see `open-items.md`.
 - **Backend-only.** A global `AuthGuard` validates the access token; `@RequirePermission`
   gates every handler; `PermissionGuard` rejects missing permissions (UI checks are
   supplementary).
-- **AI Assistant permissions.** `assistant.use` gates `POST /assistant/chat` (Agents/telecallers
-  reach guidance read-only through the chat). `assistant.manage` gates guidance content
-  management (`GET/POST/PATCH /assistant/guidance`) — Founder/Manager only.
+- **Knowledge Base + AI Assistant permissions.** `assistant.use` gates `POST /assistant/chat`
+  **and** `GET /assistant/guidance` — telecallers browse/search active rows on the Knowledge
+  Base page and reach the same guidance read-only through the chat. `assistant.manage` gates
+  guidance content management (`POST/PATCH /assistant/guidance`, plus `includeInactive` on
+  the list) — Founder/Manager only.
 - **Relationship ownership scoping.** `relationship.read` list is scoped to the Manager's own
   active portfolio (a Manager cannot view or filter another RM's customers — 403); the
   Founder sees all with an optional `rmId` filter. `relationship.manage` lets a Manager

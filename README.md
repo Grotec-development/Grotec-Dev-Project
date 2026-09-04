@@ -7,7 +7,7 @@ CRM for GROTEC FarmerOS, built incrementally over five months per the approved p
   API foundation, responsive UI shell.
 - Month 2 — Agent Calling Workspace (auto-dialer behind an internal abstraction).
 - Month 3 — Call outcomes (Interested / Not Interested / Not Answered), follow-ups, sales progression.
-- Month 4 — Relationship Manager ownership + AI Assistant (chat).
+- Month 4 — Relationship Manager ownership + Knowledge Base (browse/manage) + AI Assistant (chat).
 - Month 5 — Telecaller dashboard, reporting, hardening, E2E.
 
 **Scope guardrails:** no HRMS/payroll/inventory/accounting/sales-transactions in this project.
