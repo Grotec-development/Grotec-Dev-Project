@@ -36,7 +36,8 @@ _Last updated: Month 5. Base path `/api/v1`. Interactive docs served by the API 
 | Relationship | `GET /relationship/customers?rmId&q&unassigned=1` (portfolio; `unassigned=1` lists converted customers with no RM) · `GET /relationship/holders` (eligible RM holders + load) | `relationship.read` (FOUNDER/MANAGER; MANAGER scoped to own portfolio) |
 | Relationship | `POST /relationship/customers/:customerId/assign` `{ employeeId, reason? }` · `POST /relationship/customers/:customerId/release` `{ reason? }` (audited; one active RM per customer) | `relationship.manage` (FOUNDER any; MANAGER own portfolio / claim-to-self) |
 | Customer notes | `GET /customers/:id/notes` · `POST /customers/:id/notes` `{ body }` (audited `customer.note_added`) | `customer.read` / `customer.update` + customer scope |
-| Dashboard | `GET /dashboard/summary` — role-scoped metrics from real data: calls today (dialed/connected/completed/not-answered), follow-ups (pending/overdue/due-today/completed-today), leads (open/closed/new-this-week), customers (visible/converted/interested), recent calls | `call.read` (AGENT = own workload, `scope: "me"`; MANAGER/FOUNDER = team) |
+| Dashboard | `GET /dashboard/summary?range=day\|week\|month` — role-scoped metrics from real data: calls in the window (dialed/connected/completed/not-answered), follow-ups (pending/overdue/due-today/completed-today), leads (open/closed/new-this-week), customers (visible/converted/interested), farmer pipeline segments, recent calls | `call.read` (AGENT = own workload, `scope: "me"`; MANAGER/FOUNDER = team) |
+| Dashboard | `GET /dashboard/pipeline?state=converted\|open\|interested\|not_interested\|never_reached` — drill-down list of the farmers in one pipeline segment (farmer code, phone, location, crops + acreage); unknown state falls back to an empty `never_reached` slice | `call.read` (same role scoping) |
 | Audit | `GET /audit?entityType&entityId&actorId&action&from&to&page` | FOUNDER only (PRD §5.2) |
 
 List responses: `{ items: [], total, page, pageSize }`; `GET /calls/queue` returns an array.
@@ -78,13 +79,21 @@ and `lastCall` per lead.
 
 ## Dashboard summary shape (Month 5)
 
-`GET /dashboard/summary` → `{ scope: "me"|"team", calls: { dialedToday, connectedToday,
-completedToday, notAnsweredToday }, followUps: { pending, overdue, dueToday,
-completedToday }, leads: { open, closedTotal, newThisWeek }, customers: { total, converted,
-interested }, recentActivity: [...] }`. “Connected” counts calls that ended after connecting
+`GET /dashboard/summary?range=` → `{ scope: "me"|"team", window: "day"|"week"|"month",
+calls: { dialedToday, connectedToday, completedToday, notAnsweredToday },
+followUps: { pending, overdue, dueToday, completedToday }, leads: { open, closedTotal,
+newThisWeek }, customers: { total, converted, interested }, pipeline: [{ state, count }],
+pipelineTotal, recentActivity: [...] }`. “Connected” counts calls that ended after connecting
 (agent-completed conversations); `converted` counts customers with an active RM row
 (team) or farmers the agent moved to Sales (agent); every number is a live aggregate — no
 mock metrics.
+
+`pipeline` buckets farmers by their current CRM state in one SQL pass per role with fixed
+precedence: converted (active RM) > open lead > last outcome Interested > last outcome Not
+interested > never reached (PRD §6.2's interested/converted picture, visualised as a donut
+on the dashboard). The pipeline is all-time by design (independent of `range`), while call
+metrics respect the `range` window. `GET /dashboard/pipeline?state=` returns the matching
+farmers (max 60) with code, primary phone, location and crops for the drill-down list.
 
 ## Knowledge Base (browse) + Assistant chat shapes
 

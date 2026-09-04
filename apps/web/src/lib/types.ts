@@ -237,12 +237,18 @@ export interface CustomerNote {
   author: { id: string; fullName: string; email: string };
 }
 
+export type DashboardRange = 'day' | 'week' | 'month';
+export type PipelineState = 'converted' | 'open' | 'interested' | 'not_interested' | 'never_reached';
+
 export interface DashboardSummary {
   scope: 'me' | 'team';
+  window: DashboardRange;
   calls: { dialedToday: number; connectedToday: number; completedToday: number; notAnsweredToday: number };
   followUps: { pending: number; overdue: number; dueToday: number; completedToday: number };
   leads: { open: number; newThisWeek: number; closedTotal: number };
   customers: { total: number; converted: number; interested: number };
+  pipeline: Array<{ state: PipelineState; count: number }>;
+  pipelineTotal: number;
   recentActivity: Array<{
     kind: 'call';
     id: string;
@@ -252,6 +258,22 @@ export interface DashboardSummary {
     outcome: CallOutcome | null;
     startedAt: string;
   }>;
+}
+
+export interface PipelineDrilldownItem {
+  id: string;
+  farmerCode: string | null;
+  fullName: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  primaryPhone: string | null;
+  location: { village: string | null; taluk: string | null; district: string | null; state: string | null } | null;
+  crops: Array<{ name: string; acreage: number; unit: string }>;
+}
+
+export interface PipelineDrilldown {
+  state: PipelineState;
+  total: number;
+  items: PipelineDrilldownItem[];
 }
 
 export interface QueueItem {

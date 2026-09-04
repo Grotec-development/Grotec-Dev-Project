@@ -218,6 +218,12 @@ Goal: telecaller dashboard from real CRM data (PRD §6.2) plus the final hardeni
       crops, make-primary actions and acreage notes directly on the customer detail page
       (backend endpoints already existed; the UI gap is closed — verified live: alternate
       phone + Tomato crop added to a demo farmer)
+- [x] Interactive dashboard (post-completion add-on): farmer-pipeline donut (converted / open /
+      interested / not-interested / never-reached, all-time, role-scoped) with hover-highlight
+      slices and click-to-drill-down farmer lists (code, phone, location, crops → customer
+      profile); Today / 7 days / 30 days window control drives the call metrics; backend
+      pipeline segmentation is a single SQL pass per role + `GET /dashboard/pipeline`
+      drill-down endpoint (e2e: segmentation, drill-down items, range echo, 403s)
 
 ### Notes
 
