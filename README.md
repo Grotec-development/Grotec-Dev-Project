@@ -7,7 +7,7 @@ CRM for GROTEC FarmerOS, built incrementally over five months per the approved p
   API foundation, responsive UI shell.
 - Month 2 — Agent Calling Workspace (auto-dialer behind an internal abstraction).
 - Month 3 — Call outcomes (Interested / Not Interested / Not Answered), follow-ups, sales progression.
-- Month 4 — Relationship Manager ownership + Knowledge Base.
+- Month 4 — Relationship Manager ownership + AI Assistant (chat).
 - Month 5 — Telecaller dashboard, reporting, hardening, E2E.
 
 **Scope guardrails:** no HRMS/payroll/inventory/accounting/sales-transactions in this project.
@@ -61,3 +61,6 @@ Integration/API tests run against a real PostgreSQL (`grotec_test` DB), never a 
 See `docs/`. The PRD v2.1 and the Developer Requirement Brief belong in `docs/reference/`.
 Anything seeded/implemented before those files are reviewed is flagged as **provisional** in
 `docs/open-items.md` and `docs/permissions.md`.
+
+Real company/product data (Grotec Agro Products, its product lines, roles) lives in
+`docs/company-context.md` — use it instead of placeholder text in seed data, templates, and copy.

@@ -39,8 +39,8 @@ prevention, crops/acreage, leads + lead ownership, audit, API, responsive UI she
 - **PRD review complete** for Month 1 scope; unresolved items tracked in `open-items.md`.
 - **Month 1 web foundation live** — React SPA on `:5173` (login → role-filtered shell →
   customer records/leads/crops/team/audit) wired to the API through the Vite `/api` proxy.
-  Dashboard / Agent / Relationship Manager / Knowledge Base show month-placeholder pages
-  until their build months.
+  Dashboard / Agent / Relationship Manager show month-placeholder pages until their build
+  months (the Knowledge Base placeholder was replaced by the AI Assistant — see below).
 
 ## Month 2 — Agent Calling Workspace (in progress)
 
@@ -78,3 +78,37 @@ record the call, without navigating away. Call outcomes are Month 3; Month 2 rec
 - **Frontend**: `/agent` is now the full-screen workspace (month placeholder removed).
 - **Open items added**: queue formation (provisional), one-active-call rule, real vendor
   webhook contract — see `docs/open-items.md` #7–9.
+
+## Feature change (Sept 4): Knowledge Base → AI Assistant chat
+
+Approved scope change: remove the Knowledge Base page/nav/route and replace the static lookup
+with a global AI-assisted chat widget across the whole authenticated app.
+
+### Order of work
+
+- [x] Permissions `assistant.use` (chat: FOUNDER/MANAGER/AGENT) + `assistant.manage`
+      (guidance content: FOUNDER/MANAGER); audit action `assistant.chat`; entity types
+      `ASSISTANT` / `CROP_PRODUCT_GUIDANCE`
+- [x] Schema: `crop_product_guidance` (crop → problem keywords → recommended Grotec products
+      → usage) — migration `20260904140000_assistant`
+- [x] Seed: role matrices + 13 starter guidance rows using the real Grotec catalog
+      (docs/company-context.md); rows editable by Founder/Manager
+- [x] Assistant module: `POST /assistant/chat` (retrieval scoring → Grotec company-context
+      prompt → LLM behind the `ASSISTANT_LLM_PROVIDER` token → answer + `sources`; every
+      Q&A audited; graceful “assistant unavailable” when `LLM_API_KEY` is missing), plus
+      guidance content endpoints `GET/POST /assistant/guidance`, `PATCH /assistant/guidance/:id`
+- [x] Backend tests green — 57 total (+4 assistant e2e: stub-LLM happy path with sources +
+      audit, staff 403, no-key fallback, guidance RBAC + CRUD)
+- [x] Web: removed Knowledge Base nav item + route + page; floating “Ask Grotec Assistant”
+      widget in the shell (collapsible panel, message history in React state only, Sources
+      lines under answers, hidden for users without `assistant.use`); Agent workspace
+      auto-passes the active call's farmer + crop into the widget
+- [x] Docs aligned (permissions/api/architecture/open-items/company-context) + live preview
+      verified (widget appears per-role; mid-call question carries “Helping Ramesh Patel ·
+      crop context attached”; graceful no-key answer)
+
+### Notes
+
+- The earlier “no AI-assisted features” guardrail is superseded for CRM scope by this approved
+  feature change (recorded in `open-items.md`). No vendor is hard-coded — the LLM provider is
+  an internal abstraction configured by env (`LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL`).

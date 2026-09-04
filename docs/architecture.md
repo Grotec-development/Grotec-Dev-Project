@@ -9,7 +9,10 @@ Month 1 delivered the foundation: shared employee identity, RBAC, customer/farme
 phone duplicate prevention, crops/acreage, leads + lead ownership, audit, REST API, responsive UI.
 Month 2 delivers the Agent calling workspace: full-screen workspace UI, auto-dial behind an
 internal provider abstraction, call records + status synchronisation, calling queue, mid-call
-customer creation and call notes.
+customer creation and call notes. The planned Knowledge Base *screen* was replaced by an
+**AI Assistant** chat: structured crop-product guidance is retrieved for the message and fed
+(plus Grotec company context) to an LLM behind an internal provider abstraction; every
+question+answer is audited. The chat answers gracefully when no LLM is configured.
 
 Future GROTEC modules (HRMS, inventory, sales transactions, etc.) must **extend** this system,
 not duplicate its identity, ownership, history, or audit infrastructure.
@@ -30,7 +33,8 @@ not duplicate its identity, ownership, history, or audit infrastructure.
 ## Layering
 
 ```
-Web SPA ──REST /api/v1──▶ API modules (Auth, Employees, Customers, Crops, Leads, Calls, Audit)
+Web SPA ──REST /api/v1──▶ API modules (Auth, Employees, Customers, Crops, Leads, Calls,
+                            Assistant, Audit)
                             │ RBAC guard (permissions) → service layer (transactions,
                             │ business rules, validation) → AuditService → Prisma
                             ▼
@@ -41,6 +45,15 @@ Telephony (Month 2):   CallsService → DialerRegistry → AutoDialerProvider (i
                                                 └── FutureVendorAdapter (webhook + poll, TBD)
   Vendor status pushes → POST /dialer/webhooks/:provider (shared secret) → same seam.
   CRM business logic never imports a vendor SDK; the provider id is config (DIALER_PROVIDER).
+
+Assistant (replaces KB screen):  AssistantService → GuidanceService (retrieval: rows from
+  crop_product_guidance scored against the question + optional crop/customer context)
+                                        │
+                                        ▼
+                              ASSISTANT_LLM_PROVIDER (internal token)
+                                 ├── OpenAiCompatibleLlmProvider (env-configured, default)
+                                 └── future adapters / test stubs
+  No LLM key configured → graceful “assistant unavailable” answer. Q&A → audit (assistant.chat).
 ```
 
 ## Cross-cutting decisions
@@ -57,6 +70,9 @@ Telephony (Month 2):   CallsService → DialerRegistry → AutoDialerProvider (i
 - **Soft delete**: business records (`customers`, phones, locations, crops, customer_crops,
   leads) carry nullable `deleted_at` and are excluded from queries. Call/call-note rows are
   historical records and are never deleted. Ownership and audit rows are never deleted.
+- **AI Assistant**: `assistant.use` gates chat; `assistant.manage` gates guidance content.
+  Agents reach guidance read-only through the chat; Founder/Manager curate rows
+  (`crop_product_guidance`: crop, problem keywords, recommended Grotec products, usage).
 - **One active call per agent**: a 409 (`ACTIVE_CALL_EXISTS`) blocks a second in-flight call on
   the same workspace; calls in-flight on a dead provider reconcile to FAILED/UNKNOWN
   (provider returns no status → marked failed by the status-sync loop).

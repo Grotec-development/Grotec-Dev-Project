@@ -1,7 +1,8 @@
 # API
 
-_Last updated: Month 2. Base path `/api/v1`. Interactive docs served by the API at `/api/docs`
-(Swagger/OpenAPI). All routes require a valid access token unless marked public._
+_Last updated: Month 2 + AI Assistant feature change. Base path `/api/v1`. Interactive docs
+served by the API at `/api/docs` (Swagger/OpenAPI). All routes require a valid access token
+unless marked public._
 
 ## Error envelope
 
@@ -28,6 +29,8 @@ _Last updated: Month 2. Base path `/api/v1`. Interactive docs served by the API 
 | Calls | `POST /calls/:id/end` · `POST /calls/:id/notes` | AGENT (own call) / MANAGER / FOUNDER |
 | Call history | `GET /customers/:id/calls` | `call.read` + customer scope |
 | Dialer webhooks | `POST /dialer/webhooks/:provider` (body: `{ providerCallId, status, … }`; header `x-webhook-secret`) | public, secret-guarded (vendor status pushes) |
+| Assistant | `POST /assistant/chat` (body `{ message, customerId?, cropId?, conversationId? }`) — retrieves crop-product guidance, calls the LLM with it + Grotec company context, audits the Q&A | `assistant.use` (FOUNDER/MANAGER/AGENT) |
+| Assistant | `GET /assistant/guidance?cropId&q&includeInactive` · `POST /assistant/guidance` · `PATCH /assistant/guidance/:id` | `assistant.manage` (FOUNDER/MANAGER) |
 | Audit | `GET /audit?entityType&entityId&actorId&action&from&to&page` | FOUNDER only (PRD §5.2) |
 
 List responses: `{ items: [], total, page, pageSize }`; `GET /calls/queue` returns an array.
@@ -39,6 +42,19 @@ List responses: `{ items: [], total, page, pageSize }`; `GET /calls/queue` retur
 `provider` + `providerCallId` (integration seam), `connectedAt?`, `startedAt`, `endedAt?`,
 `disconnectReason?`, `notes[]` (with author). Queue items add `customer` (farmer code, name,
 primary phone, crops+acreage) and `lastCall` per lead.
+
+## Assistant chat shape (replaces the Knowledge Base screen)
+
+`POST /assistant/chat` answers with `{ status, conversationId, answer, sources }`:
+- `status`: `answered` (LLM answer) or `unavailable` (no `LLM_API_KEY` configured, network
+  failure, provider error — never a crash).
+- `sources`: the `crop_product_guidance` rows retrieved for the message (crop name,
+  problem keywords, recommended Grotec products, usage guidance). The agent workspace
+  auto-passes the active call's `customerId` + first `cropId` so mid-call questions carry
+  context; farmers can also be looked up server-side from `customerId`.
+- LLM access sits behind the internal `ASSISTANT_LLM_PROVIDER` token (OpenAI-compatible
+  adapter by default; configurable via `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`).
+- Every question+answer is recorded in the audit log (`assistant.chat`).
 
 ## Scope rules (backend-enforced)
 

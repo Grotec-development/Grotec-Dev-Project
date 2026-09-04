@@ -1,6 +1,18 @@
 # Open Items
 
-_Last updated: Month 2. PRD v2.1 + developer brief are reviewed (`docs/reference/`)._
+_Last updated: Month 2 + AI Assistant feature change. PRD v2.1 + developer brief are
+reviewed (`docs/reference/`)._
+
+## Resolved: Knowledge Base → AI Assistant (approved feature change, Sept 4)
+
+- The planned Knowledge Base *screen* was replaced by a global AI-assisted chat widget
+  (`assistant.use`/`assistant.manage`, `docs/permissions.md`). Its structured data
+  (crop → problem → recommended Grotec product + usage) lives in `crop_product_guidance`
+  and is used as retrieval context for the chat instead of a browsable table.
+- This supersedes the earlier "no AI-assisted features" guardrail for the CRM scope, per the
+  feature-change request. LLM provider stays behind an internal abstraction
+  (`ASSISTANT_LLM_PROVIDER`) — no vendor is hard-coded; chat answers "assistant
+  unavailable" gracefully when `LLM_API_KEY` is not configured.
 _Resolved items carry PRD references; everything still OPEN must be confirmed by GROTEC._
 
 ## Resolved during PRD review
@@ -34,7 +46,7 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
    defined. Needed before multi-language content/messaging.
 5. **Crop master.** PRD defines crop *category* (field/tree/plantation, §6.5.1) but no canonical
    crop list or acreage-unit/locale rules. Seed catalog (15 crops) is provisional; category
-   column arrives with the Knowledge Base in Month 4.
+   column arrives with the crop-product guidance content (AI Assistant) in Month 4.
 6. **Farmer identity extras** from the brief (crop age/stage, farm profile). Not modelled yet;
    evaluate with the customer-profile build-out rather than speculatively.
 7. **Calling-queue formation rules.** Not defined by the PRD; provisional = agent's open owned
