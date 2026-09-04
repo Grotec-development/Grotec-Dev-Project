@@ -210,11 +210,14 @@ Goal: telecaller dashboard from real CRM data (PRD §6.2) plus the final hardeni
       (overdue/due-today highlighting), recent-calls activity feed; every number live
 - [x] Nav cleaned: month badges removed; Dashboard / Agent / Relationship Manager items now
       permission-gated
-- [x] Full verification pass: API 75 tests / 11 files green (relationship 6, dashboard 3,
-      outcomes 9, assistant 4, calls 11, auth + prior suites), web typecheck + 3 unit tests,
+- [x] Full verification pass: API 76 tests / 11 files green, web typecheck + 3 unit tests,
       shared typecheck + 11 unit tests
 - [x] Docs aligned (permissions, api, architecture, business-rules, database, open-items,
       company-context, progress); live preview verified per role
+- [x] Customer profile editing UI (post-completion add-on): add/remove phones, locations and
+      crops, make-primary actions and acreage notes directly on the customer detail page
+      (backend endpoints already existed; the UI gap is closed — verified live: alternate
+      phone + Tomato crop added to a demo farmer)
 
 ### Notes
 
