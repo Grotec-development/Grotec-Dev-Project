@@ -109,3 +109,64 @@ export interface ApiErrorBody {
     matchedCustomer?: { id: string; fullName: string; status: string; phone: string } | null;
   };
 }
+
+export type CallStatus = 'DIALING' | 'RINGING' | 'CONNECTED' | 'ENDED' | 'NOT_ANSWERED' | 'FAILED';
+
+export interface CallNote {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; fullName: string };
+}
+
+export interface Call {
+  id: string;
+  customerId: string | null;
+  leadId: string | null;
+  agentId: string;
+  phoneNumber: string;
+  direction: 'OUTBOUND';
+  status: CallStatus;
+  provider: string;
+  providerCallId: string;
+  connectedAt: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  disconnectReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  notes: CallNote[];
+}
+
+export interface CallContext {
+  call: Call;
+  customer: CustomerDetail | null;
+  history: Call[];
+}
+
+export interface QueueItem {
+  leadId: string;
+  source: string | null;
+  status: 'OPEN' | 'CLOSED';
+  notes: string | null;
+  owner: { id: string; fullName: string } | null;
+  customer: {
+    id: string;
+    farmerCode: string | null;
+    fullName: string;
+    primaryPhone: string | null;
+    crops: Array<{
+      crop: { id: string; code: string; name: string; localName: string | null };
+      acreage: number;
+      unit: string;
+    }>;
+  };
+  lastCall: {
+    id: string;
+    phoneNumber: string;
+    status: CallStatus;
+    disconnectReason: string | null;
+    startedAt: string;
+    endedAt: string | null;
+  } | null;
+}

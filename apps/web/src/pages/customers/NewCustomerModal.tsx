@@ -15,9 +15,18 @@ interface PhoneRow {
 
 let nextKey = 1;
 
-export function NewCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function NewCustomerModal({
+  onClose,
+  onCreated,
+  initialPhone,
+}: {
+  onClose: () => void;
+  onCreated: (id: string) => void;
+  /** Pre-fill the dialed number (mid-call creation from the Agent workspace). */
+  initialPhone?: string;
+}) {
   const [fullName, setFullName] = useState('');
-  const [phones, setPhones] = useState<PhoneRow[]>([{ key: nextKey++, number: '', kind: 'MOBILE', isPrimary: true }]);
+  const [phones, setPhones] = useState<PhoneRow[]>([{ key: nextKey++, number: initialPhone ?? '', kind: 'MOBILE', isPrimary: true }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [match, setMatch] = useState<{ id: string; fullName: string; phone: string } | null>(null);
