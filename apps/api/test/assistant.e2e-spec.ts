@@ -69,6 +69,7 @@ describe('assistant — AI chat + Knowledge Base guidance content', () => {
       .set('Authorization', `Bearer ${founderToken}`)
       .send({
         cropId: crop.id,
+        problemType: 'NUTRIENT_DEFICIENCY',
         problemKeywords: ['leaf yellowing', 'nitrogen deficiency'],
         recommendedProducts: ['Azos', 'Bio Jeevan PF'],
         usageGuidance: 'Soil application at sowing; repeat at tillering per label.',
@@ -155,16 +156,54 @@ describe('assistant — AI chat + Knowledge Base guidance content', () => {
   });
 
   it('guidance content: founder creates, lists and edits rows; manager can read', async () => {
+    const crop = await prisma.crop.findUniqueOrThrow({ where: { code: 'RICE' } });
     const row = await seedGuidanceRow();
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/assistant/guidance')
+      .set('Authorization', `Bearer ${founderToken}`)
+      .send({
+        cropId: crop.id,
+        problemType: 'NUTRIENT_DEFICIENCY',
+        problemKeywords: ['leaf yellowing', 'nitrogen deficiency'],
+        recommendedProducts: ['Azos', 'Bio Jeevan PF'],
+        usageGuidance: 'Soil application at sowing; repeat at tillering per label.',
+      })
+      .expect(201);
+    const createdBody = created.body as { id: string; problemType: string; crop: { name: string; category: string | null } };
+    // PRD §6.5.2: the problem type + crop category travel with the entry.
+    expect(createdBody.problemType).toBe('NUTRIENT_DEFICIENCY');
+    expect(createdBody.crop.category).toBe('FIELD');
+
     const list = (await request(app.getHttpServer()).get('/api/v1/assistant/guidance').set('Authorization', `Bearer ${founderToken}`).expect(200)).body as Array<{ id: string }>;
     expect(list.some((g) => g.id === row.id)).toBe(true);
+
+    // Browse filters by problem/issue type (the KB quick-lookup path).
+    const byType = (await request(app.getHttpServer())
+      .get('/api/v1/assistant/guidance?type=NUTRIENT_DEFICIENCY')
+      .set('Authorization', `Bearer ${founderToken}`)
+      .expect(200)).body as Array<{ id: string; problemType: string }>;
+    expect(byType.some((g) => g.id === row.id)).toBe(true);
+    expect(byType.every((g) => g.problemType === 'NUTRIENT_DEFICIENCY')).toBe(true);
+    const otherType = (await request(app.getHttpServer())
+      .get('/api/v1/assistant/guidance?type=PEST')
+      .set('Authorization', `Bearer ${founderToken}`)
+      .expect(200)).body as Array<{ id: string }>;
+    expect(otherType.some((g) => g.id === row.id)).toBe(false);
+
+    // A bogus type is rejected by DTO validation on write paths.
+    await request(app.getHttpServer())
+      .post('/api/v1/assistant/guidance')
+      .set('Authorization', `Bearer ${founderToken}`)
+      .send({ cropId: crop.id, problemType: 'FUNGUS', problemKeywords: ['spots'], recommendedProducts: ['Azos'] })
+      .expect(400);
 
     const patched = await request(app.getHttpServer())
       .patch(`/api/v1/assistant/guidance/${row.id}`)
       .set('Authorization', `Bearer ${managerToken}`)
-      .send({ usageGuidance: 'Updated guidance: apply per label at sowing and tillering.' })
+      .send({ usageGuidance: 'Updated guidance: apply per label at sowing and tillering.', problemType: 'DISEASE' })
       .expect(200);
     expect((patched.body as { usageGuidance: string }).usageGuidance).toContain('Updated guidance');
+    expect((patched.body as { problemType: string }).problemType).toBe('DISEASE');
 
     // Editing a missing row is a clean 404.
     await request(app.getHttpServer())
