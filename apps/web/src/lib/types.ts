@@ -110,6 +110,19 @@ export interface AssistantSource {
   usageGuidance: string | null;
 }
 
+export interface KnowledgeGuidance {
+  id: string;
+  cropId: string;
+  crop: { id: string; code: string; name: string };
+  problemKeywords: string[];
+  recommendedProducts: string[];
+  usageGuidance: string | null;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AssistantChatResponse {
   status: 'answered' | 'unavailable';
   conversationId: string;

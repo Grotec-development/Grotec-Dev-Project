@@ -9,6 +9,7 @@ import {
   Sprout,
   ShieldCheck,
   ScrollText,
+  BookOpen,
   LogOut,
   Loader2,
   type LucideIcon,
@@ -41,6 +42,7 @@ const RECORD_ITEMS: NavItem[] = [
   { to: '/customers', label: 'Customers', icon: Contact, permission: 'customer.read' },
   { to: '/leads', label: 'Leads', icon: Users, permission: 'lead.read' },
   { to: '/crops', label: 'Crops', icon: Sprout, permission: 'crop.read' },
+  { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, permission: 'assistant.use' },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
