@@ -55,6 +55,38 @@ enum CallDirection {
   OUTBOUND
 }
 
+// Exactly three call outcomes (PRD §6.3.6) — Outcome and Next Action are
+// separate fields and must never be merged into one status column (§11.1).
+enum CallOutcome {
+  INTERESTED
+  NOT_INTERESTED
+  NOT_ANSWERED
+}
+
+// Next Action for an Interested outcome (PRD §6.3.7): exactly one, no default.
+enum NextAction {
+  CALLBACK
+  SALES
+}
+
+// Follow-up lifecycle (provisional — vocabulary not fixed by the PRD).
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+// Outbound message lifecycle (integration failures surfaced, never silent).
+enum MessageStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum MessageType {
+  PRODUCT_DETAILS
+}
+
 // ---------------------------------------------------------------------------
 // Identity & RBAC
 // ---------------------------------------------------------------------------
@@ -86,6 +118,10 @@ model Employee {
   assignedLeadOwnerships LeadOwnership[] @relation("LeadOwnershipAssignedBy")
   placedCalls       Call[]           @relation("CallPlacedBy")
   writtenCallNotes  CallNote[]       @relation("CallNoteAuthor")
+  ownedFollowUps    FollowUp[]       @relation("FollowUpOwner")
+  heldRelationshipOwnership RelationshipOwnership[] @relation("RelationshipOwnershipHolder")
+  assignedRelationshipOwnership RelationshipOwnership[] @relation("RelationshipOwnershipAssignedBy")
+  writtenCustomerNotes CustomerNote[] @relation("CustomerNoteAuthor")
 
   @@map("employees")
 }
@@ -167,6 +203,10 @@ model Customer {
   crops     CustomerCrop[]
   leads     Lead[]
   calls     Call[]
+  followUps FollowUp[]
+  relationshipOwnership RelationshipOwnership[]
+  outboundMessages OutboundMessage[]
+  notes     CustomerNote[]
 
   @@index([fullName])
   @@map("customers")
@@ -288,6 +328,7 @@ model Lead {
 
   ownerships LeadOwnership[]
   calls      Call[]
+  followUps  FollowUp[]
 
   @@index([customerId])
   @@index([status])
@@ -332,6 +373,8 @@ model Call {
   phoneNumber   String        @map("phone_number") @db.VarChar(20)
   direction     CallDirection @default(OUTBOUND)
   status        CallStatus
+  outcome       CallOutcome?  // PRD §6.3.6/§11.1 — outcome and next action stay separate
+  nextAction    NextAction?   @map("next_action")
   provider      String        @db.VarChar(40)
   providerCallId String       @unique @map("provider_call_id") @db.VarChar(120)
   startedAt     DateTime      @default(now()) @map("started_at")
@@ -341,13 +384,16 @@ model Call {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  notes CallNote[]
+  notes         CallNote[]
+  followUps     FollowUp[]
+  outboundMessages OutboundMessage[]
 
   @@index([agentId, startedAt])
   @@index([customerId, startedAt])
   @@index([leadId])
   @@index([phoneNumber])
   @@index([status])
+  @@index([outcome])
   @@map("calls")
 }
 
@@ -362,6 +408,95 @@ model CallNote {
 
   @@index([callId])
   @@map("call_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Call outcomes + follow-ups + sales handoff (Month 3)
+// ---------------------------------------------------------------------------
+
+model FollowUp {
+  id          String         @id @default(uuid()) @db.Uuid
+  customerId  String         @map("customer_id") @db.Uuid
+  customer    Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  callId      String?        @map("call_id") @db.Uuid
+  call        Call?          @relation(fields: [callId], references: [id], onDelete: SetNull)
+  leadId      String?        @map("lead_id") @db.Uuid
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  agentId     String         @map("agent_id") @db.Uuid
+  agent       Employee       @relation("FollowUpOwner", fields: [agentId], references: [id], onDelete: Restrict)
+  dueAt       DateTime       @map("due_at")
+  note        String
+  status      FollowUpStatus @default(PENDING)
+  completedAt DateTime?      @map("completed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@index([agentId, dueAt])
+  @@index([customerId, dueAt])
+  @@index([status, dueAt])
+  @@map("follow_ups")
+}
+
+// RM (relationship) ownership — a distinct concept from lead ownership (§6.4,
+// §11.1). A customer has exactly one CURRENT RM (partial unique index on
+// released_at IS NULL, added in the migration). Rows are never deleted.
+model RelationshipOwnership {
+  id           String   @id @default(uuid()) @db.Uuid
+  customerId   String   @map("customer_id") @db.Uuid
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  employeeId   String   @map("employee_id") @db.Uuid
+  employee     Employee @relation("RelationshipOwnershipHolder", fields: [employeeId], references: [id], onDelete: Restrict)
+  assignedById String   @map("assigned_by") @db.Uuid
+  assignedBy   Employee @relation("RelationshipOwnershipAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  reason       String?
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  releasedAt   DateTime? @map("released_at")
+
+  @@index([customerId])
+  @@index([employeeId])
+  @@map("relationship_ownership")
+}
+
+// Automatic product communication on an Interested outcome (§6.3.10). Every
+// attempt is recorded; the real channel/provider arrives behind MessagingProvider.
+model OutboundMessage {
+  id                String        @id @default(uuid()) @db.Uuid
+  customerId        String        @map("customer_id") @db.Uuid
+  customer          Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  callId            String?       @map("call_id") @db.Uuid
+  call              Call?         @relation(fields: [callId], references: [id], onDelete: SetNull)
+  type              MessageType   @default(PRODUCT_DETAILS)
+  provider          String        @db.VarChar(40)
+  providerMessageId String?       @map("provider_message_id") @db.VarChar(120)
+  recipientPhone    String        @map("recipient_phone") @db.VarChar(20)
+  body              String
+  status            MessageStatus @default(PENDING)
+  error             String?       @db.VarChar(500)
+  attempts          Int           @default(0)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  sentAt            DateTime?     @map("sent_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([status])
+  @@map("outbound_messages")
+}
+
+// ---------------------------------------------------------------------------
+// Customer notes (RM workspace, Month 4)
+// ---------------------------------------------------------------------------
+
+model CustomerNote {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  authorId   String   @map("author_id") @db.Uuid
+  author     Employee @relation("CustomerNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([customerId])
+  @@map("customer_notes")
 }
 
 // ---------------------------------------------------------------------------
