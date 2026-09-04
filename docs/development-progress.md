@@ -26,9 +26,10 @@ prevention, crops/acreage, leads + lead ownership, audit, API, responsive UI she
       aligned (§5.2 Staff = no CRM; audit Founder-only; farmer ID; taluk)
 - [x] Backend tests green — 38 integration tests + 11 shared unit tests
 - [x] Live API smoke-tested on :3000 (login, RBAC, duplicate 409, lookup, assignment, audit)
-- [ ] Web shell + auth
-- [ ] Web: customers / crops / leads / team / audit screens
-- [ ] Frontend tests + full check run
+- [x] Web shell + auth (role-filtered nav; four PRD CRM sections + records/admin)
+- [x] Web: customers list/search + create (dup-phone handoff), profile, leads, crops, team, audit
+- [x] Frontend unit tests (3) + typecheck; live demo on :5173 via Vite `/api` proxy
+- [ ] Full frontend test coverage + E2E smoke (Playwright) — hardening pass
 - [ ] Final docs, demo, stop gate
 
 ### Milestones reached
@@ -36,3 +37,7 @@ prevention, crops/acreage, leads + lead ownership, audit, API, responsive UI she
 - **Month 1 backend foundation complete** (see commits below) — API at `:3000`, docs at
   `/api/docs`, all tests green, git history in small logical commits.
 - **PRD review complete** for Month 1 scope; unresolved items tracked in `open-items.md`.
+- **Month 1 web foundation live** — React SPA on `:5173` (login → role-filtered shell →
+  customer records/leads/crops/team/audit) wired to the API through the Vite `/api` proxy.
+  Dashboard / Agent / Relationship Manager / Knowledge Base show month-placeholder pages
+  until their build months.

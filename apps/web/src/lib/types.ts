@@ -1,0 +1,111 @@
+import type { PermissionCode, RoleCode } from '@grotec/shared';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  fullName: string;
+  roleCode: RoleCode;
+  permissions: PermissionCode[];
+}
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CustomerSummary {
+  id: string;
+  farmerCode: string | null;
+  fullName: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  primaryPhone: string | null;
+  phoneCount: number;
+  createdAt: string;
+}
+
+export interface CustomerPhone {
+  id: string;
+  phone: string;
+  rawInput: string | null;
+  kind: 'MOBILE' | 'OTHER';
+  isPrimary: boolean;
+}
+
+export interface CustomerLocation {
+  id: string;
+  addressLine: string | null;
+  state: string | null;
+  district: string | null;
+  taluk: string | null;
+  village: string | null;
+  pincode: string | null;
+  isPrimary: boolean;
+}
+
+export interface CustomerCrop {
+  id: string;
+  crop: { id: string; code: string; name: string; localName: string | null };
+  acreage: number;
+  unit: string;
+  notes: string | null;
+}
+
+export interface CustomerLead {
+  id: string;
+  status: string;
+  source: string | null;
+  notes: string | null;
+  createdAt: string;
+  currentOwner: { id: string; fullName: string } | null;
+}
+
+export interface CustomerDetail {
+  id: string;
+  farmerCode: string | null;
+  fullName: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdBy: { id: string; fullName: string } | null;
+  createdAt: string;
+  phones: CustomerPhone[];
+  locations: CustomerLocation[];
+  crops: CustomerCrop[];
+  leads: CustomerLead[];
+}
+
+export interface Crop {
+  id: string;
+  code: string;
+  name: string;
+  localName: string | null;
+  isActive: boolean;
+}
+
+export interface Lead {
+  id: string;
+  customer: { id: string; fullName: string; status: 'ACTIVE' | 'INACTIVE' };
+  status: 'OPEN' | 'CLOSED';
+  source: string | null;
+  notes: string | null;
+  createdAt: string;
+  owner: { id: string; fullName: string } | null;
+}
+
+export interface Employee {
+  id: string;
+  email: string;
+  fullName: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  role: { id: string; code: RoleCode; name: string };
+  createdAt: string;
+}
+
+export interface ApiErrorBody {
+  error: {
+    code: string;
+    message: string;
+    details?: { fields?: unknown };
+    matchedCustomer?: { id: string; fullName: string; status: string; phone: string } | null;
+  };
+}
