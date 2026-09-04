@@ -159,8 +159,66 @@ automatic product message, all validated and tested.
   internal abstractions). Open items carried: messaging channel/template, follow-up status
   vocabulary + timezone, Not-Answered retry behaviour (open-items.md).
 
-## Month 4 — Relationship Manager ownership + AI Assistant (in progress → next)
+## Month 4 — Relationship Manager ownership workspace (complete)
 
-Remaining per plan: RM roster/assignment UI (My Customers, ownership release + authorised
-reassignment with audit trail), Relationship Manager workspace surfaced from
-`relationship_ownership`, plus Month 5 dashboard/hardening.
+Goal (PRD §6.4, §11): relationship ownership as a real, distinct RM concept — portfolio
+visibility with ownership restrictions, authorised reassignment/release with full audit
+history, and the workspace UI (conversion handoff from the Agent workspace landed in Month 3).
+
+### Order of work
+
+- [x] Permissions `relationship.read` (RM workspace) + `relationship.manage` (assign/reassign/
+      release) — MANAGER + FOUNDER; seed matrix refreshed
+- [x] Backend: `GET /relationship/customers?rmId&q&unassigned=1` (portfolio rows with
+      pending-follow-up counts + last call), `GET /relationship/holders` (eligible holders +
+      load), `POST /relationship/customers/:id/assign` + `…/release` — append-only ownership
+      history + audit (`relationship.assigned/released`); Manager scoped to own portfolio;
+      Founder any; assign-to-current-holder idempotent
+- [x] Customer notes: `GET/POST /customers/:id/notes` (audited `customer.note_added`), scoped
+      by the standard customer visibility
+- [x] Seed demo: two converted demo customers under Manager One with notes + pending
+      follow-ups (dev DB refreshed)
+- [x] Backend tests green — 75 total (relationship e2e × 6: RBAC, Sales→RM handoff, portfolio
+      scoping, founder reassign + idempotency + manager 403s, invalid holders, release +
+      claim-to-self, customer-note scope/audit; dashboard e2e × 3)
+- [x] Web: RM workspace page (`/relationship-manager`) — Portfolio / Unassigned tabs, founder
+      RM filter + search, detail panel with profile, ownership reassign/release, follow-ups
+      with Complete, customer notes composer, call history with outcome badges; nav gated to
+      `relationship.read`
+- [x] AI Assistant already global from the feature change (month placeholder removed earlier)
+
+## Month 5 — Dashboard + hardening (complete)
+
+Goal: telecaller dashboard from real CRM data (PRD §6.2) plus the final hardening pass.
+
+### Order of work
+
+- [x] `GET /dashboard/summary` — role-scoped live aggregates: calls today
+      (dialed/connected/completed/not-answered), follow-ups (pending/overdue/due-today/
+      completed-today), leads (open/closed/new-this-week), customers
+      (visible/converted/interested), recent calls; AGENT → `scope: "me"`, MANAGER/FOUNDER →
+      `scope: "team"`; staff 403
+- [x] Dashboard UI at `/` + `/dashboard` — stat cards, follow-ups-due board with Complete
+      (overdue/due-today highlighting), recent-calls activity feed; every number live
+- [x] Nav cleaned: month badges removed; Dashboard / Agent / Relationship Manager items now
+      permission-gated
+- [x] Full verification pass: API 75 tests / 11 files green (relationship 6, dashboard 3,
+      outcomes 9, assistant 4, calls 11, auth + prior suites), web typecheck + 3 unit tests,
+      shared typecheck + 11 unit tests
+- [x] Docs aligned (permissions, api, architecture, business-rules, database, open-items,
+      company-context, progress); live preview verified per role
+
+### Notes
+
+- No fake/mock metrics anywhere: dashboard numbers are Prisma aggregates over real rows.
+- Dev/test infra note: `infra/dev-db.mjs` skips initdb when `.pgdata` is already initialised
+  and clears stale `postmaster.pid`; a `serve` command keeps postgres alive detached.
+
+## CRM complete
+
+All five months are implemented and tested: foundation (M1) → agent calling workspace (M2) →
+call outcomes + follow-ups + sales progression (M3) → RM ownership workspace + AI Assistant
+(M4 + feature change) → dashboard + hardening (M5). Guards respected: exactly three call
+outcomes, outcome/next-action always separate, distinct lead vs relationship ownership, one
+shared employee identity, RBAC enforced backend-side, providers behind internal abstractions,
+no Phase 2/3 modules.

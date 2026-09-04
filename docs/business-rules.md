@@ -52,10 +52,13 @@ _Last updated: Month 3. Rules marked ⚠ are provisional or pending PRD confirma
   separate concept — never the same field.
   - On a **Sales** outcome the CRM auto-assigns the configured RM (env
     `RELATIONSHIP_MANAGER_EMAIL`) and records `relationship_ownership` (one active RM per
-    customer, partial unique index) with reason/assigned_by/assigned_at. Release + authorised
-    reassignment workflow is Month 4 (reassignment rules remain ⚠ open where the PRD is
-    silent).
-- Assignment/reassignment rules beyond "manager can assign" are ⚠ open.
+    customer, partial unique index) with reason/assigned_by/assigned_at.
+- **RM workspace + reassignment (Month 4, ⚠ provisional rules)**: eligible holders are ACTIVE
+  Manager-role employees. Managers view/transfer only their own portfolio and can claim an
+  unassigned converted customer to themselves; the Founder sees every portfolio (`rmId`
+  filter) and may assign/reassign/release any customer. Ownership changes are append-only +
+  audited (`relationship.assigned` / `relationship.released` with previous holder + reason).
+  PRD-level reassignment rules remain open — see `open-items.md` #13.
 
 ## Call outcomes (Month 3 — implemented, PRD §6.3.6–6.3.9)
 
@@ -88,6 +91,13 @@ _Last updated: Month 3. Rules marked ⚠ are provisional or pending PRD confirma
   (currently server-local interpretation of the date/time inputs).
 - Agents see and complete the callbacks they scheduled; Manager/Founder see all with
   `ownerId`/`status`/`customerId` filters.
+
+## Telecaller dashboard (Month 5)
+
+- Every metric is computed from live CRM data (`GET /dashboard/summary`) with agent vs team
+  scoping — never mocked. Connected = call that ended after connecting; converted = active RM
+  ownership (team) or the agent's Sales moves; interested = distinct customers with an
+  Interested call outcome. Unsupported management KPIs are not invented.
 
 ## Messaging / automatic product communication (Month 3, PRD §6.3.10)
 

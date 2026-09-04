@@ -1,6 +1,13 @@
 # Architecture
 
-_Last updated: Month 3 (call outcomes + follow-ups + sales progression)._
+_Last updated: Month 5 (CRM complete — RM workspace + AI assistant + dashboard)._
+
+Month 4 ships the **Relationship Manager workspace**: a portfolio view over
+`relationship_ownership` (My Customers for Managers, every portfolio for the Founder with an
+`rmId` filter), reassignment/release of RM ownership with append-only audit history, an
+unassigned-conversions queue, and customer notes on the RM panel. Month 5 ships the
+**Telecaller dashboard** (`GET /dashboard/summary`) with role-scoped metrics computed from
+live CRM data and a follow-ups-due board in the UI.
 
 ## System context
 
@@ -38,7 +45,7 @@ not duplicate its identity, ownership, history, or audit infrastructure.
 
 ```
 Web SPA ──REST /api/v1──▶ API modules (Auth, Employees, Customers, Crops, Leads, Calls,
-                            Assistant, Audit)
+                            Follow-ups, Relationship, Messaging, Assistant, Dashboard, Audit)
                             │ RBAC guard (permissions) → service layer (transactions,
                             │ business rules, validation) → AuditService → Prisma
                             ▼
@@ -93,6 +100,12 @@ Assistant (replaces KB screen):  AssistantService → GuidanceService (retrieval
   ownership, assigns `relationship_ownership` to the configured RM (`RELATIONSHIP_MANAGER_EMAIL`,
   one active RM per customer) and enqueues an `outbound_messages` row. Not Answered retries stay
   un-automated (open business decision).
+- **Relationship ownership (Month 4)**: append-only `relationship_ownership` rows with one
+  active RM per customer (partial unique index). MANAGER role = eligible holder; the RM
+  workspace is scoped per role (Manager own portfolio, Founder all). Customer notes are simple
+  append-only rows (`customer_notes`) written under the caller's existing customer scope.
+- **Dashboard (Month 5)**: one `DashboardService` computes the role-scoped summary with Prisma
+  aggregates over calls/follow-ups/leads/customers — no cached or mocked numbers.
 - **UUID PKs** everywhere; `created_at`/`updated_at` timestamptz maintained by the app layer.
 - **Phone numbers**: normalized to canonical E.164 (digits stored with `+`, e.g. `+919876543210`)
   at the API boundary; stored canonical form is searchable; duplicate prevention is a partial

@@ -48,6 +48,7 @@ audit_events (standalone, append-only)
 | `follow_ups` | Callback schedule from an Interested outcome (Month 3) | FK customer (RESTRICT); FK call (RESTRICT); FK agent (RESTRICT); status `PENDING/COMPLETED/CANCELLED` ⚠ provisional; indexes (agent,due_at), (customer,due_at), status |
 | `relationship_ownership` | RM ownership history (Month 3 activation on Sales; Month 4 workspace) | FK customer; FK employee (RM holder) + assigned_by; **partial unique (`customer_id`) WHERE `released_at IS NULL`** → one active RM; append-only history |
 | `outbound_messages` | Automatic product-communication records (Month 3, PRD §6.3.10) | FK customer; FK call (SET NULL); type `PRODUCT_DETAILS`; provider + status `PENDING/SENT/FAILED`; attempts, error; real channel/template ⚠ OPEN (mock provider only) |
+| `customer_notes` | Free-form relationship notes on a farmer (Month 4 RM panel) | FK customer (CASCADE on delete); FK author (RESTRICT); append-only; index customer_id |
 | `audit_events` | Append-only audit | indexes on entity, actor, time |
 
 ## Month 2 details
@@ -71,8 +72,9 @@ audit_events (standalone, append-only)
 
 ## Deferred to later months (designed, not created)
 
-- Month 4: relationship-manager workspace features on `relationship_ownership` (release /
-  authorised reassignment workflow, My Customers), customer-level notes if confirmed.
+- Month 4 ships the relationship-manager workspace on `relationship_ownership` (release /
+  authorised reassignment workflow, My Customers) and activates the `customer_notes` table
+  (created with the Month 3 migration) via `GET/POST /customers/:id/notes`.
 - Real messaging/dialer vendor adapters once vendors are selected (⚠ OPEN).
 - `crop_product_guidance` (created with the AI Assistant) gains a crop **category** column
   when the PRD crop taxonomy is confirmed.

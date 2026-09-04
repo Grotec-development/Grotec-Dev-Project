@@ -10,7 +10,9 @@ _Last updated: Month 3. PRD v2.1 + developer brief are reviewed (`docs/reference
   Interest history is the call outcomes on the customer's calls — no invented status ladder.
 - **RM on Sales.** Auto-assign the RM configured in `RELATIONSHIP_MANAGER_EMAIL` (seeded
   default `manager@grotec.local`) → `relationship_ownership` (one active per customer).
-  Founder/Manager roster picker + authorised reassignment workflow land in Month 4.
+  **Done in Month 4**: RM workspace (portfolio / unassigned-conversions tabs), Founder/Manager
+  roster + reassignment (`POST /relationship/customers/:id/assign`) and release
+  (`…/release`), audit trail on every ownership change, customer notes on the RM panel.
 
 ## Resolved: Knowledge Base → AI Assistant (approved feature change, Sept 4)
 
@@ -72,6 +74,19 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
 12. **Follow-up status vocabulary + scheduling timezone.** `PENDING/COMPLETED/CANCELLED` is
     provisional; due-at timezone interpretation is currently server-local. Confirm before
     multi-timezone rollout.
+13. **RM holder eligibility + manager transfer rules (provisional, Month 4).** Eligible RM
+    holders = ACTIVE Manager-role employees; Managers reassign only their own portfolio and
+    claim unassigned converted customers only to themselves; Founder may move/release any
+    portfolio. Reassignment rules were not defined by the PRD — confirm before rollout.
+
+## Month 5 notes
+
+- Telecaller dashboard + CRM reporting shipped from **real CRM data only** (no mock metrics):
+  `GET /dashboard/summary` is role-scoped (agent = own workload; manager/founder = team) and
+  covers calls dialed/connected/completed/not-answered today, follow-ups (pending / overdue /
+  due-today / completed-today), lead state, converted + interested customers, recent calls.
+- KPI definitions not grounded in the PRD (e.g. agent conversion-rate leaderboards) were not
+  invented.
 
 ## Environment-driven deviations from the approved plan (approved at kickoff)
 

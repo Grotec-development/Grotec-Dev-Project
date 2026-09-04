@@ -1,6 +1,9 @@
 # Permissions
 
-_Last updated: Month 1 — aligned with PRD v2.1 §5.2 (docs/reference/prd-v2.1.md)._
+_Last updated: Month 4 — aligned with PRD v2.1 §5.2 (docs/reference/prd-v2.1.md)._
+
+Relationship Manager ownership (`relationship.read`/`relationship.manage`) was added when
+the RM workspace shipped (Month 4).
 
 ## Roles (Phase 1 login roles only, PRD §5.1)
 
@@ -21,6 +24,9 @@ Relationship Manager is an ownership concept, not a login role (§6.4; open item
 | `customer.read` / `customer.create` / `customer.update` / `customer.deactivate` | Farmer master |
 | `crop.read` / `crop.manage` | Crop catalog (crop-product guidance prelude, §6.5) |
 | `lead.read` / `lead.create` / `lead.update` / `lead.assign` | Leads + ownership assignment |
+| `call.read` / `call.manage` | Calling workspace: queue, dial, end, notes, record outcome |
+| `relationship.read` | RM workspace — customers under relationship ownership (Manager: own portfolio; Founder: all) |
+| `relationship.manage` | Assign / reassign / release RM ownership (Manager: own portfolio; Founder: any) |
 | `assistant.use` | AI Assistant chat (question → retrieved guidance → answer; every Q&A audited) |
 | `assistant.manage` | Crop-product guidance content management (create/edit/list rows) |
 | `audit.read` | Complete audit logs (Founder-only) |
@@ -32,7 +38,9 @@ Founder-restricted boundary) — see `open-items.md`.
 
 | PRD §5.2 capability | Founder | Manager | Agent | Staff |
 |---|---|---|---|---|
-| CRM — Dashboard / Agent / RM | yes | yes | yes (own workload) | no |
+| CRM — Dashboard | yes | yes | yes (own workload) | no |
+| CRM — Agent calling workspace | yes | yes | yes (own calls) | no |
+| CRM — Relationship Manager workspace | yes | yes | no | no |
 | CRM — All customer records | yes | yes | **assigned only** (service-level scope) | no |
 | CRM — AI Assistant (chat) | yes | yes | yes | no |
 | CRM — AI Assistant content mgmt | yes | yes | no | no |
@@ -47,6 +55,13 @@ Founder-restricted boundary) — see `open-items.md`.
 - **AI Assistant permissions.** `assistant.use` gates `POST /assistant/chat` (Agents/telecallers
   reach guidance read-only through the chat). `assistant.manage` gates guidance content
   management (`GET/POST/PATCH /assistant/guidance`) — Founder/Manager only.
+- **Relationship ownership scoping.** `relationship.read` list is scoped to the Manager's own
+  active portfolio (a Manager cannot view or filter another RM's customers — 403); the
+  Founder sees all with an optional `rmId` filter. `relationship.manage` lets a Manager
+  transfer customers **in their own portfolio** or claim an unassigned converted customer to
+  themselves; only the Founder can move other RM portfolios or release anyone's ownership.
+  Eligible RM holders are ACTIVE Manager-role employees (provisional rule — see
+  `open-items.md`).
 - **Record scoping in services.** `AGENT` customer reads resolve to customers they created
   or currently own a lead on (`lead_ownership.released_at IS NULL`); `AGENT` lead reads to
   leads they currently own. Manager/Founder see all records.

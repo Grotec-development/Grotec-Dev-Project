@@ -1,6 +1,6 @@
 # API
 
-_Last updated: Month 3. Base path `/api/v1`. Interactive docs served by the API at
+_Last updated: Month 5. Base path `/api/v1`. Interactive docs served by the API at
 `/api/docs` (Swagger/OpenAPI). All routes require a valid access token unless marked public._
 
 ## Error envelope
@@ -32,6 +32,10 @@ _Last updated: Month 3. Base path `/api/v1`. Interactive docs served by the API 
 | Dialer webhooks | `POST /dialer/webhooks/:provider` (body: `{ providerCallId, status, … }`; header `x-webhook-secret`) | public, secret-guarded (vendor status pushes) |
 | Assistant | `POST /assistant/chat` (body `{ message, customerId?, cropId?, conversationId? }`) — retrieves crop-product guidance, calls the LLM with it + Grotec company context, audits the Q&A | `assistant.use` (FOUNDER/MANAGER/AGENT) |
 | Assistant | `GET /assistant/guidance?cropId&q&includeInactive` · `POST /assistant/guidance` · `PATCH /assistant/guidance/:id` | `assistant.manage` (FOUNDER/MANAGER) |
+| Relationship | `GET /relationship/customers?rmId&q&unassigned=1` (portfolio; `unassigned=1` lists converted customers with no RM) · `GET /relationship/holders` (eligible RM holders + load) | `relationship.read` (FOUNDER/MANAGER; MANAGER scoped to own portfolio) |
+| Relationship | `POST /relationship/customers/:customerId/assign` `{ employeeId, reason? }` · `POST /relationship/customers/:customerId/release` `{ reason? }` (audited; one active RM per customer) | `relationship.manage` (FOUNDER any; MANAGER own portfolio / claim-to-self) |
+| Customer notes | `GET /customers/:id/notes` · `POST /customers/:id/notes` `{ body }` (audited `customer.note_added`) | `customer.read` / `customer.update` + customer scope |
+| Dashboard | `GET /dashboard/summary` — role-scoped metrics from real data: calls today (dialed/connected/completed/not-answered), follow-ups (pending/overdue/due-today/completed-today), leads (open/closed/new-this-week), customers (visible/converted/interested), recent calls | `call.read` (AGENT = own workload, `scope: "me"`; MANAGER/FOUNDER = team) |
 | Audit | `GET /audit?entityType&entityId&actorId&action&from&to&page` | FOUNDER only (PRD §5.2) |
 
 List responses: `{ items: [], total, page, pageSize }`; `GET /calls/queue` returns an array.
@@ -57,6 +61,29 @@ and `lastCall` per lead.
   `status` (`PENDING|COMPLETED|CANCELLED` — provisional vocabulary), `completedAt?`.
 - `GET /calls/:id/context` now also returns `followUps` (customer's follow-ups) and
   `relationshipOwner` (active RM), so the workspace can show both.
+
+## Relationship (RM) workspace shape (Month 4)
+
+- `GET /relationship/customers` → `{ items: [...] }`, one row per active ownership with
+  `customer` (id, farmerCode, fullName, primaryPhone, location, crops+acreage), `owner`,
+  `assignedAt`, `reason`, `convertedAt`, `pendingFollowUps`, `lastCall` (status/outcome).
+  `?unassigned=1` rows have `owner: null`. `GET /relationship/holders` returns ACTIVE
+  Manager-role employees with their current customer count for pickers.
+- `POST …/assign` and `…/release` write append-only `relationship_ownership` history and
+  audit `relationship.assigned` / `relationship.released` with the actor, previous holder and
+  reason. Assign to the current holder is an idempotent no-op.
+- RM panel endpoints reuse the standard shapes: `GET /customers/:id`, `GET /customers/:id/notes`,
+  `GET /customers/:id/calls`, `GET /follow-ups?customerId=`.
+
+## Dashboard summary shape (Month 5)
+
+`GET /dashboard/summary` → `{ scope: "me"|"team", calls: { dialedToday, connectedToday,
+completedToday, notAnsweredToday }, followUps: { pending, overdue, dueToday,
+completedToday }, leads: { open, closedTotal, newThisWeek }, customers: { total, converted,
+interested }, recentActivity: [...] }`. “Connected” counts calls that ended after connecting
+(agent-completed conversations); `converted` counts customers with an active RM row
+(team) or farmers the agent moved to Sales (agent); every number is a live aggregate — no
+mock metrics.
 
 ## Assistant chat shape (replaces the Knowledge Base screen)
 
