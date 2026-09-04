@@ -1,6 +1,6 @@
 # Open Items
 
-_Last updated: Month 1. PRD v2.1 + developer brief are reviewed (`docs/reference/`)._
+_Last updated: Month 2. PRD v2.1 + developer brief are reviewed (`docs/reference/`)._
 _Resolved items carry PRD references; everything still OPEN must be confirmed by GROTEC._
 
 ## Resolved during PRD review
@@ -13,6 +13,12 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
    actively reduced (PRD §6.3.5); enforced at DB + API (409 + matched customer).
 4. ~~Location hierarchy~~ → village / taluk / district / state (PRD §6.3.4, glossary "Taluk").
 5. Shared employee identity for CRM + HRMS (PRD §11 invariants) — implemented.
+6. ~~Call-state vocabulary~~ → Month 2 models canonical states
+   (`DIALING/RINGING/CONNECTED/ENDED/NOT_ANSWERED/FAILED`) with providers mapping their own
+   vocabulary onto them (PRD §6.3.3 open item handled without hard-coding).
+7. ~~Auto-dialer integration approach~~ → internal `AutoDialerProvider` abstraction with a
+   config-selected provider; mock adapter ships; vendor TBD (PRD §6.3.2). Status pushes via
+   `POST /dialer/webhooks/:provider` (shared secret) or polling, both through the same seam.
 
 ## Still OPEN — requires GROTEC confirmation (do not guess)
 
@@ -30,13 +36,15 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
    crop list or acreage-unit/locale rules. Seed catalog (15 crops) is provisional; category
    column arrives with the Knowledge Base in Month 4.
 6. **Farmer identity extras** from the brief (crop age/stage, farm profile). Not modelled yet;
-   evaluate with the customer-profile build-out in Month 2/4 rather than speculatively.
-7. **Call-state vocabulary** is provider-dependent and open until the dialer vendor is selected
-   (PRD §6.3.3) — Month 2 must model it configurable.
-8. **Auto-dialer & messaging vendors/channels** are TBD (PRD §6.3.10, §12); integrations sit
-   behind internal abstractions (Month 2/3).
-9. **Not Answered retry behaviour** — explicitly open; never auto-invent (PRD §6.3.9).
-10. **RM as a distinct permissioned role** — deferred to Phase 2 (PRD §6.4, §18.4).
+   evaluate with the customer-profile build-out rather than speculatively.
+7. **Calling-queue formation rules.** Not defined by the PRD; provisional = agent's open owned
+   leads + dial-any-number (approved at Month 2 kickoff). Revisit with the Month 5 dashboard.
+8. **One active call per agent.** Enforced (409) as a provisional working rule; not PRD-specified.
+9. **Auto-dialer & messaging vendors/channels** are TBD (PRD §6.3.10, §12); the dialer
+   abstraction ships with a mock adapter — the real vendor adapter + webhook contract
+   (payload shape, auth scheme) is confirmed when the vendor is selected.
+10. **Not Answered retry behaviour** — explicitly open; never auto-invent (PRD §6.3.9).
+11. **RM as a distinct permissioned role** — deferred to Phase 2 (PRD §6.4, §18.4).
 
 ## Environment-driven deviations from the approved plan (approved at kickoff)
 

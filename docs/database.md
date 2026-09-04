@@ -1,6 +1,6 @@
 # Database
 
-_Last updated: Month 1. PostgreSQL + Prisma. Migrations live in `apps/api/prisma/migrations`._
+_Last updated: Month 2. PostgreSQL + Prisma. Migrations live in `apps/api/prisma/migrations`._
 
 ## Conventions
 
@@ -21,6 +21,8 @@ customers ──1:N──> customer_phones
 customers ──1:N──> customer_locations
 customers ──1:N──> customer_crops ──N:1 crops
 customers ──1:N──> leads ──1:N──> lead_ownership ──N:1 employees
+customers ──1:N──> calls ──1:N──> call_notes ──N:1 employees
+leads ──1:N──> calls (optional lead context)
 audit_events (standalone, append-only)
 ```
 
@@ -38,11 +40,26 @@ audit_events (standalone, append-only)
 | `customer_crops` | Farmer crop + acreage | partial unique (`customer_id`,`crop_id`) |
 | `leads` | Sales opportunity for a customer | FK customer; status OPEN/CLOSED (provisional vocabulary) |
 | `lead_ownership` | Agent ownership history | **partial unique (`lead_id`) WHERE `released_at IS NULL`** → exactly one current owner |
+| `calls` | One row per outbound auto-dial call (Month 2) | unique `provider_call_id`; FK agent (RESTRICT); FK customer/lead **SET NULL**; indexes (agent,started_at), (customer,started_at), phone, status |
+| `call_notes` | Agent notes on a call | FK call (CASCADE); FK author (RESTRICT); index call_id |
 | `audit_events` | Append-only audit | indexes on entity, actor, time |
+
+## Month 2 details
+
+- `calls` keeps the **normalized dialed number** independent of the customer so a call can
+  exist (and continue) while the customer record is created mid-call (PRD §6.3.5). The call
+  links to the customer immediately on creation (`customers` creation backfills in-flight
+  calls dialed to those numbers) and at terminal status via phone resolution.
+- `calls.status` uses the canonical `CallStatus` enum
+  (`DIALING/RINGING/CONNECTED/ENDED/NOT_ANSWERED/FAILED`). The PRD marks the final state list
+  provider-dependent (§6.3.3, open item) — providers map their vocabulary onto these canonical
+  states; nothing is hard-coded into business logic.
+- `calls.provider` + `provider_call_id` are the integration seam; a future vendor adapter
+  reuses the same rows (webhooks arrive at `POST /dialer/webhooks/:provider`).
+- Outcome/next-action columns are deliberately absent — they arrive with Month 3.
 
 ## Deferred to later months (designed, not created)
 
-- Month 2: `calls`, `call_notes` (+ auto-dialer integration state).
 - Month 3: `follow_ups`, call outcome handling (exactly Interested / Not Interested /
   Not Answered; outcome and next action stored as separate fields).
 - Month 4: `relationship_ownership`, knowledge base (`problems`, `solutions`, `kb_entries`).

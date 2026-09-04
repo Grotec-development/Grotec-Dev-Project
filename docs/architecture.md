@@ -1,12 +1,15 @@
 # Architecture
 
-_Last updated: Month 1 (CRM Foundation) — provisional until PRD review._
+_Last updated: Month 2 (Agent Calling Workspace)._
 
 ## System context
 
 GROTEC FarmerOS CRM is a 5-month incremental build (see `development-progress.md`).
-Month 1 delivers the foundation: shared employee identity, RBAC, customer/farmer master with
+Month 1 delivered the foundation: shared employee identity, RBAC, customer/farmer master with
 phone duplicate prevention, crops/acreage, leads + lead ownership, audit, REST API, responsive UI.
+Month 2 delivers the Agent calling workspace: full-screen workspace UI, auto-dial behind an
+internal provider abstraction, call records + status synchronisation, calling queue, mid-call
+customer creation and call notes.
 
 Future GROTEC modules (HRMS, inventory, sales transactions, etc.) must **extend** this system,
 not duplicate its identity, ownership, history, or audit infrastructure.
@@ -27,13 +30,17 @@ not duplicate its identity, ownership, history, or audit infrastructure.
 ## Layering
 
 ```
-Web SPA ──REST /api/v1──▶ API modules (Auth, Employees, Customers, Crops, Leads, Audit)
+Web SPA ──REST /api/v1──▶ API modules (Auth, Employees, Customers, Crops, Leads, Calls, Audit)
                             │ RBAC guard (permissions) → service layer (transactions,
                             │ business rules, validation) → AuditService → Prisma
                             ▼
                         PostgreSQL 16  (migrations + seed)
-Integration abstraction (Month 2+): AutoDialerProvider / MessagingProvider interfaces
-  with Mock providers now; vendor adapters later. CRM business logic never imports a vendor SDK.
+
+Telephony (Month 2):   CallsService → DialerRegistry → AutoDialerProvider (interface)
+                                                ├── MockAutoDialerProvider (dev, default)
+                                                └── FutureVendorAdapter (webhook + poll, TBD)
+  Vendor status pushes → POST /dialer/webhooks/:provider (shared secret) → same seam.
+  CRM business logic never imports a vendor SDK; the provider id is config (DIALER_PROVIDER).
 ```
 
 ## Cross-cutting decisions
@@ -48,8 +55,11 @@ Integration abstraction (Month 2+): AutoDialerProvider / MessagingProvider inter
   Errors always use `{ error: { code, message, details? } }` with REST status codes
   (409 for duplicate phone).
 - **Soft delete**: business records (`customers`, phones, locations, crops, customer_crops,
-  leads) carry nullable `deleted_at` and are excluded from queries. Ownership and audit rows
-  are never deleted — they are history.
+  leads) carry nullable `deleted_at` and are excluded from queries. Call/call-note rows are
+  historical records and are never deleted. Ownership and audit rows are never deleted.
+- **One active call per agent**: a 409 (`ACTIVE_CALL_EXISTS`) blocks a second in-flight call on
+  the same workspace; calls in-flight on a dead provider reconcile to FAILED/UNKNOWN
+  (provider returns no status → marked failed by the status-sync loop).
 - **UUID PKs** everywhere; `created_at`/`updated_at` timestamptz maintained by the app layer.
 - **Phone numbers**: normalized to canonical E.164 (digits stored with `+`, e.g. `+919876543210`)
   at the API boundary; stored canonical form is searchable; duplicate prevention is a partial
