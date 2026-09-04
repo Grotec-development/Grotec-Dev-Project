@@ -70,6 +70,8 @@ export const AuditEntityType = {
   CUSTOMER_LOCATION: 'CUSTOMER_LOCATION',
   CUSTOMER_CROP: 'CUSTOMER_CROP',
   CROP: 'CROP',
+  CROP_PRODUCT_GUIDANCE: 'CROP_PRODUCT_GUIDANCE',
+  ASSISTANT: 'ASSISTANT',
   LEAD: 'LEAD',
   CALL: 'CALL',
   CALL_NOTE: 'CALL_NOTE',
@@ -95,6 +97,8 @@ export const AuditAction = {
   CALL_ENDED: 'call.ended',
   CALL_LINKED: 'call.linked',
   NOTE_ADDED: 'call.note_added',
+  // AI Assistant (question + answer, answered or unavailable)
+  ASSISTANT_CHAT: 'assistant.chat',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 
