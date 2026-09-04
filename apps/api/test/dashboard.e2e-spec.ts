@@ -8,10 +8,13 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface Summary {
   scope: 'me' | 'team';
+  window: 'day' | 'week' | 'month';
   calls: { dialedToday: number; connectedToday: number; completedToday: number; notAnsweredToday: number };
   followUps: { pending: number; overdue: number; dueToday: number; completedToday: number };
   leads: { open: number; closedTotal: number; newThisWeek: number };
   customers: { total: number; converted: number; interested: number };
+  pipeline: Array<{ state: string; count: number }>;
+  pipelineTotal: number;
   recentActivity: Array<{ kind: string; id: string; customerName: string | null }>;
 }
 
@@ -46,12 +49,21 @@ describe('dashboard summary — real CRM data, role-scoped (Month 5)', () => {
 
   it('staff is forbidden; empty state returns zeros with the right shapes', async () => {
     await request(app.getHttpServer()).get('/api/v1/dashboard/summary').set('Authorization', `Bearer ${staffToken}`).expect(403);
+    await request(app.getHttpServer()).get('/api/v1/dashboard/pipeline').set('Authorization', `Bearer ${staffToken}`).expect(403);
     const agent = await summary(agentToken);
     expect(agent.scope).toBe('me');
+    expect(agent.window).toBe('day');
     expect(agent.calls).toEqual({ dialedToday: 0, connectedToday: 0, completedToday: 0, notAnsweredToday: 0 });
     expect(agent.recentActivity).toEqual([]);
+    expect(agent.pipelineTotal).toBe(0);
+    expect(agent.pipeline.every((p) => p.count === 0)).toBe(true);
     const team = await summary(managerToken);
     expect(team.scope).toBe('team');
+
+    // range=month widens the window (still zero on an empty DB) and echoes it.
+    const res = await request(app.getHttpServer()).get('/api/v1/dashboard/summary?range=month').set('Authorization', `Bearer ${managerToken}`).expect(200);
+    expect((res.body as Summary).window).toBe('month');
+    expect((res.body as Summary).calls.dialedToday).toBe(0);
   });
 
   it('agent summary reflects only the agent workload (calls, follow-ups, queue)', async () => {
@@ -142,5 +154,20 @@ describe('dashboard summary — real CRM data, role-scoped (Month 5)', () => {
     expect(team.leads.closedTotal).toBe(1);
     expect(team.customers.converted).toBe(1); // one active RM ownership
     expect(team.customers.interested).toBe(1);
+
+    // Drill-down: the converted slice lists this farmer for both scopes.
+    const teamSlice = await request(app.getHttpServer())
+      .get('/api/v1/dashboard/pipeline?state=converted')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect((teamSlice.body as { total: number; items: Array<{ id: string; fullName: string }> }).total).toBe(1);
+    expect((teamSlice.body as { items: Array<{ id: string; fullName: string }> }).items[0].fullName).toBe('Dash Sales Farmer');
+    const agentSlice = await request(app.getHttpServer())
+      .get('/api/v1/dashboard/pipeline?state=converted')
+      .set('Authorization', `Bearer ${agentToken}`)
+      .expect(200);
+    expect((agentSlice.body as { total: number }).total).toBe(1);
+    // An invalid state falls back to an empty never_reached slice rather than 400.
+    await request(app.getHttpServer()).get('/api/v1/dashboard/pipeline?state=bogus').set('Authorization', `Bearer ${managerToken}`).expect(200);
   });
 });
