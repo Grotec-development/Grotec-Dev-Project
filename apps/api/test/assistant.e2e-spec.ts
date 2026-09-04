@@ -32,7 +32,7 @@ interface ChatBody {
   sources?: Array<{ id: string; cropName: string; recommendedProducts: string[] }>;
 }
 
-describe('assistant — AI chat + guidance content (replaces Knowledge Base)', () => {
+describe('assistant — AI chat + Knowledge Base guidance content', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let noKeyApp: INestApplication;
@@ -121,6 +121,37 @@ describe('assistant — AI chat + guidance content (replaces Knowledge Base)', (
       .send({ cropId: crop.id, problemKeywords: ['yellowing'], recommendedProducts: ['Azos'] })
       .expect(403);
     await request(app.getHttpServer()).get('/api/v1/assistant/guidance').set('Authorization', `Bearer ${staffToken}`).expect(403);
+  });
+
+  it('Knowledge Base browse: agents read active guidance; inactive rows are manager-only', async () => {
+    const row = await seedGuidanceRow();
+    // Retire the row (content managers can deactivate).
+    await request(app.getHttpServer())
+      .patch(`/api/v1/assistant/guidance/${row.id}`)
+      .set('Authorization', `Bearer ${founderToken}`)
+      .send({ isActive: false })
+      .expect(200);
+
+    // Agents (telecallers) browse the Knowledge Base — active rows only, even
+    // when includeInactive is attempted.
+    const agentList = (await request(app.getHttpServer())
+      .get('/api/v1/assistant/guidance?includeInactive=true')
+      .set('Authorization', `Bearer ${agentToken}`)
+      .expect(200)).body as Array<{ id: string; isActive: boolean }>;
+    expect(agentList.some((g) => g.id === row.id)).toBe(false);
+    expect(agentList.every((g) => g.isActive)).toBe(true);
+
+    // Managers see the full catalog incl. retired rows when requested.
+    const managerList = (await request(app.getHttpServer())
+      .get('/api/v1/assistant/guidance?includeInactive=true')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200)).body as Array<{ id: string }>;
+    expect(managerList.some((g) => g.id === row.id)).toBe(true);
+    const managerActive = (await request(app.getHttpServer())
+      .get('/api/v1/assistant/guidance')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200)).body as Array<{ id: string }>;
+    expect(managerActive.some((g) => g.id === row.id)).toBe(false);
   });
 
   it('guidance content: founder creates, lists and edits rows; manager can read', async () => {

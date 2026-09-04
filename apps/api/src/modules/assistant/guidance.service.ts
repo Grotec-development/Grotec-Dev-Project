@@ -45,10 +45,13 @@ export class GuidanceService {
   ) {}
 
   async list(query: GuidanceListQuery, actor: AuthEmployee): Promise<unknown> {
-    // Content managers (assistant.manage) view the full catalog; inactive rows
-    // only when explicitly requested.
+    // View/search (assistant.use) sees only active rows — this is the Knowledge
+    // Base browse surface for telecallers. Content managers (assistant.manage)
+    // can additionally list retired rows via includeInactive.
+    const canManage = actor.permissions.includes('assistant.manage');
+    const includeInactive = canManage && query.includeInactive;
     const where: Prisma.CropProductGuidanceWhereInput = {
-      ...(query.includeInactive ? {} : { isActive: true }),
+      ...(includeInactive ? {} : { isActive: true }),
       ...(query.cropId ? { cropId: query.cropId } : {}),
       ...(query.q
         ? {

@@ -23,9 +23,9 @@ export class AssistantController {
     return this.assistant.chat(actor, dto);
   }
 
-  // --- Content management (assistant.manage: Founder, Manager) ---
+  // --- Knowledge Base browse/search (assistant.use: everyone with the chat) ---
   @Get('guidance')
-  @RequirePermission(PERMISSIONS.assistantManage)
+  @RequirePermission(PERMISSIONS.assistantUse)
   async listGuidance(
     @CurrentEmployee() actor: AuthEmployee,
     @Query('includeInactive') includeInactive?: string,
