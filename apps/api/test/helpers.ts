@@ -12,11 +12,12 @@ export interface TestUser {
   roleCode: RoleCode;
 }
 
-export const USERS: Record<RoleCode, TestUser> = {
+export const USERS: Record<RoleCode | 'STAFF', TestUser> = {
   FOUNDER: { email: 'founder@grotec.local', password: 'Founder@123', roleCode: 'FOUNDER' },
   MANAGER: { email: 'manager@grotec.local', password: 'Founder@123', roleCode: 'MANAGER' },
   AGENT: { email: 'agent@grotec.local', password: 'Founder@123', roleCode: 'AGENT' },
-  STAFF: { email: 'staff@grotec.local', password: 'Founder@123', roleCode: 'STAFF' },
+  DELIVERY: { email: 'delivery@grotec.local', password: 'Founder@123', roleCode: 'DELIVERY' },
+  STAFF: { email: 'delivery@grotec.local', password: 'Founder@123', roleCode: 'DELIVERY' },
 };
 
 /** Compiles and boots the real application against the seeded test database. */
@@ -46,9 +47,62 @@ export async function resetData(prisma: PrismaService): Promise<void> {
     prisma.customerLocation.deleteMany(),
     prisma.customerPhone.deleteMany(),
     prisma.customer.deleteMany(),
-    // Assistant tests create their own guidance rows after reset; seeded rows
-    // are also cleared so retrieval is deterministic across repeated runs.
     prisma.cropProductGuidance.deleteMany(),
+    prisma.leaveApprovalHistory.deleteMany(),
+    prisma.leaveApplication.deleteMany(),
+    prisma.attendanceApprovalHistory.deleteMany(),
+    prisma.attendancePunch.deleteMany(),
+    prisma.attendanceRecord.deleteMany(),
+    prisma.kpiPeriodScore.deleteMany(),
+    prisma.kpiTarget.deleteMany(),
+    prisma.advanceRecovery.deleteMany(),
+    prisma.advanceLedger.deleteMany(),
+    prisma.payrollLineItem.deleteMany(),
+    prisma.payrollRun.deleteMany(),
+    prisma.appNotification.deleteMany(),
+    prisma.employeeNote.deleteMany(),
+    prisma.employeeDocument.deleteMany(),
+    prisma.employeeHistoryRecord.deleteMany(),
+    prisma.employeeAssignment.deleteMany(),
+    prisma.salaryRevision.deleteMany({
+      where: {
+        employee: {
+          email: {
+            notIn: [
+              'founder@grotec.local',
+              'manager@grotec.local',
+              'agent@grotec.local',
+              'staff@grotec.local',
+              'delivery@grotec.local',
+              'staff2@grotec.local',
+              'staff3@grotec.local',
+              'staff4@grotec.local',
+              'staff5@grotec.local',
+            ],
+          },
+        },
+      },
+    }),
+    prisma.employee.deleteMany({
+      where: {
+        email: {
+          notIn: [
+            'founder@grotec.local',
+            'manager@grotec.local',
+            'agent@grotec.local',
+            'staff@grotec.local',
+            'delivery@grotec.local',
+            'staff2@grotec.local',
+            'staff3@grotec.local',
+            'staff4@grotec.local',
+            'staff5@grotec.local',
+          ],
+          not: {
+            startsWith: 'rm2-',
+          },
+        },
+      },
+    }),
   ]);
 }
 

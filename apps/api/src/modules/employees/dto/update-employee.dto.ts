@@ -20,4 +20,44 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsUUID()
   roleId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  employeeCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  designation?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  department?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  reportingManagerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  joiningDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  experience?: string | null;
+
+  @IsOptional()
+  @IsString()
+  address?: string | null;
+
+  @IsOptional()
+  @IsString()
+  notes?: string | null;
+
+  @IsOptional()
+  @IsString()
+  employmentStatus?: 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'TERMINATED';
 }

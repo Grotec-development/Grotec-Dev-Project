@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateGuidanceDto = void 0;
 const class_validator_1 = require("class-validator");
-const create_guidance_dto_1 = require("./create-guidance.dto");
+const shared_1 = require("@grotec/shared");
 class UpdateGuidanceDto {
     cropId;
     problemKeywords;
@@ -49,7 +49,7 @@ __decorate([
 ], UpdateGuidanceDto.prototype, "recommendedProducts", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsIn)(create_guidance_dto_1.PROBLEM_TYPES),
+    (0, class_validator_1.IsIn)(shared_1.PROBLEM_TYPES),
     __metadata("design:type", Object)
 ], UpdateGuidanceDto.prototype, "problemType", void 0);
 __decorate([

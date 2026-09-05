@@ -72,9 +72,20 @@ export declare const MessageStatus: {
     readonly FAILED: "FAILED";
 };
 export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus];
-/** Message types the CRM can auto-send (extended by later modules). */
+export declare const EmployeeEmploymentStatus: {
+    readonly ACTIVE: "ACTIVE";
+    readonly PROBATION: "PROBATION";
+    readonly ON_LEAVE: "ON_LEAVE";
+    readonly TERMINATED: "TERMINATED";
+};
+export type EmployeeEmploymentStatus = (typeof EmployeeEmploymentStatus)[keyof typeof EmployeeEmploymentStatus];
+/** Message types the CRM can auto-send (extended by HRMS modules). */
 export declare const MessageType: {
     readonly PRODUCT_DETAILS: "PRODUCT_DETAILS";
+    readonly FOLLOWUP_REMINDER: "FOLLOWUP_REMINDER";
+    readonly ATTENDANCE_DECISION: "ATTENDANCE_DECISION";
+    readonly LEAVE_DECISION: "LEAVE_DECISION";
+    readonly PAYROLL_STATUS: "PAYROLL_STATUS";
 };
 export type MessageType = (typeof MessageType)[keyof typeof MessageType];
 /** Why an outbound call ended (Month 2: agent-ended or provider terminal). */
@@ -130,6 +141,30 @@ export declare const AuditAction: {
     readonly CUSTOMER_NOTE_ADDED: "customer.note_added";
     readonly MESSAGE_SENT: "message.sent";
     readonly MESSAGE_FAILED: "message.failed";
+    readonly EMPLOYEE_CREATED: "employee.created";
+    readonly EMPLOYEE_UPDATED: "employee.updated";
+    readonly EMPLOYEE_TERMINATED: "employee.terminated";
+    readonly TERMINATED: "employee.terminated";
+    readonly DOCUMENT_UPLOADED: "employee.document_uploaded";
+    readonly DOCUMENT_DELETED: "employee.document_deleted";
+    readonly EMPLOYEE_NOTE_ADDED: "employee.note_added";
+    readonly HISTORY_RECORDED: "employee.history_added";
+    readonly DISCIPLINARY: "employee.disciplinary";
+    readonly ATTENDANCE_MARKED: "attendance.marked";
+    readonly ATTENDANCE_CORRECTED: "attendance.corrected";
+    readonly ATTENDANCE_APPROVED: "attendance.approved";
+    readonly ATTENDANCE_REJECTED: "attendance.rejected";
+    readonly ATTENDANCE_SYNCED_ESSL: "attendance.synced_essl";
+    readonly LEAVE_APPLIED: "leave.applied";
+    readonly LEAVE_APPROVED: "leave.approved";
+    readonly LEAVE_REJECTED: "leave.rejected";
+    readonly KPI_TARGET_CREATED: "kpi.target_created";
+    readonly KPI_TARGET_SET: "kpi.target_set";
+    readonly KPI_SCORE_FROZEN: "kpi.score_frozen";
+    readonly KPI_COMPUTED: "kpi.computed";
+    readonly PAYROLL_GENERATED: "payroll.generated";
+    readonly PAYROLL_APPROVED: "payroll.approved";
+    readonly PAYROLL_PUBLISHED: "payroll.published";
 };
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 export declare const PAGINATION: {
@@ -137,3 +172,83 @@ export declare const PAGINATION: {
     readonly DEFAULT_PAGE_SIZE: 20;
     readonly MAX_PAGE_SIZE: 100;
 };
+/** PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed. */
+export declare const PROBLEM_TYPES: readonly ["PEST", "DISEASE", "NUTRIENT_DEFICIENCY", "WEED", "OTHER"];
+export type ProblemType = (typeof PROBLEM_TYPES)[number];
+/** PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base. */
+export declare const CROP_CATEGORIES: readonly ["FIELD", "TREE", "PLANTATION", "VEGETABLE", "OTHER"];
+export type CropCategory = (typeof CROP_CATEGORIES)[number];
+/** PRD §7.5 Attendance status vocabulary */
+export declare const AttendanceStatus: {
+    readonly PRESENT: "PRESENT";
+    readonly ABSENT: "ABSENT";
+    readonly LATE: "LATE";
+    readonly HALF_DAY: "HALF_DAY";
+    readonly WEEKLY_OFF: "WEEKLY_OFF";
+    readonly HOLIDAY: "HOLIDAY";
+    readonly LEAVE: "LEAVE";
+};
+export type AttendanceStatus = (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
+export declare const AttendanceSource: {
+    readonly ESSL: "ESSL";
+    readonly MANUAL: "MANUAL";
+};
+export type AttendanceSource = (typeof AttendanceSource)[keyof typeof AttendanceSource];
+export declare const ApprovalStatus: {
+    readonly PENDING: "PENDING";
+    readonly APPROVED: "APPROVED";
+    readonly REJECTED: "REJECTED";
+};
+export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
+/** PRD §7.7 Leave request status */
+export declare const LeaveStatus: {
+    readonly PENDING: "PENDING";
+    readonly APPROVED: "APPROVED";
+    readonly REJECTED: "REJECTED";
+    readonly CANCELLED: "CANCELLED";
+};
+export type LeaveStatus = (typeof LeaveStatus)[keyof typeof LeaveStatus];
+/** PRD §7.9 Employee History type */
+export declare const EmployeeHistoryType: {
+    readonly TRAINING: "TRAINING";
+    readonly WARNING: "WARNING";
+    readonly COMMENDATION: "COMMENDATION";
+    readonly PROMOTION: "PROMOTION";
+};
+export type EmployeeHistoryType = (typeof EmployeeHistoryType)[keyof typeof EmployeeHistoryType];
+/** PRD §7.8.4 Monthly Payroll workflow states */
+export declare const PayrollStatus: {
+    readonly IDLE: "IDLE";
+    readonly GENERATED: "GENERATED";
+    readonly APPROVED_LOCKED: "APPROVED_LOCKED";
+    readonly PUBLISHED: "PUBLISHED";
+};
+export type PayrollStatus = (typeof PayrollStatus)[keyof typeof PayrollStatus];
+export declare const PayrollRunStatus: {
+    readonly IDLE: "IDLE";
+    readonly GENERATED: "GENERATED";
+    readonly APPROVED_LOCKED: "APPROVED_LOCKED";
+    readonly PUBLISHED: "PUBLISHED";
+};
+export type PayrollRunStatus = PayrollStatus;
+/** PRD §7.4.1 & §7.4.2 KPI metrics */
+export declare const KpiMetricType: {
+    readonly CALLS_DIALED: "CALLS_DIALED";
+    readonly CALLS_CONNECTED: "CALLS_CONNECTED";
+    readonly LEADS_CONVERTED: "LEADS_CONVERTED";
+    readonly CONVERSION_RATE: "CONVERSION_RATE";
+    readonly TOTAL_REVENUE: "TOTAL_REVENUE";
+    readonly CUSTOMER_QUALITY: "CUSTOMER_QUALITY";
+    readonly ATTENDANCE: "ATTENDANCE";
+    readonly CRM_DISCIPLINE: "CRM_DISCIPLINE";
+};
+export type KpiMetricType = (typeof KpiMetricType)[keyof typeof KpiMetricType];
+/** PRD §9 Notification event types */
+export declare const NotificationType: {
+    readonly FOLLOW_UP_REMINDER: "FOLLOW_UP_REMINDER";
+    readonly PRODUCT_DETAILS: "PRODUCT_DETAILS";
+    readonly ATTENDANCE_STATUS: "ATTENDANCE_STATUS";
+    readonly LEAVE_STATUS: "LEAVE_STATUS";
+    readonly PAYROLL_STATUS: "PAYROLL_STATUS";
+};
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];

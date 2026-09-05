@@ -54,6 +54,7 @@ describe('relationship ownership — RM workspace, assignment, release (Month 4)
   });
 
   afterAll(async () => {
+    await prisma.employee.deleteMany({ where: { email: { startsWith: 'rm2-' } } });
     await app.close();
   });
 

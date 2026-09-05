@@ -6,10 +6,11 @@ import { Alert, Button, Card, Field, Input } from '../components/ui';
 const DEMO_PASSWORD = 'Founder@123';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Founder', role: 'Full access — everything incl. Team, Audit log', email: 'founder@grotec.local' },
-  { label: 'Manager/Admin', role: 'Records + team + crops (no audit log)', email: 'manager@grotec.local' },
-  { label: 'Telecaller/Agent', role: 'Assigned records — customers, leads, crops', email: 'agent@grotec.local' },
-  { label: 'Staff', role: 'RBAC demo — no CRM access in Phase 1', email: 'staff@grotec.local' },
+  { label: 'Founder & CEO', role: 'FOUNDER (Rank 0) — Full CRM + Full HRMS + Audit + Payroll Publish', email: 'founder@grotec.local' },
+  { label: 'Operations Manager', role: 'MANAGER (Rank 1) — CRM + Manage Subordinates (No Founder/Peer access)', email: 'manager@grotec.local' },
+  { label: 'Senior Telecaller', role: 'AGENT (Rank 2) — Calling Workspace + CRM Leads + Own HRMS', email: 'agent@grotec.local' },
+  { label: 'Field Staff Associate', role: 'STAFF (Rank 2) — Telecaller Staff + Own HRMS', email: 'staff@grotec.local' },
+  { label: 'Field Delivery Associate', role: 'DELIVERY (Rank 2) — Zero CRM access + Personal HRMS only', email: 'delivery@grotec.local' },
 ];
 
 export function LoginPage() {

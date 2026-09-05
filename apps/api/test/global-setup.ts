@@ -28,8 +28,8 @@ export default function globalSetup(): void {
   const apiDir = path.resolve(__dirname, '..');
   const env = { ...process.env, DATABASE_URL: testUrl };
 
-  console.log('[global-setup] migrating test database…');
-  execSync('npx prisma migrate deploy', { cwd: apiDir, env, stdio: 'inherit' });
+  console.log('[global-setup] updating test database schema…');
+  execSync('npx prisma db push --force-reset --skip-generate', { cwd: apiDir, env, stdio: 'inherit' });
   console.log('[global-setup] seeding test database…');
   execSync('npx tsx prisma/seed.ts', { cwd: apiDir, env, stdio: 'inherit' });
   console.log('[global-setup] ready');

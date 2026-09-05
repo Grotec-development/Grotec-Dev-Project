@@ -3,8 +3,14 @@
  * Values are stored as these codes (configurable vocabulary, PRD §13); these
  * maps render them. Mirrors the API-side lists in the crops/assistant DTOs.
  */
-export const CROP_CATEGORIES = ['FIELD', 'TREE', 'PLANTATION', 'VEGETABLE', 'OTHER'] as const;
-export type CropCategory = (typeof CROP_CATEGORIES)[number];
+import {
+  CROP_CATEGORIES,
+  type CropCategory,
+  PROBLEM_TYPES,
+  type ProblemType,
+} from '@grotec/shared';
+
+export { CROP_CATEGORIES, type CropCategory, PROBLEM_TYPES, type ProblemType };
 
 export const CROP_CATEGORY_LABELS: Record<CropCategory, string> = {
   FIELD: 'Field crop',
@@ -13,9 +19,6 @@ export const CROP_CATEGORY_LABELS: Record<CropCategory, string> = {
   VEGETABLE: 'Vegetable crop',
   OTHER: 'Other',
 };
-
-export const PROBLEM_TYPES = ['PEST', 'DISEASE', 'NUTRIENT_DEFICIENCY', 'WEED', 'OTHER'] as const;
-export type ProblemType = (typeof PROBLEM_TYPES)[number];
 
 export const PROBLEM_TYPE_LABELS: Record<ProblemType, string> = {
   PEST: 'Pest attack',

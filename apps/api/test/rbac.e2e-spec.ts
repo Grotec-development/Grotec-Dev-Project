@@ -35,11 +35,11 @@ describe('rbac', () => {
     await request(app.getHttpServer()).get('/api/v1/audit').set('Authorization', `Bearer ${manager}`).expect(403);
   });
 
-  it('gives staff (HRMS/payroll role) no CRM access in Phase 1 (PRD §5.2)', async () => {
-    const staff = await loginToken(app, USERS.STAFF);
-    await request(app.getHttpServer()).get('/api/v1/customers').set('Authorization', `Bearer ${staff}`).expect(403);
-    await request(app.getHttpServer()).get('/api/v1/crops').set('Authorization', `Bearer ${staff}`).expect(403);
-    await request(app.getHttpServer()).get('/api/v1/employees').set('Authorization', `Bearer ${staff}`).expect(403);
+  it('gives delivery role zero CRM and zero employee-management access in Phase 1 (PRD §5.2)', async () => {
+    const delivery = await loginToken(app, USERS.DELIVERY);
+    await request(app.getHttpServer()).get('/api/v1/customers').set('Authorization', `Bearer ${delivery}`).expect(403);
+    await request(app.getHttpServer()).get('/api/v1/crops').set('Authorization', `Bearer ${delivery}`).expect(403);
+    await request(app.getHttpServer()).get('/api/v1/employees').set('Authorization', `Bearer ${delivery}`).expect(403);
   });
 
   it('blocks employees management for agents but allows manager read', async () => {
@@ -129,5 +129,34 @@ describe('rbac', () => {
 
     // Direct profile access is also scoped.
     await request(app.getHttpServer()).get(`/api/v1/customers/${otherId}`).set('Authorization', `Bearer ${agent}`).expect(200);
+  });
+
+  it('blocks a manager from viewing or modifying founder profile (ROLE_HIERARCHY_FORBIDDEN)', async () => {
+    const founder = await prisma.employee.findUniqueOrThrow({ where: { email: USERS.FOUNDER.email } });
+    const manager = await loginToken(app, USERS.MANAGER);
+
+    const resGet = await request(app.getHttpServer())
+      .get(`/api/v1/employees/${founder.id}`)
+      .set('Authorization', `Bearer ${manager}`)
+      .expect(403);
+    expect(resGet.body.error.code).toBe('ROLE_HIERARCHY_FORBIDDEN');
+
+    const resPatch = await request(app.getHttpServer())
+      .patch(`/api/v1/employees/${founder.id}`)
+      .set('Authorization', `Bearer ${manager}`)
+      .send({ fullName: 'Hacked Founder' })
+      .expect(403);
+    expect(resPatch.body.error.code).toBe('ROLE_HIERARCHY_FORBIDDEN');
+  });
+
+  it('blocks manager from resetting employee password (restricted to Founder)', async () => {
+    const agent = await prisma.employee.findUniqueOrThrow({ where: { email: USERS.AGENT.email } });
+    const manager = await loginToken(app, USERS.MANAGER);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/employees/${agent.id}/reset-password`)
+      .set('Authorization', `Bearer ${manager}`)
+      .send({ newPassword: 'NewPassword123' })
+      .expect(403);
   });
 });

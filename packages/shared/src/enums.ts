@@ -85,9 +85,21 @@ export const MessageStatus = {
 } as const;
 export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus];
 
-/** Message types the CRM can auto-send (extended by later modules). */
+export const EmployeeEmploymentStatus = {
+  ACTIVE: 'ACTIVE',
+  PROBATION: 'PROBATION',
+  ON_LEAVE: 'ON_LEAVE',
+  TERMINATED: 'TERMINATED',
+} as const;
+export type EmployeeEmploymentStatus = (typeof EmployeeEmploymentStatus)[keyof typeof EmployeeEmploymentStatus];
+
+/** Message types the CRM can auto-send (extended by HRMS modules). */
 export const MessageType = {
   PRODUCT_DETAILS: 'PRODUCT_DETAILS',
+  FOLLOWUP_REMINDER: 'FOLLOWUP_REMINDER',
+  ATTENDANCE_DECISION: 'ATTENDANCE_DECISION',
+  LEAVE_DECISION: 'LEAVE_DECISION',
+  PAYROLL_STATUS: 'PAYROLL_STATUS',
 } as const;
 export type MessageType = (typeof MessageType)[keyof typeof MessageType];
 
@@ -152,6 +164,31 @@ export const AuditAction = {
   CUSTOMER_NOTE_ADDED: 'customer.note_added',
   MESSAGE_SENT: 'message.sent',
   MESSAGE_FAILED: 'message.failed',
+  // HRMS actions (Part 11)
+  EMPLOYEE_CREATED: 'employee.created',
+  EMPLOYEE_UPDATED: 'employee.updated',
+  EMPLOYEE_TERMINATED: 'employee.terminated',
+  TERMINATED: 'employee.terminated',
+  DOCUMENT_UPLOADED: 'employee.document_uploaded',
+  DOCUMENT_DELETED: 'employee.document_deleted',
+  EMPLOYEE_NOTE_ADDED: 'employee.note_added',
+  HISTORY_RECORDED: 'employee.history_added',
+  DISCIPLINARY: 'employee.disciplinary',
+  ATTENDANCE_MARKED: 'attendance.marked',
+  ATTENDANCE_CORRECTED: 'attendance.corrected',
+  ATTENDANCE_APPROVED: 'attendance.approved',
+  ATTENDANCE_REJECTED: 'attendance.rejected',
+  ATTENDANCE_SYNCED_ESSL: 'attendance.synced_essl',
+  LEAVE_APPLIED: 'leave.applied',
+  LEAVE_APPROVED: 'leave.approved',
+  LEAVE_REJECTED: 'leave.rejected',
+  KPI_TARGET_CREATED: 'kpi.target_created',
+  KPI_TARGET_SET: 'kpi.target_set',
+  KPI_SCORE_FROZEN: 'kpi.score_frozen',
+  KPI_COMPUTED: 'kpi.computed',
+  PAYROLL_GENERATED: 'payroll.generated',
+  PAYROLL_APPROVED: 'payroll.approved',
+  PAYROLL_PUBLISHED: 'payroll.published',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 
@@ -160,3 +197,90 @@ export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
 } as const;
+
+/** PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed. */
+export const PROBLEM_TYPES = ['PEST', 'DISEASE', 'NUTRIENT_DEFICIENCY', 'WEED', 'OTHER'] as const;
+export type ProblemType = (typeof PROBLEM_TYPES)[number];
+
+/** PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base. */
+export const CROP_CATEGORIES = ['FIELD', 'TREE', 'PLANTATION', 'VEGETABLE', 'OTHER'] as const;
+export type CropCategory = (typeof CROP_CATEGORIES)[number];
+
+/** PRD §7.5 Attendance status vocabulary */
+export const AttendanceStatus = {
+  PRESENT: 'PRESENT',
+  ABSENT: 'ABSENT',
+  LATE: 'LATE',
+  HALF_DAY: 'HALF_DAY',
+  WEEKLY_OFF: 'WEEKLY_OFF',
+  HOLIDAY: 'HOLIDAY',
+  LEAVE: 'LEAVE',
+} as const;
+export type AttendanceStatus = (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
+
+export const AttendanceSource = {
+  ESSL: 'ESSL',
+  MANUAL: 'MANUAL',
+} as const;
+export type AttendanceSource = (typeof AttendanceSource)[keyof typeof AttendanceSource];
+
+export const ApprovalStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
+
+/** PRD §7.7 Leave request status */
+export const LeaveStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED',
+} as const;
+export type LeaveStatus = (typeof LeaveStatus)[keyof typeof LeaveStatus];
+
+/** PRD §7.9 Employee History type */
+export const EmployeeHistoryType = {
+  TRAINING: 'TRAINING',
+  WARNING: 'WARNING',
+  COMMENDATION: 'COMMENDATION',
+  PROMOTION: 'PROMOTION',
+} as const;
+export type EmployeeHistoryType = (typeof EmployeeHistoryType)[keyof typeof EmployeeHistoryType];
+
+/** PRD §7.8.4 Monthly Payroll workflow states */
+export const PayrollStatus = {
+  IDLE: 'IDLE',
+  GENERATED: 'GENERATED',
+  APPROVED_LOCKED: 'APPROVED_LOCKED',
+  PUBLISHED: 'PUBLISHED',
+} as const;
+export type PayrollStatus = (typeof PayrollStatus)[keyof typeof PayrollStatus];
+export const PayrollRunStatus = PayrollStatus;
+export type PayrollRunStatus = PayrollStatus;
+
+/** PRD §7.4.1 & §7.4.2 KPI metrics */
+export const KpiMetricType = {
+  CALLS_DIALED: 'CALLS_DIALED',
+  CALLS_CONNECTED: 'CALLS_CONNECTED',
+  LEADS_CONVERTED: 'LEADS_CONVERTED',
+  CONVERSION_RATE: 'CONVERSION_RATE',
+  TOTAL_REVENUE: 'TOTAL_REVENUE',
+  CUSTOMER_QUALITY: 'CUSTOMER_QUALITY',
+  ATTENDANCE: 'ATTENDANCE',
+  CRM_DISCIPLINE: 'CRM_DISCIPLINE',
+} as const;
+export type KpiMetricType = (typeof KpiMetricType)[keyof typeof KpiMetricType];
+
+/** PRD §9 Notification event types */
+export const NotificationType = {
+  FOLLOW_UP_REMINDER: 'FOLLOW_UP_REMINDER',
+  PRODUCT_DETAILS: 'PRODUCT_DETAILS',
+  ATTENDANCE_STATUS: 'ATTENDANCE_STATUS',
+  LEAVE_STATUS: 'LEAVE_STATUS',
+  PAYROLL_STATUS: 'PAYROLL_STATUS',
+} as const;
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
+
+

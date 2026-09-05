@@ -40,15 +40,46 @@ exports.PERMISSIONS = {
     assistantManage: 'assistant.manage',
     // Audit
     auditRead: 'audit.read',
+    // HRMS & Attendance
+    hrmsRead: 'hrms.read',
+    attendanceRead: 'attendance.read',
+    attendanceMark: 'attendance.mark',
+    attendanceApprove: 'attendance.approve',
+    // Leave
+    leaveRead: 'leave.read',
+    leaveApply: 'leave.apply',
+    leaveApprove: 'leave.approve',
+    // Payroll & Salary
+    payrollRead: 'payroll.read',
+    payrollManage: 'payroll.manage',
+    payrollApprove: 'payroll.approve',
+    // KPI
+    kpiRead: 'kpi.read',
+    kpiManage: 'kpi.manage',
+    // HRMS fine-grained permissions (Part 2)
+    hrmsEmployeeManage: 'hrms.employee.manage',
+    hrmsEmployeeRead: 'hrms.employee.read',
+    hrmsAttendanceManage: 'hrms.attendance.manage',
+    hrmsAttendanceRead: 'hrms.attendance.read',
+    hrmsLeaveManage: 'hrms.leave.manage',
+    hrmsLeaveRead: 'hrms.leave.read',
+    hrmsLeaveApply: 'hrms.leave.apply',
+    hrmsPayrollProcess: 'hrms.payroll.process',
+    hrmsPayrollApprove: 'hrms.payroll.approve',
+    hrmsPayrollRead: 'hrms.payroll.read',
+    hrmsKpiConfigure: 'hrms.kpi.configure',
+    hrmsKpiRead: 'hrms.kpi.read',
+    hrmsAuditRead: 'hrms.audit.read',
 };
 exports.PERMISSION_CODES = Object.values(exports.PERMISSIONS);
 /**
  * Phase 1 role→permission matrix per PRD v2.1 §5.2 (docs/reference/prd-v2.1.md).
  * - CRM records: Founder/Manager all; Agent assigned-only (scoped in services); Staff No.
- * - Audit logs / security settings: Founder only.
- * - AI Assistant content management (crop/product guidance): Founder/Manager.
- * Staff is an HRMS/payroll Phase 1 role with no CRM permissions until HRMS ships
- * (permission boundaries remain an open item, PRD §5.1.4).
+ * - HRMS Employee/Attendance/Leave/Payroll:
+ *   - Founder: Full access across CRM + HRMS + Payroll approvals + Audit
+ *   - Manager/Admin: Operational CRM + HRMS + Attendance/Leave/Payroll approvals + KPI config
+ *   - Agent: CRM workload + Knowledge Base (zero hrms* permissions per §5.1.3)
+ *   - Staff: HRMS employee management, attendance & leave processing, payroll preparation
  */
 exports.PROPOSED_ROLE_PERMISSIONS = {
     FOUNDER: exports.PERMISSION_CODES,
@@ -72,6 +103,32 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.relationshipManage,
         exports.PERMISSIONS.assistantUse,
         exports.PERMISSIONS.assistantManage,
+        exports.PERMISSIONS.hrmsRead,
+        exports.PERMISSIONS.attendanceRead,
+        exports.PERMISSIONS.attendanceMark,
+        exports.PERMISSIONS.attendanceApprove,
+        exports.PERMISSIONS.leaveRead,
+        exports.PERMISSIONS.leaveApply,
+        exports.PERMISSIONS.leaveApprove,
+        exports.PERMISSIONS.payrollRead,
+        exports.PERMISSIONS.payrollManage,
+        exports.PERMISSIONS.payrollApprove,
+        exports.PERMISSIONS.kpiRead,
+        exports.PERMISSIONS.kpiManage,
+        // HRMS Part 2 permissions
+        exports.PERMISSIONS.hrmsEmployeeManage,
+        exports.PERMISSIONS.hrmsEmployeeRead,
+        exports.PERMISSIONS.hrmsAttendanceManage,
+        exports.PERMISSIONS.hrmsAttendanceRead,
+        exports.PERMISSIONS.hrmsLeaveManage,
+        exports.PERMISSIONS.hrmsLeaveRead,
+        exports.PERMISSIONS.hrmsLeaveApply,
+        exports.PERMISSIONS.hrmsPayrollProcess,
+        exports.PERMISSIONS.hrmsPayrollApprove,
+        exports.PERMISSIONS.hrmsPayrollRead,
+        exports.PERMISSIONS.hrmsKpiConfigure,
+        exports.PERMISSIONS.hrmsKpiRead,
+        // NOTE: Manager does NOT receive auditRead or hrmsAuditRead (§5.2)
     ],
     AGENT: [
         exports.PERMISSIONS.customerRead,
@@ -84,7 +141,41 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.callRead,
         exports.PERMISSIONS.callManage,
         exports.PERMISSIONS.assistantUse,
+        exports.PERMISSIONS.hrmsRead,
+        exports.PERMISSIONS.attendanceRead,
+        exports.PERMISSIONS.attendanceMark,
+        exports.PERMISSIONS.leaveRead,
+        exports.PERMISSIONS.leaveApply,
+        exports.PERMISSIONS.payrollRead,
+        exports.PERMISSIONS.kpiRead,
     ],
-    // PRD §5.2: Staff has no CRM capability in Phase 1 (HRMS/payroll role).
-    STAFF: [],
+    STAFF: [
+        exports.PERMISSIONS.hrmsEmployeeRead,
+        exports.PERMISSIONS.hrmsAttendanceManage,
+        exports.PERMISSIONS.hrmsAttendanceRead,
+        exports.PERMISSIONS.hrmsLeaveApply,
+        exports.PERMISSIONS.hrmsPayrollProcess,
+        // Compat aliases
+        exports.PERMISSIONS.hrmsRead,
+        exports.PERMISSIONS.attendanceRead,
+        exports.PERMISSIONS.attendanceMark,
+        exports.PERMISSIONS.leaveRead,
+        exports.PERMISSIONS.leaveApply,
+        exports.PERMISSIONS.payrollRead,
+        exports.PERMISSIONS.kpiRead,
+    ],
+    DELIVERY: [
+        exports.PERMISSIONS.attendanceRead,
+        exports.PERMISSIONS.attendanceMark,
+        exports.PERMISSIONS.leaveRead,
+        exports.PERMISSIONS.leaveApply,
+        exports.PERMISSIONS.payrollRead,
+        exports.PERMISSIONS.kpiRead,
+        exports.PERMISSIONS.hrmsAttendanceRead,
+        exports.PERMISSIONS.hrmsAttendanceManage,
+        exports.PERMISSIONS.hrmsLeaveApply,
+        exports.PERMISSIONS.hrmsLeaveRead,
+        exports.PERMISSIONS.hrmsPayrollRead,
+        exports.PERMISSIONS.hrmsKpiRead,
+    ],
 };

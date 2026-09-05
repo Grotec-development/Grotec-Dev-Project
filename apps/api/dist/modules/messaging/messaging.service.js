@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MessagingService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const shared_1 = require("@grotec/shared");
 const audit_service_1 = require("../../common/audit/audit.service");
 const prisma_service_1 = require("../../common/prisma/prisma.service");
@@ -31,7 +32,7 @@ let MessagingService = class MessagingService {
             data: {
                 customerId: input.customerId,
                 callId: input.callId ?? null,
-                type: input.type ?? shared_1.MessageType.PRODUCT_DETAILS,
+                type: input.type ?? client_1.MessageType.PRODUCT_DETAILS,
                 provider: provider.id,
                 recipientPhone: input.recipientPhone,
                 body: input.body,

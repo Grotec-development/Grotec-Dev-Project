@@ -23,6 +23,13 @@ enum EmployeeStatus {
   INACTIVE
 }
 
+enum EmployeeEmploymentStatus {
+  ACTIVE
+  PROBATION
+  ON_LEAVE
+  TERMINATED
+}
+
 enum CustomerStatus {
   ACTIVE
   INACTIVE
@@ -109,6 +116,18 @@ model Employee {
   updatedAt    DateTime @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
+  employeeCode String?  @unique @map("employee_code") @db.VarChar(30)
+  designation  String?  @db.VarChar(100)
+  department   String?  @db.VarChar(100)
+  reportingManagerId String? @map("reporting_manager_id") @db.Uuid
+  reportingManager Employee? @relation("EmployeeManager", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  subordinates   Employee[] @relation("EmployeeManager")
+  joiningDate    DateTime? @map("joining_date") @db.Date
+  experience     String?  @db.VarChar(50)
+  address        String?
+  notes          String?
+  employmentStatus EmployeeEmploymentStatus? @default(ACTIVE) @map("employment_status")
+
   createdEmployees  Employee[]       @relation("EmployeeCreatedBy")
   createdCustomers  Customer[]       @relation("CustomerCreatedBy")
   createdGuidance   CropProductGuidance[] @relation("GuidanceCreatedBy")
@@ -122,6 +141,23 @@ model Employee {
   heldRelationshipOwnership RelationshipOwnership[] @relation("RelationshipOwnershipHolder")
   assignedRelationshipOwnership RelationshipOwnership[] @relation("RelationshipOwnershipAssignedBy")
   writtenCustomerNotes CustomerNote[] @relation("CustomerNoteAuthor")
+  documents         EmployeeDocument[]
+  uploadedDocuments EmployeeDocument[] @relation("DocUploadedBy")
+  writtenEmployeeNotes EmployeeNote[]  @relation("EmployeeNoteAuthor")
+  employeeNotes        EmployeeNote[]  @relation("EmployeeNotes")
+  staffAssignments     EmployeeAssignment[] @relation("StaffAssignment")
+  assignedStaffs       EmployeeAssignment[] @relation("AssignedToStaff")
+  historyRecords    EmployeeHistoryRecord[]
+  attendanceRecords AttendanceRecord[]
+  leaveApplications LeaveApplication[]
+  leaveBalances     LeaveBalance[]
+  salaryRevisions   SalaryRevision[]
+  advances          AdvanceLedger[]
+  payrollLineItems  PayrollLineItem[]
+  kpiTargets        KpiTarget[]
+  kpiPeriodScores   KpiPeriodScore[]
+  esslDeviceMappings EsslDeviceMapping[]
+  notifications     AppNotification[]
 
   @@map("employees")
 }
@@ -431,6 +467,7 @@ model FollowUp {
   note        String
   status      FollowUpStatus @default(PENDING)
   completedAt DateTime?      @map("completed_at")
+  reminderSentAt DateTime?     @map("reminder_sent_at")
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 
@@ -524,3 +561,521 @@ model AuditEvent {
   @@index([createdAt])
   @@map("audit_events")
 }
+
+// ---------------------------------------------------------------------------
+// HRMS Enums
+// ---------------------------------------------------------------------------
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  WEEKLY_OFF
+  HOLIDAY
+  LEAVE
+}
+
+enum AttendanceSource {
+  ESSL
+  MANUAL
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum EmployeeHistoryType {
+  TRAINING
+  WARNING
+  COMMENDATION
+  PROMOTION
+}
+
+enum PayrollStatus {
+  IDLE
+  GENERATED
+  APPROVED_LOCKED
+  PUBLISHED
+}
+
+enum KpiMetricType {
+  CALLS_DIALED
+  CALLS_CONNECTED
+  LEADS_CONVERTED
+  CONVERSION_RATE
+  TOTAL_REVENUE
+  CUSTOMER_QUALITY
+  ATTENDANCE
+  CRM_DISCIPLINE
+}
+
+enum NotificationType {
+  FOLLOW_UP_REMINDER
+  PRODUCT_DETAILS
+  ATTENDANCE_STATUS
+  LEAVE_STATUS
+  PAYROLL_STATUS
+}
+
+// ---------------------------------------------------------------------------
+// HRMS Models
+// ---------------------------------------------------------------------------
+
+model EmployeeDocument {
+  id            String    @id @default(uuid()) @db.Uuid
+  employeeId    String    @map("employee_id") @db.Uuid
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fileName      String    @map("file_name") @db.VarChar(255)
+  fileUrl       String    @map("file_url")
+  fileSizeBytes Int       @default(0) @map("file_size_bytes")
+  fileSize      Int       @default(0) @map("file_size")
+  fileType      String    @default("application/pdf") @map("file_type") @db.VarChar(100)
+  mimeType      String    @default("application/pdf") @map("mime_type") @db.VarChar(100)
+  uploadedById  String?   @map("uploaded_by_id") @db.Uuid
+  uploadedBy    Employee? @relation("DocUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  uploadedAt    DateTime  @default(now()) @map("uploaded_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  @@index([employeeId])
+  @@map("employee_documents")
+}
+
+model EmployeeNote {
+  id         String   @id @default(uuid()) @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  employee   Employee @relation("EmployeeNotes", fields: [employeeId], references: [id], onDelete: Cascade)
+  authorId   String   @map("author_id") @db.Uuid
+  author     Employee @relation("EmployeeNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  body       String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([employeeId])
+  @@map("employee_notes")
+}
+
+model EmployeeAssignment {
+  id                 String   @id @default(uuid()) @db.Uuid
+  staffEmployeeId    String   @map("staff_employee_id") @db.Uuid
+  staffEmployee      Employee @relation("StaffAssignment", fields: [staffEmployeeId], references: [id], onDelete: Cascade)
+  assignedEmployeeId String   @map("assigned_employee_id") @db.Uuid
+  assignedEmployee   Employee @relation("AssignedToStaff", fields: [assignedEmployeeId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@unique([staffEmployeeId, assignedEmployeeId])
+  @@map("employee_assignments")
+}
+
+model EmployeeHistoryRecord {
+  id          String              @id @default(uuid()) @db.Uuid
+  employeeId  String              @map("employee_id") @db.Uuid
+  employee    Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        EmployeeHistoryType
+  date        DateTime            @db.Date
+  description String
+  addedBy     String              @map("added_by") @db.VarChar(100)
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  @@index([employeeId])
+  @@map("employee_history_records")
+}
+
+model EsslDevice {
+  id         String              @id @default(uuid()) @db.Uuid
+  deviceCode String              @unique @map("device_code") @db.VarChar(50)
+  name       String              @db.VarChar(100)
+  ipAddress  String?             @map("ip_address") @db.VarChar(50)
+  location   String?             @db.VarChar(100)
+  lastSyncAt DateTime?           @map("last_sync_at")
+  isActive   Boolean             @default(true) @map("is_active")
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  mappings EsslDeviceMapping[]
+  punches  AttendancePunch[]
+
+  @@map("essl_devices")
+}
+
+model EsslDeviceMapping {
+  id           String     @id @default(uuid()) @db.Uuid
+  employeeId   String     @map("employee_id") @db.Uuid
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  deviceId     String     @map("device_id") @db.Uuid
+  device       EsslDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  biometricPin String     @map("biometric_pin") @db.VarChar(50)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@unique([deviceId, biometricPin])
+  @@map("essl_device_mappings")
+}
+
+model AttendanceRecord {
+  id              String           @id @default(uuid()) @db.Uuid
+  employeeId      String           @map("employee_id") @db.Uuid
+  employee        Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date            DateTime         @db.Date
+  status          AttendanceStatus @default(PRESENT)
+  source          AttendanceSource @default(MANUAL)
+  punchIn         DateTime?        @map("punch_in")
+  punchOut        DateTime?        @map("punch_out")
+  checkInDevice   String?          @map("check_in_device") @db.VarChar(100)
+  approvalStatus  ApprovalStatus   @default(PENDING) @map("approval_status")
+  rejectionReason String?          @map("rejection_reason")
+  approverId      String?          @map("approver_id") @db.Uuid
+  approvedAt      DateTime?        @map("approved_at")
+  notes           String?
+  hasException    Boolean          @default(false) @map("has_exception")
+  exceptionType   String?          @map("exception_type") @db.VarChar(50)
+  sourceEsslPunchIds String[]      @default([]) @map("source_essl_punch_ids")
+  createdById     String?          @map("created_by_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  punches         AttendancePunch[]
+  approvalHistory AttendanceApprovalHistory[]
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([approvalStatus])
+  @@map("attendance_records")
+}
+
+model EsslPunch {
+  id                  String    @id @default(uuid()) @db.Uuid
+  employeeId          String?   @map("employee_id") @db.Uuid
+  deviceId            String    @map("device_id") @db.VarChar(50)
+  externalBiometricId String?   @map("external_biometric_id") @db.VarChar(50)
+  punchAt             DateTime  @map("punch_at")
+  punchType           String    @default("UNKNOWN") @map("punch_type") @db.VarChar(20)
+  rawPayload          Json      @map("raw_payload") @db.JsonB
+  receivedAt          DateTime  @default(now()) @map("received_at")
+  processedAt         DateTime? @map("processed_at")
+  processingError     String?   @map("processing_error")
+
+  @@unique([deviceId, externalBiometricId, punchAt])
+  @@index([employeeId, punchAt])
+  @@index([processedAt])
+  @@index([deviceId, punchAt])
+  @@map("essl_punches")
+}
+
+model AttendancePunch {
+  id                 String            @id @default(uuid()) @db.Uuid
+  attendanceRecordId String?           @map("attendance_record_id") @db.Uuid
+  attendanceRecord   AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
+  employeeId         String            @map("employee_id") @db.Uuid
+  deviceId           String?           @map("device_id") @db.Uuid
+  device             EsslDevice?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  punchTime          DateTime          @map("punch_time")
+  punchType          String            @map("punch_type") @db.VarChar(10)
+  isException        Boolean           @default(false) @map("is_exception")
+  exceptionReason    String?           @map("exception_reason")
+  createdAt          DateTime          @default(now()) @map("created_at")
+
+  @@index([employeeId, punchTime])
+  @@map("attendance_punches")
+}
+
+model AttendanceApprovalHistory {
+  id                 String           @id @default(uuid()) @db.Uuid
+  attendanceRecordId String           @map("attendance_record_id") @db.Uuid
+  attendanceRecord   AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+  actorId            String?          @map("actor_id") @db.Uuid
+  action             String           @db.VarChar(50)
+  fromStatus         String?          @map("from_status") @db.VarChar(50)
+  toStatus           String           @map("to_status") @db.VarChar(50)
+  reason             String?
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  @@index([attendanceRecordId])
+  @@map("attendance_approval_history")
+}
+
+model LeaveType {
+  id                String             @id @default(uuid()) @db.Uuid
+  code              String             @unique @db.VarChar(30)
+  name              String             @db.VarChar(100)
+  description       String?
+  quotaDays         Decimal            @default(12) @map("quota_days") @db.Decimal(5, 1)
+  isPaid            Boolean            @default(true) @map("is_paid")
+  allowCarryForward Boolean            @default(false) @map("allow_carry_forward")
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  applications      LeaveApplication[]
+  balances          LeaveBalance[]
+
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id             String    @id @default(uuid()) @db.Uuid
+  employeeId     String    @map("employee_id") @db.Uuid
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId    String    @map("leave_type_id") @db.Uuid
+  leaveType      LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  year           Int
+  allocated      Decimal   @db.Decimal(5, 1)
+  used           Decimal   @default(0) @db.Decimal(5, 1)
+  carriedForward Decimal   @default(0) @map("carried_forward") @db.Decimal(5, 1)
+  balance        Decimal   @db.Decimal(5, 1)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_balances")
+}
+
+model LeaveApplication {
+  id              String                 @id @default(uuid()) @db.Uuid
+  employeeId      String                 @map("employee_id") @db.Uuid
+  employee        Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId     String                 @map("leave_type_id") @db.Uuid
+  leaveType       LeaveType              @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  startDate       DateTime               @map("start_date") @db.Date
+  endDate         DateTime               @map("end_date") @db.Date
+  daysCount       Decimal                @map("days_count") @db.Decimal(4, 1)
+  reason          String
+  status          LeaveStatus            @default(PENDING)
+  rejectionReason String?                @map("rejection_reason")
+  approverId      String?                @map("approver_id") @db.Uuid
+  approvedAt      DateTime?              @map("approved_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  approvalHistory LeaveApprovalHistory[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("leave_applications")
+}
+
+model LeaveApprovalHistory {
+  id                 String           @id @default(uuid()) @db.Uuid
+  leaveApplicationId String           @map("leave_application_id") @db.Uuid
+  leaveApplication   LeaveApplication @relation(fields: [leaveApplicationId], references: [id], onDelete: Cascade)
+  actorId            String?          @map("actor_id") @db.Uuid
+  action             String           @db.VarChar(50)
+  fromStatus         String?          @map("from_status") @db.VarChar(50)
+  toStatus           String           @map("to_status") @db.VarChar(50)
+  reason             String?
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  @@index([leaveApplicationId])
+  @@map("leave_approval_history")
+}
+
+model SalaryRevision {
+  id              String   @id @default(uuid()) @db.Uuid
+  employeeId      String   @map("employee_id") @db.Uuid
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  effectiveFrom   DateTime @map("effective_from") @db.Date
+  revisionNumber  Int      @map("revision_number")
+  baseSalary      Decimal  @map("base_salary") @db.Decimal(12, 2)
+  components      Json     @db.JsonB
+  grossSalary     Decimal  @map("gross_salary") @db.Decimal(12, 2)
+  totalDeductions Decimal  @map("total_deductions") @db.Decimal(12, 2)
+  netSalary       Decimal  @map("net_salary") @db.Decimal(12, 2)
+  savedById       String?  @map("saved_by_id") @db.Uuid
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  componentsList  SalaryComponent[]
+
+  @@index([employeeId, effectiveFrom])
+  @@map("salary_revisions")
+}
+
+model SalaryComponent {
+  id               String         @id @default(uuid()) @db.Uuid
+  salaryRevisionId String         @map("salary_revision_id") @db.Uuid
+  salaryRevision   SalaryRevision @relation(fields: [salaryRevisionId], references: [id], onDelete: Cascade)
+  name             String         @db.VarChar(60)
+  type             String         @db.VarChar(20) // EARNING | DEDUCTION
+  amount           Decimal        @db.Decimal(12, 2)
+  isTaxable        Boolean        @default(false) @map("is_taxable")
+  isCustom         Boolean        @default(false) @map("is_custom")
+
+  @@map("salary_components")
+}
+
+model AdvanceLedger {
+  id             String            @id @default(uuid()) @db.Uuid
+  employeeId     String            @map("employee_id") @db.Uuid
+  employee       Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  amount         Decimal           @db.Decimal(12, 2)
+  runningBalance Decimal           @map("running_balance") @db.Decimal(12, 2)
+  reason         String?
+  linkedMonth    String?           @map("linked_month") @db.VarChar(7)
+  status         String            @default("ACTIVE") @db.VarChar(20)
+  issuedAt       DateTime          @default(now()) @map("issued_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  recoveries     AdvanceRecovery[]
+
+  @@index([employeeId])
+  @@map("advance_ledger")
+}
+
+model AdvanceRecovery {
+  id                 String        @id @default(uuid()) @db.Uuid
+  advanceId          String        @map("advance_id") @db.Uuid
+  advance            AdvanceLedger @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+  payrollRunId       String?       @map("payroll_run_id") @db.Uuid
+  amount             Decimal       @db.Decimal(12, 2)
+  linkedPayrollMonth String?       @map("linked_payroll_month") @db.VarChar(7)
+  recoveredAt        DateTime      @default(now()) @map("recovered_at")
+  notes              String?
+
+  @@map("advance_recoveries")
+}
+
+model PayrollRun {
+  id              String            @id @default(uuid()) @db.Uuid
+  month           String            @unique @db.VarChar(7)
+  status          PayrollStatus     @default(IDLE)
+  totalEmployees  Int               @default(0) @map("total_employees")
+  totalGross      Decimal           @default(0) @map("total_gross") @db.Decimal(14, 2)
+  totalDeductions Decimal           @default(0) @map("total_deductions") @db.Decimal(14, 2)
+  totalNet        Decimal           @default(0) @map("total_net") @db.Decimal(14, 2)
+  generatedById   String?           @map("generated_by_id") @db.Uuid
+  generatedAt     DateTime?         @map("generated_at")
+  approverId      String?           @map("approver_id") @db.Uuid
+  approvedAt      DateTime?         @map("approved_at")
+  publishedById   String?           @map("published_by_id") @db.Uuid
+  publishedAt     DateTime?         @map("published_at")
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  lineItems       PayrollLineItem[]
+
+  @@map("payroll_runs")
+}
+
+model PayrollLineItem {
+  id                         String     @id @default(uuid()) @db.Uuid
+  payrollRunId               String     @map("payroll_run_id") @db.Uuid
+  payrollRun                 PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId                 String     @map("employee_id") @db.Uuid
+  employee                   Employee   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  effectiveSalaryRevisionId  String?    @map("effective_salary_revision_id") @db.Uuid
+  grossEarnings              Decimal    @map("gross_earnings") @db.Decimal(12, 2)
+  totalDeductions            Decimal    @map("total_deductions") @db.Decimal(12, 2)
+  workingDays                Int        @default(30) @map("working_days")
+  presentDays                Decimal    @default(0) @map("present_days") @db.Decimal(4, 1)
+  absentDays                 Decimal    @default(0) @map("absent_days") @db.Decimal(4, 1)
+  halfDays                   Decimal    @default(0) @map("half_days") @db.Decimal(4, 1)
+  attendanceAdjustment       Decimal    @default(0) @map("attendance_adjustment") @db.Decimal(12, 2)
+  advanceRecovery            Decimal    @default(0) @map("advance_recovery") @db.Decimal(12, 2)
+  netPay                     Decimal    @map("net_pay") @db.Decimal(12, 2)
+  components                 Json       @db.JsonB
+  flags                      String[]
+  createdAt                  DateTime   @default(now()) @map("created_at")
+
+  @@unique([payrollRunId, employeeId])
+  @@map("payroll_line_items")
+}
+
+model KpiMetricDefinition {
+  id         String   @id @default(uuid()) @db.Uuid
+  code       String   @unique @db.VarChar(50)
+  name       String   @db.VarChar(100)
+  isActive   Boolean  @default(true) @map("is_active")
+  sourceNote String?  @map("source_note")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("kpi_metric_definitions")
+}
+
+model KpiTarget {
+  id          String        @id @default(uuid()) @db.Uuid
+  employeeId  String?       @map("employee_id") @db.Uuid
+  employee    Employee?     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  teamId      String?       @map("team_id") @db.VarChar(100)
+  roleCode    String?       @map("role_code") @db.VarChar(30)
+  team        String?       @db.VarChar(100)
+  period      String        @db.VarChar(7)
+  metric      KpiMetricType
+  targetValue Decimal       @map("target_value") @db.Decimal(12, 2)
+  weight      Decimal       @default(1) @db.Decimal(5, 2)
+  createdById String?       @map("created_by_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([period, employeeId])
+  @@map("kpi_targets")
+}
+
+model KpiScore {
+  id                 String   @id @default(uuid()) @db.Uuid
+  employeeId         String   @map("employee_id") @db.Uuid
+  period             String   @db.VarChar(7)
+  metricCode         String   @map("metric_code") @db.VarChar(50)
+  actualValue        Decimal  @map("actual_value") @db.Decimal(12, 2)
+  targetValue        Decimal  @map("target_value") @db.Decimal(12, 2)
+  achievementPercent Decimal  @map("achievement_percent") @db.Decimal(6, 2)
+  computedAt         DateTime @default(now()) @map("computed_at")
+
+  @@unique([employeeId, period, metricCode])
+  @@map("kpi_scores")
+}
+
+model KpiPeriodScore {
+  id                     String           @id @default(uuid()) @db.Uuid
+  employeeId             String           @map("employee_id") @db.Uuid
+  employee               Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  period                 String           @db.VarChar(7)
+  actualValues           Json             @map("actual_values") @db.JsonB
+  targetValues           Json             @map("target_values") @db.JsonB
+  weights                Json             @db.JsonB
+  achievementPercentages Json             @map("achievement_percentages") @db.JsonB
+  overallScore           Decimal          @map("overall_score") @db.Decimal(5, 2)
+  performanceStatus      String           @map("performance_status") @db.VarChar(50)
+  reviewNotes            String?          @map("review_notes")
+  coachingActions        String?          @map("coaching_actions")
+  isFrozen               Boolean          @default(false) @map("is_frozen")
+  computedAt             DateTime         @default(now()) @map("computed_at")
+  frozenAt               DateTime?        @map("frozen_at")
+
+  reviewEntries          KpiReviewEntry[]
+
+  @@unique([employeeId, period])
+  @@map("kpi_period_scores")
+}
+
+model KpiReviewEntry {
+  id               String         @id @default(uuid()) @db.Uuid
+  kpiPeriodScoreId String         @map("kpi_period_score_id") @db.Uuid
+  kpiPeriodScore   KpiPeriodScore @relation(fields: [kpiPeriodScoreId], references: [id], onDelete: Cascade)
+  authorId         String         @map("author_id") @db.Uuid
+  body             String         @db.Text
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([kpiPeriodScoreId])
+  @@map("kpi_review_entries")
+}
+
+model AppNotification {
+  id          String           @id @default(uuid()) @db.Uuid
+  recipientId String           @map("recipient_id") @db.Uuid
+  recipient   Employee         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String           @db.VarChar(200)
+  message     String
+  data        Json?            @db.JsonB
+  isRead      Boolean          @default(false) @map("is_read")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([recipientId, isRead])
+  @@map("app_notifications")
+}
+

@@ -26,6 +26,12 @@ const messaging_module_1 = require("./modules/messaging/messaging.module");
 const assistant_module_1 = require("./modules/assistant/assistant.module");
 const relationship_module_1 = require("./modules/relationship/relationship.module");
 const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
+const attendance_module_1 = require("./modules/attendance/attendance.module");
+const leave_module_1 = require("./modules/leave/leave.module");
+const payroll_module_1 = require("./modules/payroll/payroll.module");
+const kpi_module_1 = require("./modules/kpi/kpi.module");
+const hrms_dashboard_module_1 = require("./modules/hrms-dashboard/hrms-dashboard.module");
+const notifications_module_1 = require("./modules/notifications/notifications.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -46,6 +52,12 @@ exports.AppModule = AppModule = __decorate([
             relationship_module_1.RelationshipModule,
             dashboard_module_1.DashboardModule,
             assistant_module_1.AssistantModule,
+            attendance_module_1.AttendanceModule,
+            leave_module_1.LeaveModule,
+            payroll_module_1.PayrollModule,
+            kpi_module_1.KpiModule,
+            hrms_dashboard_module_1.HrmsDashboardModule,
+            notifications_module_1.NotificationsModule,
             health_module_1.HealthModule,
         ],
         providers: [

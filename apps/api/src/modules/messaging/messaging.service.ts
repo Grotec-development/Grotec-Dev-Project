@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { AuditAction, AuditEntityType, MessageStatus, MessageType } from '@grotec/shared';
+import { MessageType, Prisma } from '@prisma/client';
+import { AuditAction, AuditEntityType, MessageStatus } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MessagingRegistry } from './messaging.registry';

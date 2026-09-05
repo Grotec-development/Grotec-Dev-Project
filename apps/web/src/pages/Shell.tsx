@@ -1,5 +1,5 @@
 import { ComponentType, ReactNode, Suspense, lazy } from 'react';
-import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Phone,
@@ -11,7 +11,11 @@ import {
   ScrollText,
   BookOpen,
   LogOut,
-  Loader2,
+  Clock,
+  Palmtree,
+  IndianRupee,
+  FileText,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 import { cx } from '../components/ui';
@@ -20,6 +24,7 @@ import { initialsOf } from '../lib/format';
 import { Spinner } from '../components/ui';
 import { AssistantProvider } from '../assistant/AssistantContext';
 import { AssistantWidget } from '../assistant/AssistantWidget';
+import { NotificationCenter } from '../components/NotificationCenter';
 
 interface NavItem {
   to: string;
@@ -33,17 +38,19 @@ interface NavItem {
 // everyone with CRM access; the Agent workspace needs call.read; the RM
 // workspace needs relationship.read (Manager/Founder).
 const CRM_ITEMS: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'CRM Dashboard', icon: LayoutDashboard, permission: 'customer.read' },
   { to: '/agent', label: 'Agent workspace', icon: Phone, permission: 'call.read' },
   { to: '/relationship-manager', label: 'Relationship Manager', icon: UserRoundCheck, permission: 'relationship.read' },
+  { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, permission: 'assistant.use' },
 ];
 
 const RECORD_ITEMS: NavItem[] = [
   { to: '/customers', label: 'Customers', icon: Contact, permission: 'customer.read' },
   { to: '/leads', label: 'Leads', icon: Users, permission: 'lead.read' },
   { to: '/crops', label: 'Crops', icon: Sprout, permission: 'crop.read' },
-  { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, permission: 'assistant.use' },
 ];
+
+
 
 const ADMIN_ITEMS: NavItem[] = [
   { to: '/team', label: 'Team', icon: ShieldCheck, permission: 'employee.read' },
@@ -51,6 +58,8 @@ const ADMIN_ITEMS: NavItem[] = [
 ];
 
 function NavGroup({ title, items }: { title: string; items: NavItem[] }) {
+  const navigate = useNavigate();
+  if (items.length === 0) return null;
   return (
     <div className="px-3">
       <p className="px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{title}</p>
@@ -59,9 +68,14 @@ function NavGroup({ title, items }: { title: string; items: NavItem[] }) {
           <NavLink
             key={item.to}
             to={item.to}
+            target="_self"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(item.to);
+            }}
             className={({ isActive }) =>
               cx(
-                'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors cursor-pointer',
                 isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
               )
             }
@@ -93,7 +107,31 @@ export function Shell() {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  const noCrmAccess = !hasPermission('customer.read') && !hasPermission('lead.read') && !hasPermission('audit.read') && !hasPermission('employee.read') && !hasPermission('crop.read');
+  const crmVisible = CRM_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+  const recordsVisible = RECORD_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+  const hrmsItems: NavItem[] = [
+    { to: '/hrms', label: 'HRMS Dashboard', icon: LayoutDashboard, permission: 'hrms.read' },
+    { to: '/hrms/employees', label: 'Employees', icon: Users, permission: 'employee.read' },
+    { to: '/hrms/attendance', label: 'Attendance', icon: Clock, permission: 'attendance.read' },
+    { to: '/hrms/leave', label: 'Leave Management', icon: Palmtree, permission: 'leave.read' },
+    { to: '/hrms/payroll', label: 'Payroll Runs', icon: IndianRupee, permission: 'payroll.manage' },
+    {
+      to: '/hrms/payslips',
+      label: hasPermission('payroll.manage') ? 'Payslips & Reports' : 'My Payslips',
+      icon: FileText,
+      permission: 'payroll.read',
+    },
+    {
+      to: '/hrms/kpi',
+      label: hasPermission('kpi.manage') ? 'KPI & Performance' : 'My Performance',
+      icon: TrendingUp,
+      permission: 'kpi.read',
+    },
+  ];
+  const hrmsVisible = hrmsItems.filter((i) => !i.permission || hasPermission(i.permission));
+  const adminVisible = ADMIN_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+
+  const hasAnyAccess = crmVisible.length > 0 || recordsVisible.length > 0 || hrmsVisible.length > 0 || adminVisible.length > 0;
 
   return (
     <div className="flex min-h-screen">
@@ -102,20 +140,21 @@ export function Shell() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">G</div>
           <div>
             <p className="text-sm font-semibold leading-tight text-slate-900">GROTEC FarmerOS</p>
-            <p className="text-xs text-slate-500">CRM</p>
+            <p className="text-xs text-slate-500">CRM & HRMS Operations</p>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto pb-4">
-          {noCrmAccess ? (
+          {!hasAnyAccess ? (
             <div className="px-5 py-4 text-sm text-slate-500">
-              Your role has no CRM access in this phase (HRMS/payroll arrives later).
+              Your role has no accessible modules. Please contact an administrator.
             </div>
           ) : (
             <>
-              <NavGroup title="CRM" items={CRM_ITEMS.filter((i) => !i.permission || hasPermission(i.permission))} />
-              <NavGroup title="Records" items={RECORD_ITEMS.filter((i) => !i.permission || hasPermission(i.permission))} />
-              <NavGroup title="Administration" items={ADMIN_ITEMS.filter((i) => !i.permission || hasPermission(i.permission))} />
+              {crmVisible.length > 0 && <NavGroup title="CRM" items={crmVisible} />}
+              {recordsVisible.length > 0 && <NavGroup title="Records" items={recordsVisible} />}
+              {hrmsVisible.length > 0 && <NavGroup title="HRMS & Operations" items={hrmsVisible} />}
+              {adminVisible.length > 0 && <NavGroup title="Administration" items={adminVisible} />}
             </>
           )}
         </div>
@@ -141,7 +180,20 @@ export function Shell() {
         </div>
       </aside>
 
-      <main className="ml-64 flex-1">
+      <main className="ml-64 flex-1 bg-slate-50 min-h-screen">
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200 bg-white/95 px-6 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {location.pathname.startsWith('/hrms') ? 'HRMS & Operations' : 'FarmerOS CRM'}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="text-xs font-medium text-slate-400">Phase 1 Single Identity</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <NotificationCenter />
+          </div>
+        </header>
+
         <AssistantProvider>
           <Outlet />
           <AssistantWidget />

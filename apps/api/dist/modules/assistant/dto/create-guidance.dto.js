@@ -9,9 +9,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateGuidanceDto = exports.PROBLEM_TYPES = void 0;
+exports.CreateGuidanceDto = void 0;
 const class_validator_1 = require("class-validator");
-exports.PROBLEM_TYPES = ['PEST', 'DISEASE', 'NUTRIENT_DEFICIENCY', 'WEED', 'OTHER'];
+const shared_1 = require("@grotec/shared");
 class CreateGuidanceDto {
     cropId;
     problemKeywords;
@@ -46,7 +46,7 @@ __decorate([
 ], CreateGuidanceDto.prototype, "recommendedProducts", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsIn)(exports.PROBLEM_TYPES),
+    (0, class_validator_1.IsIn)(shared_1.PROBLEM_TYPES),
     __metadata("design:type", String)
 ], CreateGuidanceDto.prototype, "problemType", void 0);
 __decorate([

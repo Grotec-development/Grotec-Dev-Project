@@ -105,3 +105,18 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
 - Dev DB: **docker-compose (Postgres 16)** for normal machines; **embedded Postgres 18**
   (`npm run db:start`) as fallback where Docker is unavailable. Same schema both ways.
 - UI primitives: hand-rolled shadcn-style components (same design language, no codegen CLI).
+
+## Phase 1 HRMS Open Items (Confirmed Scope Fence)
+
+1. **Attendance regularization workflow.** The process and approval hierarchy for regularizing missed/late punches beyond manual admin correction (`PATCH /attendance/:id/correct`) requires HR policy specification.
+2. **Loss-of-pay calculation formula.** Pro-rata deduction based on calendar working days vs 26-day/30-day fixed divisor requires client confirmation. Currently utilizes calendar days in month basis.
+3. **Statutory deduction formulas (PF/ESI/TDS).** Precise statutory rate slabs (e.g. employee PF 12% subject to wage ceiling, ESI eligibility thresholds, new/old tax regime TDS deduction algorithms) are reserved for Phase 2 payroll engine; current version supports explicit breakdown via `SalaryComponent`.
+4. **Payslip PDF template and signing.** Digital signature / cryptographic stamping and printable PDF branding templates await marketing/legal asset approval; current system generates standard HTML preview format.
+5. **ESSL device pull integration vs push webhook.** Current implementation provides a secure webhook push seam (`POST /attendance/essl/webhook`) and manual sync trigger. Periodic pull daemon over TCP/IP (ZKTeco/eSSL ADMS protocol) requires network architecture specification.
+6. **ESSL multi-punch resolution rules.** Complex multi-punch resolution (e.g., intermediate lunch breaks, tea breaks, out-of-office field visits) currently defaults to first-punch-in / last-punch-out with exception flags.
+7. **Leave carry-forward and encashment policy.** Yearly balance lapse, maximum carryover caps, and financial encashment formulas upon financial year-end require management policy approval.
+8. **Advance EMI deductions.** Flexible multi-month amortization schedule (EMI) for large salary advances requires loan ledger design; current version recovers active balances capped at 20% of monthly base salary.
+9. **KPI revenue attribution.** Attribution of offline or ERP order revenue to individual telecallers is deferred to Phase 2 ERP integration; `TOTAL_REVENUE` metric remains in `PENDING_SOURCE_PHASE_2` state.
+10. **SMS/WhatsApp notification delivery vendors.** Notification delivery operates via in-app notification center (`app_notifications`). External SMS/WhatsApp gateway selection and DLT template registrations are pending vendor selection.
+11. **Employee exit workflow & asset return.** Transition to `TERMINATED` revokes authentication sessions and archives employee status. Multi-department clearance (inventory, IT, finance) and full-and-final settlement (FnF) workflow is scheduled for Phase 2.
+

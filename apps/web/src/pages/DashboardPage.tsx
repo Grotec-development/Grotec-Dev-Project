@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   CalendarClock,
   CheckCircle2,
@@ -46,6 +46,10 @@ const RANGE_LABEL: Record<DashboardRange, string> = { day: 'today', week: 'in th
 
 export function DashboardPage() {
   const { user } = useAuth();
+  if (user?.roleCode === 'DELIVERY') {
+    return <Navigate to="/hrms/attendance" replace />;
+  }
+
   const queryClient = useQueryClient();
   const [range, setRange] = useState<DashboardRange>('day');
   const [selectedState, setSelectedState] = useState<PipelineState | null>(null);

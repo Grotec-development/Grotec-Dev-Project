@@ -17,6 +17,12 @@ import { MessagingModule } from './modules/messaging/messaging.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { RelationshipModule } from './modules/relationship/relationship.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { LeaveModule } from './modules/leave/leave.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
+import { KpiModule } from './modules/kpi/kpi.module';
+import { HrmsDashboardModule } from './modules/hrms-dashboard/hrms-dashboard.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +41,12 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     RelationshipModule,
     DashboardModule,
     AssistantModule,
+    AttendanceModule,
+    LeaveModule,
+    PayrollModule,
+    KpiModule,
+    HrmsDashboardModule,
+    NotificationsModule,
     HealthModule,
   ],
   providers: [

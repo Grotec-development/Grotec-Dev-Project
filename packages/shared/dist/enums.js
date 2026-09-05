@@ -1,7 +1,7 @@
 "use strict";
 /** Mirrors the PostgreSQL enums in apps/api/prisma/schema.prisma. */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PAGINATION = exports.AuditAction = exports.AuditEntityType = exports.CallDisconnectReason = exports.MessageType = exports.MessageStatus = exports.FollowUpStatus = exports.NextAction = exports.CALL_OUTCOMES = exports.CallOutcome = exports.CallDirection = exports.TERMINAL_CALL_STATUSES = exports.ACTIVE_CALL_STATUSES = exports.CallStatus = exports.LeadStatus = exports.PhoneKind = exports.CustomerStatus = exports.EmployeeStatus = void 0;
+exports.NotificationType = exports.KpiMetricType = exports.PayrollRunStatus = exports.PayrollStatus = exports.EmployeeHistoryType = exports.LeaveStatus = exports.ApprovalStatus = exports.AttendanceSource = exports.AttendanceStatus = exports.CROP_CATEGORIES = exports.PROBLEM_TYPES = exports.PAGINATION = exports.AuditAction = exports.AuditEntityType = exports.CallDisconnectReason = exports.MessageType = exports.EmployeeEmploymentStatus = exports.MessageStatus = exports.FollowUpStatus = exports.NextAction = exports.CALL_OUTCOMES = exports.CallOutcome = exports.CallDirection = exports.TERMINAL_CALL_STATUSES = exports.ACTIVE_CALL_STATUSES = exports.CallStatus = exports.LeadStatus = exports.PhoneKind = exports.CustomerStatus = exports.EmployeeStatus = void 0;
 exports.EmployeeStatus = {
     ACTIVE: 'ACTIVE',
     INACTIVE: 'INACTIVE',
@@ -65,9 +65,19 @@ exports.MessageStatus = {
     SENT: 'SENT',
     FAILED: 'FAILED',
 };
-/** Message types the CRM can auto-send (extended by later modules). */
+exports.EmployeeEmploymentStatus = {
+    ACTIVE: 'ACTIVE',
+    PROBATION: 'PROBATION',
+    ON_LEAVE: 'ON_LEAVE',
+    TERMINATED: 'TERMINATED',
+};
+/** Message types the CRM can auto-send (extended by HRMS modules). */
 exports.MessageType = {
     PRODUCT_DETAILS: 'PRODUCT_DETAILS',
+    FOLLOWUP_REMINDER: 'FOLLOWUP_REMINDER',
+    ATTENDANCE_DECISION: 'ATTENDANCE_DECISION',
+    LEAVE_DECISION: 'LEAVE_DECISION',
+    PAYROLL_STATUS: 'PAYROLL_STATUS',
 };
 /** Why an outbound call ended (Month 2: agent-ended or provider terminal). */
 exports.CallDisconnectReason = {
@@ -126,9 +136,98 @@ exports.AuditAction = {
     CUSTOMER_NOTE_ADDED: 'customer.note_added',
     MESSAGE_SENT: 'message.sent',
     MESSAGE_FAILED: 'message.failed',
+    // HRMS actions (Part 11)
+    EMPLOYEE_CREATED: 'employee.created',
+    EMPLOYEE_UPDATED: 'employee.updated',
+    EMPLOYEE_TERMINATED: 'employee.terminated',
+    TERMINATED: 'employee.terminated',
+    DOCUMENT_UPLOADED: 'employee.document_uploaded',
+    DOCUMENT_DELETED: 'employee.document_deleted',
+    EMPLOYEE_NOTE_ADDED: 'employee.note_added',
+    HISTORY_RECORDED: 'employee.history_added',
+    DISCIPLINARY: 'employee.disciplinary',
+    ATTENDANCE_MARKED: 'attendance.marked',
+    ATTENDANCE_CORRECTED: 'attendance.corrected',
+    ATTENDANCE_APPROVED: 'attendance.approved',
+    ATTENDANCE_REJECTED: 'attendance.rejected',
+    ATTENDANCE_SYNCED_ESSL: 'attendance.synced_essl',
+    LEAVE_APPLIED: 'leave.applied',
+    LEAVE_APPROVED: 'leave.approved',
+    LEAVE_REJECTED: 'leave.rejected',
+    KPI_TARGET_CREATED: 'kpi.target_created',
+    KPI_TARGET_SET: 'kpi.target_set',
+    KPI_SCORE_FROZEN: 'kpi.score_frozen',
+    KPI_COMPUTED: 'kpi.computed',
+    PAYROLL_GENERATED: 'payroll.generated',
+    PAYROLL_APPROVED: 'payroll.approved',
+    PAYROLL_PUBLISHED: 'payroll.published',
 };
 exports.PAGINATION = {
     DEFAULT_PAGE: 1,
     DEFAULT_PAGE_SIZE: 20,
     MAX_PAGE_SIZE: 100,
+};
+/** PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed. */
+exports.PROBLEM_TYPES = ['PEST', 'DISEASE', 'NUTRIENT_DEFICIENCY', 'WEED', 'OTHER'];
+/** PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base. */
+exports.CROP_CATEGORIES = ['FIELD', 'TREE', 'PLANTATION', 'VEGETABLE', 'OTHER'];
+/** PRD §7.5 Attendance status vocabulary */
+exports.AttendanceStatus = {
+    PRESENT: 'PRESENT',
+    ABSENT: 'ABSENT',
+    LATE: 'LATE',
+    HALF_DAY: 'HALF_DAY',
+    WEEKLY_OFF: 'WEEKLY_OFF',
+    HOLIDAY: 'HOLIDAY',
+    LEAVE: 'LEAVE',
+};
+exports.AttendanceSource = {
+    ESSL: 'ESSL',
+    MANUAL: 'MANUAL',
+};
+exports.ApprovalStatus = {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+};
+/** PRD §7.7 Leave request status */
+exports.LeaveStatus = {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+    CANCELLED: 'CANCELLED',
+};
+/** PRD §7.9 Employee History type */
+exports.EmployeeHistoryType = {
+    TRAINING: 'TRAINING',
+    WARNING: 'WARNING',
+    COMMENDATION: 'COMMENDATION',
+    PROMOTION: 'PROMOTION',
+};
+/** PRD §7.8.4 Monthly Payroll workflow states */
+exports.PayrollStatus = {
+    IDLE: 'IDLE',
+    GENERATED: 'GENERATED',
+    APPROVED_LOCKED: 'APPROVED_LOCKED',
+    PUBLISHED: 'PUBLISHED',
+};
+exports.PayrollRunStatus = exports.PayrollStatus;
+/** PRD §7.4.1 & §7.4.2 KPI metrics */
+exports.KpiMetricType = {
+    CALLS_DIALED: 'CALLS_DIALED',
+    CALLS_CONNECTED: 'CALLS_CONNECTED',
+    LEADS_CONVERTED: 'LEADS_CONVERTED',
+    CONVERSION_RATE: 'CONVERSION_RATE',
+    TOTAL_REVENUE: 'TOTAL_REVENUE',
+    CUSTOMER_QUALITY: 'CUSTOMER_QUALITY',
+    ATTENDANCE: 'ATTENDANCE',
+    CRM_DISCIPLINE: 'CRM_DISCIPLINE',
+};
+/** PRD §9 Notification event types */
+exports.NotificationType = {
+    FOLLOW_UP_REMINDER: 'FOLLOW_UP_REMINDER',
+    PRODUCT_DETAILS: 'PRODUCT_DETAILS',
+    ATTENDANCE_STATUS: 'ATTENDANCE_STATUS',
+    LEAVE_STATUS: 'LEAVE_STATUS',
+    PAYROLL_STATUS: 'PAYROLL_STATUS',
 };

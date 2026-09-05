@@ -25,4 +25,44 @@ export class CreateEmployeeDto {
 
   @IsUUID()
   roleId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  employeeCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  designation?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  department?: string;
+
+  @IsOptional()
+  @IsUUID()
+  reportingManagerId?: string;
+
+  @IsOptional()
+  @IsString()
+  joiningDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  experience?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  employmentStatus?: 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'TERMINATED';
 }

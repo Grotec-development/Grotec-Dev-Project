@@ -113,6 +113,7 @@ export class MockAutoDialerProvider implements AutoDialerProvider {
 
   private apply(call: SimulatedCall, status: CallStatus): void {
     if (call.ended) return;
+    if (call.status === CallStatus.CONNECTED && status === CallStatus.RINGING) return;
     call.status = status;
   }
 
@@ -120,8 +121,12 @@ export class MockAutoDialerProvider implements AutoDialerProvider {
   private applyExternal(call: SimulatedCall, status: CallStatus): void {
     if (call.ended) return;
     call.status = status;
-    if (status === CallStatus.CONNECTED && !call.connectedAt) {
-      call.connectedAt = new Date();
+    if (status === CallStatus.CONNECTED) {
+      for (const timer of call.timers) clearTimeout(timer);
+      call.timers = [];
+      if (!call.connectedAt) {
+        call.connectedAt = new Date();
+      }
     }
     if (status === CallStatus.ENDED || status === CallStatus.NOT_ANSWERED || status === CallStatus.FAILED) {
       call.ended = true;

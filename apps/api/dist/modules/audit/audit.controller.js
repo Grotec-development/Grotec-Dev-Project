@@ -15,7 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuditController = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@grotec/shared");
+const current_employee_decorator_1 = require("../../common/decorators/current-employee.decorator");
 const require_permission_decorator_1 = require("../../common/decorators/require-permission.decorator");
+const api_error_1 = require("../../common/errors/api-error");
 const prisma_service_1 = require("../../common/prisma/prisma.service");
 const pagination_1 = require("../../common/utils/pagination");
 let AuditController = class AuditController {
@@ -23,7 +25,10 @@ let AuditController = class AuditController {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async list(entityType, entityId, actorId, action, from, to, page, pageSize) {
+    async list(actor, entityType, entityId, actorId, action, from, to, page, pageSize) {
+        if (actor.roleCode !== 'FOUNDER') {
+            throw api_error_1.ApiError.forbidden('FOUNDER_ONLY', 'Only Founder can access audit logs (PRD §5.1.2)');
+        }
         const where = {};
         if (entityType)
             where.entityType = entityType;
@@ -58,16 +63,17 @@ exports.AuditController = AuditController;
 __decorate([
     (0, common_1.Get)(),
     (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.auditRead),
-    __param(0, (0, common_1.Query)('entityType')),
-    __param(1, (0, common_1.Query)('entityId')),
-    __param(2, (0, common_1.Query)('actorId')),
-    __param(3, (0, common_1.Query)('action')),
-    __param(4, (0, common_1.Query)('from')),
-    __param(5, (0, common_1.Query)('to')),
-    __param(6, (0, common_1.Query)('page')),
-    __param(7, (0, common_1.Query)('pageSize')),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Query)('entityType')),
+    __param(2, (0, common_1.Query)('entityId')),
+    __param(3, (0, common_1.Query)('actorId')),
+    __param(4, (0, common_1.Query)('action')),
+    __param(5, (0, common_1.Query)('from')),
+    __param(6, (0, common_1.Query)('to')),
+    __param(7, (0, common_1.Query)('page')),
+    __param(8, (0, common_1.Query)('pageSize')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], AuditController.prototype, "list", null);
 exports.AuditController = AuditController = __decorate([

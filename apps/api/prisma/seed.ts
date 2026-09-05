@@ -122,14 +122,37 @@ async function seedEmployees(): Promise<{ founderId: string; agentId?: string }>
   const founderPassword = process.env.FOUNDER_PASSWORD ?? 'Founder@123';
   const founderRole = await findRole('FOUNDER');
 
+  const demoEmployeeProfiles: Record<string, { code: string; designation: string; department: string; experience: string; joiningDate: Date }> = {
+    [founderEmail]: { code: 'EMP0001', designation: 'Founder & CEO', department: 'Executive', experience: '10+ years', joiningDate: new Date('2024-01-01') },
+    'manager@grotec.local': { code: 'EMP0002', designation: 'Operations Manager', department: 'Operations', experience: '6 years', joiningDate: new Date('2024-06-01') },
+    'agent@grotec.local': { code: 'EMP0003', designation: 'Senior Telecaller', department: 'Telecalling', experience: '2.5 years', joiningDate: new Date('2025-01-15') },
+    'staff@grotec.local': { code: 'EMP0005', designation: 'Office & HR Staff', department: 'Human Resources', experience: '3 years', joiningDate: new Date('2024-11-01') },
+    'delivery@grotec.local': { code: 'EMP0004', designation: 'Delivery & Field Specialist', department: 'Field Operations', experience: '2 years', joiningDate: new Date('2025-01-10') },
+  };
+
+  const founderProf = demoEmployeeProfiles[founderEmail];
   const founder = await prisma.employee.upsert({
     where: { email: founderEmail },
-    update: { fullName: founderName, roleId: founderRole.id, status: 'ACTIVE' },
+    update: {
+      fullName: founderName,
+      roleId: founderRole.id,
+      status: 'ACTIVE',
+      employeeCode: founderProf?.code,
+      designation: founderProf?.designation,
+      department: founderProf?.department,
+      experience: founderProf?.experience,
+      joiningDate: founderProf?.joiningDate,
+    },
     create: {
       email: founderEmail,
       fullName: founderName,
       roleId: founderRole.id,
       passwordHash: await hashPassword(founderPassword),
+      employeeCode: founderProf?.code,
+      designation: founderProf?.designation,
+      department: founderProf?.department,
+      experience: founderProf?.experience,
+      joiningDate: founderProf?.joiningDate,
     },
   });
 
@@ -143,19 +166,36 @@ async function seedEmployees(): Promise<{ founderId: string; agentId?: string }>
       continue;
     }
     const role = await findRole(roleCode);
+    const prof = demoEmployeeProfiles[email.toLowerCase()];
     const employee = await prisma.employee.upsert({
       where: { email: email.toLowerCase() },
-      update: { fullName: name, roleId: role.id, status: 'ACTIVE' },
+      update: {
+        fullName: name,
+        roleId: role.id,
+        status: 'ACTIVE',
+        employeeCode: prof?.code,
+        designation: prof?.designation,
+        department: prof?.department,
+        experience: prof?.experience,
+        joiningDate: prof?.joiningDate,
+        reportingManagerId: roleCode !== 'MANAGER' ? founder.id : null,
+      },
       create: {
         email: email.toLowerCase(),
         fullName: name,
         roleId: role.id,
         passwordHash: await hashPassword(founderPassword),
+        employeeCode: prof?.code,
+        designation: prof?.designation,
+        department: prof?.department,
+        experience: prof?.experience,
+        joiningDate: prof?.joiningDate,
+        reportingManagerId: roleCode !== 'MANAGER' ? founder.id : null,
       },
     });
     if (roleCode === 'AGENT' && !agentId) agentId = employee.id;
   }
-  console.log('seeded employees (founder + demo)');
+  console.log('seeded employees (founder + demo with HRMS profiles)');
   return { founderId: founder.id, agentId };
 }
 
@@ -380,7 +420,218 @@ async function seedRelationshipDemo(): Promise<void> {
   }
 }
 
+async function seedLeaveTypes(): Promise<void> {
+  const types = [
+    { code: 'CASUAL', name: 'Casual Leave', quotaDays: 12, isPaid: true, allowCarryForward: false },
+    { code: 'SICK', name: 'Sick Leave', quotaDays: 12, isPaid: true, allowCarryForward: false },
+    { code: 'PAID', name: 'Earned / Privilege Leave', quotaDays: 15, isPaid: true, allowCarryForward: true },
+    { code: 'UNPAID', name: 'Loss of Pay', quotaDays: 0, isPaid: false, allowCarryForward: false },
+  ];
+  for (const t of types) {
+    await prisma.leaveType.upsert({
+      where: { code: t.code },
+      update: { name: t.name, quotaDays: t.quotaDays, isPaid: t.isPaid, allowCarryForward: t.allowCarryForward },
+      create: t,
+    });
+  }
+  const currentYear = new Date().getFullYear();
+  const employees = await prisma.employee.findMany();
+  const leaveTypes = await prisma.leaveType.findMany({ where: { isPaid: true } });
+  for (const emp of employees) {
+    for (const lt of leaveTypes) {
+      await prisma.leaveBalance.upsert({
+        where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: currentYear } },
+        update: {},
+        create: {
+          employeeId: emp.id,
+          leaveTypeId: lt.id,
+          year: currentYear,
+          allocated: lt.quotaDays,
+          used: 0,
+          balance: lt.quotaDays,
+        },
+      });
+    }
+  }
+  console.log('seeded leave types and employee balances');
+}
+
+async function seedEssl(): Promise<void> {
+  const device = await prisma.esslDevice.upsert({
+    where: { deviceCode: 'ESSL-HQ-01' },
+    update: { name: 'HQ Main Biometric', location: 'Hyderabad HQ', isActive: true },
+    create: { deviceCode: 'ESSL-HQ-01', name: 'HQ Main Biometric', location: 'Hyderabad HQ', ipAddress: '192.168.1.200', isActive: true },
+  });
+
+  const employees = await prisma.employee.findMany({ orderBy: { createdAt: 'asc' } });
+  for (let i = 0; i < employees.length; i++) {
+    const emp = employees[i];
+    await prisma.esslDeviceMapping.upsert({
+      where: { deviceId_biometricPin: { deviceId: device.id, biometricPin: `100${i + 1}` } },
+      update: {},
+      create: { employeeId: emp.id, deviceId: device.id, biometricPin: `100${i + 1}` },
+    });
+  }
+  console.log('seeded ESSL biometric device and mappings');
+}
+
+async function seedSalaryRevisions(): Promise<void> {
+  const employees = await prisma.employee.findMany();
+  const baseSalaries: Record<string, number> = {
+    'EMP0001': 150000,
+    'EMP0002': 75000,
+    'EMP0003': 35000,
+    'EMP0004': 30000,
+  };
+
+  for (const emp of employees) {
+    const base = baseSalaries[emp.employeeCode ?? ''] ?? 30000;
+    const hra = Math.round(base * 0.4);
+    const conveyance = 2000;
+    const specialAllowance = Math.round(base * 0.2);
+    const gross = base + hra + conveyance + specialAllowance;
+    const pf = 1800;
+    const pt = 200;
+    const deductions = pf + pt;
+    const net = gross - deductions;
+
+    const existing = await prisma.salaryRevision.findFirst({
+      where: { employeeId: emp.id, revisionNumber: 1 },
+    });
+    if (!existing) {
+      await prisma.salaryRevision.create({
+        data: {
+          employeeId: emp.id,
+          revisionNumber: 1,
+          effectiveFrom: new Date('2025-01-01'),
+          baseSalary: base,
+          components: [
+            { name: 'Basic', type: 'EARNING', amount: base, taxable: true },
+            { name: 'HRA', type: 'EARNING', amount: hra, taxable: true },
+            { name: 'Conveyance', type: 'EARNING', amount: conveyance, taxable: false },
+            { name: 'Special Allowance', type: 'EARNING', amount: specialAllowance, taxable: true },
+            { name: 'Provident Fund', type: 'DEDUCTION', amount: pf, taxable: false },
+            { name: 'Professional Tax', type: 'DEDUCTION', amount: pt, taxable: false },
+          ],
+          grossSalary: gross,
+          totalDeductions: deductions,
+          netSalary: net,
+          notes: 'Initial salary baseline per Phase 1 appointment',
+        },
+      });
+    }
+  }
+  console.log('seeded salary revisions');
+}
+
+async function seedAttendance(): Promise<void> {
+  const employees = await prisma.employee.findMany();
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  for (const emp of employees) {
+    for (let day = 1; day <= 7; day++) {
+      const date = new Date(year, month, day);
+      const isWeekend = date.getDay() === 0;
+      const status = isWeekend ? 'WEEKLY_OFF' : (day === 4 && emp.employeeCode === 'EMP0003' ? 'HALF_DAY' : 'PRESENT');
+      const source = day % 2 === 0 ? 'ESSL' : 'MANUAL';
+      const punchIn = status === 'PRESENT' || status === 'HALF_DAY' ? new Date(year, month, day, 9, 15) : null;
+      const punchOut = status === 'PRESENT' ? new Date(year, month, day, 18, 30) : (status === 'HALF_DAY' ? new Date(year, month, day, 13, 30) : null);
+
+      await prisma.attendanceRecord.upsert({
+        where: { employeeId_date: { employeeId: emp.id, date } },
+        update: {},
+        create: {
+          employeeId: emp.id,
+          date,
+          status,
+          source,
+          punchIn,
+          punchOut,
+          checkInDevice: source === 'ESSL' ? 'ESSL-HQ-01' : null,
+          approvalStatus: 'APPROVED',
+          approvedAt: new Date(year, month, day, 19, 0),
+        },
+      });
+    }
+  }
+  console.log('seeded attendance history');
+}
+
+async function seedKpi(): Promise<void> {
+  const agent = await prisma.employee.findFirst({ where: { email: 'agent@grotec.local' } });
+  if (!agent) return;
+
+  const currentPeriod = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const targets = [
+    { metric: 'CALLS_DIALED' as const, targetValue: 100, weight: 1.5 },
+    { metric: 'CALLS_CONNECTED' as const, targetValue: 60, weight: 1.5 },
+    { metric: 'LEADS_CONVERTED' as const, targetValue: 10, weight: 2.0 },
+    { metric: 'CONVERSION_RATE' as const, targetValue: 15, weight: 1.0 },
+    { metric: 'TOTAL_REVENUE' as const, targetValue: 50000, weight: 1.0 },
+    { metric: 'ATTENDANCE' as const, targetValue: 95, weight: 1.0 },
+  ];
+
+  for (const t of targets) {
+    const existing = await prisma.kpiTarget.findFirst({
+      where: { employeeId: agent.id, period: currentPeriod, metric: t.metric },
+    });
+    if (!existing) {
+      await prisma.kpiTarget.create({
+        data: {
+          employeeId: agent.id,
+          period: currentPeriod,
+          metric: t.metric,
+          targetValue: t.targetValue,
+          weight: t.weight,
+        },
+      });
+    }
+  }
+  console.log('seeded KPI targets');
+}
+
+async function seedPayroll(): Promise<void> {
+  const agent = await prisma.employee.findFirst({ where: { email: 'agent@grotec.local' } });
+  if (agent) {
+    const existingAdvance = await prisma.advanceLedger.findFirst({ where: { employeeId: agent.id } });
+    if (!existingAdvance) {
+      await prisma.advanceLedger.create({
+        data: {
+          employeeId: agent.id,
+          amount: 5000,
+          runningBalance: 5000,
+          reason: 'Festival emergency advance',
+          status: 'ACTIVE',
+        },
+      });
+    }
+  }
+  console.log('seeded advances');
+}
+
+async function seedKpiMetricDefinitions(): Promise<void> {
+  const definitions = [
+    { code: 'CALLS_DIALED', name: 'Calls Dialed', sourceNote: 'computed from Call table' },
+    { code: 'CALLS_CONNECTED', name: 'Calls Connected', sourceNote: 'computed from Call table' },
+    { code: 'LEADS_CONVERTED', name: 'Leads Converted', sourceNote: 'computed from Lead/Call linkage' },
+    { code: 'CONVERSION_RATE', name: 'Conversion Rate', sourceNote: 'computed: leads converted / calls connected' },
+    { code: 'TOTAL_REVENUE', name: 'Total Revenue', sourceNote: 'UNCONFIRMED — no Phase 1 data source, see PRD Appendix C' },
+  ];
+  for (const def of definitions) {
+    await prisma.kpiMetricDefinition.upsert({
+      where: { code: def.code },
+      update: { name: def.name, sourceNote: def.sourceNote },
+      create: { code: def.code, name: def.name, sourceNote: def.sourceNote, isActive: true },
+    });
+  }
+  console.log('seeded 5 KPI metric definitions');
+}
+
 async function main(): Promise<void> {
+  await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS farmer_code_seq START WITH 1 INCREMENT BY 1;`);
+  await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS employee_code_seq START WITH 1 INCREMENT BY 1;`);
   await seedPermissions();
   await seedRoles();
   const { founderId, agentId } = await seedEmployees();
@@ -389,6 +640,13 @@ async function main(): Promise<void> {
   await seedDemoCustomers(founderId, agentId, cropIds);
   await seedDemoCalls(agentId);
   await seedRelationshipDemo();
+  await seedLeaveTypes();
+  await seedEssl();
+  await seedSalaryRevisions();
+  await seedAttendance();
+  await seedKpiMetricDefinitions();
+  await seedKpi();
+  await seedPayroll();
 
   const counts = {
     employees: await prisma.employee.count(),

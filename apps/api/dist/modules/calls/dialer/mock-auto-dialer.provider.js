@@ -88,14 +88,21 @@ let MockAutoDialerProvider = class MockAutoDialerProvider {
     apply(call, status) {
         if (call.ended)
             return;
+        if (call.status === shared_1.CallStatus.CONNECTED && status === shared_1.CallStatus.RINGING)
+            return;
         call.status = status;
     }
     applyExternal(call, status) {
         if (call.ended)
             return;
         call.status = status;
-        if (status === shared_1.CallStatus.CONNECTED && !call.connectedAt) {
-            call.connectedAt = new Date();
+        if (status === shared_1.CallStatus.CONNECTED) {
+            for (const timer of call.timers)
+                clearTimeout(timer);
+            call.timers = [];
+            if (!call.connectedAt) {
+                call.connectedAt = new Date();
+            }
         }
         if (status === shared_1.CallStatus.ENDED || status === shared_1.CallStatus.NOT_ANSWERED || status === shared_1.CallStatus.FAILED) {
             call.ended = true;

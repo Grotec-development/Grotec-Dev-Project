@@ -1,5 +1,5 @@
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
-import { PROBLEM_TYPES, type ProblemType } from './create-guidance.dto';
+import { PROBLEM_TYPES, type ProblemType } from '@grotec/shared';
 
 export class UpdateGuidanceDto {
   @IsOptional()

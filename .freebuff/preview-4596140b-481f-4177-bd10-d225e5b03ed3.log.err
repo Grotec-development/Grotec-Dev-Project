@@ -1,189 +1,40 @@
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
-(node:14668) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/narra/OneDrive/Documents/grotec%20project/apps/web/postcss.config.js is not specified and it doesn't parse as CommonJS.
+(node:25564) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/narra/OneDrive/Documents/grotec%20project/apps/web/postcss.config.js is not specified and it doesn't parse as CommonJS.
 Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
 To eliminate this warning, add "type": "module" to \\?\C:\Users\narra\OneDrive\Documents\grotec project\apps\web\package.json.
 (Use `node --trace-warnings ...` to show where the warning was created)
-[2m10:24:35 pm[22m [31m[1m[vite][22m[39m Pre-transform error: Failed to load url /src/pages/KnowledgeBasePage.tsx (resolved id: C:/Users/narra/OneDrive/Documents/grotec project/apps/web/src/pages/KnowledgeBasePage.tsx) in C:/Users/narra/OneDrive/Documents/grotec project/apps/web/src/router.tsx. Does the file exist?
-[2m10:25:02 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
+[2m5:20:15 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:25:02 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
+[2m5:20:15 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:37:51 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
+[2m5:20:15 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:37:51 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
+[2m5:20:15 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:37:54 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
+[2m5:20:40 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/notifications/unread-count[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:37:54 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
+[2m5:21:41 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/notifications/unread-count[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:37:55 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/leads?page=1&pageSize=50[39m
+[2m5:22:40 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/notifications/unread-count[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:37:56 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/leads?page=1&pageSize=50[39m
+[2m5:23:29 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/notifications/unread-count[39m
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1430:18)
     at afterConnectMultiple (node:net:2099:7)
-[2m10:40:45 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:40:45 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:04 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:04 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:16 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/leads?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:17 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/leads?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:32 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/crops[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:33 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/crops[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:34 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:34 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:47 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/leads?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:41:48 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/leads?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:42:03 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/crops[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:42:04 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/crops[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:42:15 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:42:15 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:13 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:13 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/calls/queue[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:14 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/customers?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:15 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/customers?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:16 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/crops[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:17 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/crops[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:18 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/customers?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:43:19 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/customers?page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:45:36 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/customers?status=ACTIVE&page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:45:37 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/customers?status=ACTIVE&page=1&pageSize=50[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:45:37 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:45:37 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:49:14 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/login[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:49:17 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/login[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:57:32 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/login[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m10:57:34 pm[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/login[39m
-AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1430:18)
-    at afterConnectMultiple (node:net:2099:7)
-[2m11:14:28 pm[22m [31m[1m[vite][22m[39m Pre-transform error: Failed to resolve import "./pages/KnowledgeBasePage" from "src/router.tsx". Does the file exist?
-[2m11:14:28 pm[22m [31m[1m[vite][22m[39m [31mInternal server error: Failed to resolve import "./pages/KnowledgeBasePage" from "src/router.tsx". Does the file exist?[39m
-  Plugin: [35mvite:import-analysis[39m
-  File: [36mC:/Users/narra/OneDrive/Documents/grotec project/apps/web/src/router.tsx[39m:11:34
-[33m  10 |  import { LeadsPage } from "./pages/leads/LeadsPage";
-  11 |  import { CropsPage } from "./pages/CropsPage";
-  12 |  import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
-     |                                     ^
-  13 |  import { TeamPage } from "./pages/TeamPage";
-  14 |  import { AuditPage } from "./pages/AuditPage";[39m
-      at TransformPluginContext._formatError (file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49258:41)
-      at TransformPluginContext.error (file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49253:16)
-      at normalizeUrl (file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64307:23)
-      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-      at async file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64439:39
-      at async Promise.all (index 11)
-      at async TransformPluginContext.transform (file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64366:7)
-      at async PluginContainer.transform (file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18)
-      at async loadAndTransform (file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
-      at async viteTransformMiddleware (file:///C:/Users/narra/OneDrive/Documents/grotec%20project/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:62106:24)
 npm error Lifecycle script `dev` failed with error:
 npm error code 1
 npm error path C:\Users\narra\OneDrive\Documents\grotec project\apps\web

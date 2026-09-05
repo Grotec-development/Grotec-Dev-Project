@@ -1,8 +1,5 @@
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
-
-/** PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed. */
-export const PROBLEM_TYPES = ['PEST', 'DISEASE', 'NUTRIENT_DEFICIENCY', 'WEED', 'OTHER'] as const;
-export type ProblemType = (typeof PROBLEM_TYPES)[number];
+import { PROBLEM_TYPES, type ProblemType } from '@grotec/shared';
 
 export class CreateGuidanceDto {
   @IsUUID()

@@ -21,20 +21,80 @@ const pagination_1 = require("../../common/utils/pagination");
 const create_employee_dto_1 = require("./dto/create-employee.dto");
 const reset_password_dto_1 = require("./dto/reset-password.dto");
 const update_employee_dto_1 = require("./dto/update-employee.dto");
+const create_employee_note_dto_1 = require("./dto/create-employee-note.dto");
+const create_employee_document_dto_1 = require("./dto/create-employee-document.dto");
+const create_employee_history_dto_1 = require("./dto/create-employee-history.dto");
+const assign_staff_dto_1 = require("./dto/assign-staff.dto");
 const employees_service_1 = require("./employees.service");
 let EmployeesController = class EmployeesController {
     employees;
     constructor(employees) {
         this.employees = employees;
     }
-    async list(q, status, roleCode, page, pageSize) {
-        return this.employees.list((0, pagination_1.parsePagination)(page, pageSize), { q, status: status, roleCode });
+    async list(actor, q, status, roleCode, department, designation, employmentStatus, sort, page, pageSize) {
+        return this.employees.list(actor, (0, pagination_1.parsePagination)(page, pageSize), {
+            q,
+            status: status,
+            roleCode,
+            department,
+            designation,
+            employmentStatus: employmentStatus,
+            sort,
+        });
     }
     async create(actor, dto) {
         return this.employees.create(actor, dto);
     }
-    async get(id) {
-        return this.employees.get(id);
+    async get(actor, id) {
+        return this.employees.get(actor, id);
+    }
+    async getProfile(actor, id) {
+        return this.employees.getProfile(actor, id);
+    }
+    async getProfilePerformance(actor, id) {
+        return this.employees.getProfilePerformance(actor, id);
+    }
+    async getProfileAttendance(actor, id) {
+        return this.employees.getProfileAttendance(actor, id);
+    }
+    async getProfileLeave(actor, id) {
+        return this.employees.getProfileLeave(actor, id);
+    }
+    async getProfileSalary(actor, id) {
+        return this.employees.getProfileSalary(actor, id);
+    }
+    async getProfileAdvances(actor, id) {
+        return this.employees.getProfileAdvances(actor, id);
+    }
+    async getProfileHistory(actor, id) {
+        return this.employees.getProfileHistory(actor, id);
+    }
+    async getProfileDocuments(actor, id) {
+        return this.employees.getProfileDocuments(actor, id);
+    }
+    async addDocument(actor, id, body) {
+        return this.employees.addDocument(actor, id, body);
+    }
+    async deleteDocument(actor, id, docId) {
+        return this.employees.deleteDocument(actor, id, docId);
+    }
+    async createNote(actor, id, dto) {
+        return this.employees.createNote(actor, id, dto);
+    }
+    async listNotes(actor, id) {
+        return this.employees.listNotes(actor, id);
+    }
+    async addHistory(actor, id, dto) {
+        return this.employees.addHistory(actor, id, dto);
+    }
+    async assignStaff(actor, id, dto) {
+        return this.employees.assignStaff(actor, id, dto.staffEmployeeId);
+    }
+    async unassignStaff(actor, id, staffId) {
+        return this.employees.unassignStaff(actor, id, staffId);
+    }
+    async listAssignments(actor, id) {
+        return this.employees.listAssignments(actor, id);
     }
     async update(actor, id, dto) {
         return this.employees.update(actor, id, dto);
@@ -53,13 +113,18 @@ exports.EmployeesController = EmployeesController;
 __decorate([
     (0, common_1.Get)(),
     (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeRead),
-    __param(0, (0, common_1.Query)('q')),
-    __param(1, (0, common_1.Query)('status')),
-    __param(2, (0, common_1.Query)('roleCode')),
-    __param(3, (0, common_1.Query)('page')),
-    __param(4, (0, common_1.Query)('pageSize')),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Query)('q')),
+    __param(2, (0, common_1.Query)('status')),
+    __param(3, (0, common_1.Query)('roleCode')),
+    __param(4, (0, common_1.Query)('department')),
+    __param(5, (0, common_1.Query)('designation')),
+    __param(6, (0, common_1.Query)('employmentStatus')),
+    __param(7, (0, common_1.Query)('sort')),
+    __param(8, (0, common_1.Query)('page')),
+    __param(9, (0, common_1.Query)('pageSize')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "list", null);
 __decorate([
@@ -74,11 +139,154 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id'),
     (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeRead),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "get", null);
+__decorate([
+    (0, common_1.Get)(':id/profile'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfile", null);
+__decorate([
+    (0, common_1.Get)(':id/profile/performance'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfilePerformance", null);
+__decorate([
+    (0, common_1.Get)(':id/profile/attendance'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfileAttendance", null);
+__decorate([
+    (0, common_1.Get)(':id/profile/leave'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfileLeave", null);
+__decorate([
+    (0, common_1.Get)(':id/profile/salary'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfileSalary", null);
+__decorate([
+    (0, common_1.Get)(':id/profile/advances'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfileAdvances", null);
+__decorate([
+    (0, common_1.Get)(':id/profile/history'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfileHistory", null);
+__decorate([
+    (0, common_1.Get)(':id/profile/documents'),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "getProfileDocuments", null);
+__decorate([
+    (0, common_1.Post)(':id/documents'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeUpdate),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, create_employee_document_dto_1.CreateEmployeeDocumentDto]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "addDocument", null);
+__decorate([
+    (0, common_1.Delete)(':id/documents/:docId'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeUpdate),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('docId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "deleteDocument", null);
+__decorate([
+    (0, common_1.Post)(':id/notes'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeUpdate),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, create_employee_note_dto_1.CreateEmployeeNoteDto]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "createNote", null);
+__decorate([
+    (0, common_1.Get)(':id/notes'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeRead),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "listNotes", null);
+__decorate([
+    (0, common_1.Post)(':id/history'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeUpdate),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, create_employee_history_dto_1.CreateEmployeeHistoryDto]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "addHistory", null);
+__decorate([
+    (0, common_1.Post)(':id/assignments'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeUpdate),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, assign_staff_dto_1.AssignStaffDto]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "assignStaff", null);
+__decorate([
+    (0, common_1.Delete)(':id/assignments/:staffId'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeUpdate),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('staffId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "unassignStaff", null);
+__decorate([
+    (0, common_1.Get)(':id/assignments'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeRead),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "listAssignments", null);
 __decorate([
     (0, common_1.Patch)(':id'),
     (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.employeeUpdate),
