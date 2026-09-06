@@ -4,6 +4,10 @@ node_modules/
 # Local embedded postgres cluster
 .pgdata/
 
+# Build artifacts
+apps/web/dist/
+*.tsbuildinfo
+
 # Logs
 *.log
 npm-debug.log*
