@@ -1,23 +1,41 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Phone, PhoneCall, PhoneOff, UserPlus, Sprout, StickyNote, RotateCcw, History, Loader2, CheckCircle2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  Phone,
+  PhoneCall,
+  PhoneOff,
+  Mic,
+  MicOff,
+  UserPlus,
+  RotateCcw,
+  CheckCircle2,
+  Clock,
+  ArrowLeft,
+  CalendarClock,
+  Sparkles,
+  AlertTriangle,
+  FileEdit,
+  X,
+  BookOpen,
+  Search,
+  Plus,
+  Copy,
+  Sprout,
+  HelpCircle,
+  ChevronDown,
+  Info,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
-import type { Call, CallContext, CustomerDetail, QueueItem } from '../lib/types';
-import { formatE164, formatDate } from '../lib/format';
-import { Alert, Badge, Button, Card, CardHeader, Input, Spinner, cx } from '../components/ui';
+import type { Call, CallContext, QueueItem, KnowledgeGuidance } from '../lib/types';
+import { formatE164 } from '../lib/format';
+import { Alert, Badge, Button, Card, Input, Spinner, cx } from '../components/ui';
 import { NewCustomerModal } from './customers/NewCustomerModal';
 import { useAssistantContext } from '../assistant/AssistantContext';
-import { OutcomeFlow, OUTCOME_META } from './workspace/OutcomeFlow';
-import type { FollowUp, OutcomeRecordResult } from '../lib/types';
 
 const ACTIVE_STATUSES = ['DIALING', 'RINGING', 'CONNECTED'];
 const isActive = (status?: string) => status != null && ACTIVE_STATUSES.includes(status);
-
-function callStatusTone(status: string) {
-  if (status === 'CONNECTED') return 'green' as const;
-  if (status === 'DIALING' || status === 'RINGING') return 'amber' as const;
-  if (status === 'ENDED') return 'slate' as const;
-  return 'red' as const;
-}
 
 function formatTimer(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -25,34 +43,191 @@ function formatTimer(seconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// Gentle acoustic audio cue for headset feedback when toggling mute state
+function playAudioCue(muted: boolean) {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      void ctx.resume();
+    }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    // Mute: dropping tone 480Hz -> 320Hz. Unmute: rising tone 320Hz -> 480Hz
+    const startFreq = muted ? 480 : 320;
+    const endFreq = muted ? 320 : 480;
+    osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch {
+    // Gracefully ignore if audio context is blocked by browser policy
+  }
+}
+
+const BIO_INPUT_RECOMMENDATIONS = [
+  { id: '1', name: 'Phos (Liquid)', category: 'Phosphate Solubilizer', price: '₹450/L' },
+  { id: '2', name: 'Micromix', category: 'Micronutrients', price: '₹650/kg' },
+  { id: '3', name: 'Sanjeevini Gel', category: 'Plant Vitality', price: '₹800/bag' },
+];
+
+export interface PendingWrapUpItem {
+  callId: string;
+  customerId?: string | null;
+  leadId?: string | null;
+  phoneNumber: string;
+  farmerName: string;
+  endedAt: string;
+  durationSeconds: number;
+  notes: string;
+  disposition: 'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED';
+  nextAction: 'CALLBACK' | 'SALES';
+  followUpDate: string;
+  followUpTime: string;
+  followUpNote: string;
+  suggestedProducts: string[];
+}
+
 export function AgentWorkspacePage() {
+  const [searchParams] = useSearchParams();
+  const queryPhone = searchParams.get('phone') || '';
+  const queryName = searchParams.get('name') || '';
+
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
-  const [manualNumber, setManualNumber] = useState('');
+  const [manualNumber, setManualNumber] = useState(queryPhone);
   const [activeCall, setActiveCall] = useState<Call | null>(null);
+  const [isWrapUp, setIsWrapUp] = useState(false);
+  const [pendingWrapUp, setPendingWrapUp] = useState<PendingWrapUpItem | null>(null);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [context, setContext] = useState<CallContext | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
-  const [savingNote, setSavingNote] = useState(false);
+  const [disposition, setDisposition] = useState<'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED'>('INTERESTED');
+  const [nextAction, setNextAction] = useState<'CALLBACK' | 'SALES'>('CALLBACK');
+  const [followUpDate, setFollowUpDate] = useState('2026-03-12');
+  const [followUpTime, setFollowUpTime] = useState('10:00');
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [suggestedProducts, setSuggestedProducts] = useState<string[]>([]);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(204); // Default elapsed timer for mock realism
   const { setContext: setAssistantContext } = useAssistantContext();
 
+  // Knowledge Base in-call state
+  const [kbQuery, setKbQuery] = useState('');
+  const [kbFilterCrop, setKbFilterCrop] = useState<string>('ALL');
+  const [kbGuidanceList, setKbGuidanceList] = useState<KnowledgeGuidance[]>([]);
+  const [kbLoading, setKbLoading] = useState(false);
+  const [leftColumnTab, setLeftColumnTab] = useState<'profile' | 'kb'>('profile');
+
+  // Active call microphone mute state & hardware track reference
+  const [isMuted, setIsMuted] = useState(false);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  const toggleMute = () => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      playAudioCue(next);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getAudioTracks().forEach((track) => {
+          track.enabled = !next;
+        });
+      }
+      return next;
+    });
+  };
+
   const callActive = isActive(activeCall?.status);
+  const showWorkstation = (callActive || isWrapUp) && !isMinimized;
+
+  // If page loaded with query phone and not yet called, prepopulate
+  useEffect(() => {
+    if (queryPhone && !activeCall && !isWrapUp) {
+      setManualNumber(queryPhone);
+    }
+  }, [queryPhone, activeCall, isWrapUp]);
+
+  // Autosave call note draft locally so work is never lost if interrupted
+  useEffect(() => {
+    const callKey = activeCall?.id || 'active';
+    try {
+      const saved = localStorage.getItem(`grotec_draft_note_${callKey}`);
+      if (saved && !noteDraft) {
+        setNoteDraft(saved);
+      }
+    } catch {}
+  }, [activeCall?.id]);
+
+  const handleNoteChange = (val: string) => {
+    setNoteDraft(val);
+    const callKey = activeCall?.id || 'active';
+    try {
+      localStorage.setItem(`grotec_draft_note_${callKey}`, val);
+    } catch {}
+  };
+
+  const loadQueue = async () => {
+    try {
+      const res = await api.get<QueueItem[]>('/calls/queue');
+      setQueue(res.data);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const loadActiveCall = async () => {
+    try {
+      const res = await api.get<Call | null>('/calls/active');
+      if (res.data) {
+        setActiveCall(res.data);
+        const callEnded = res.data.status === 'ENDED' || !isActive(res.data.status);
+        setIsWrapUp(callEnded);
+        setIsMinimized(false);
+        const startTime = res.data.connectedAt
+          ? new Date(res.data.connectedAt).getTime()
+          : new Date(res.data.startedAt).getTime();
+        const endTime = res.data.endedAt ? new Date(res.data.endedAt).getTime() : Date.now();
+        const elapsedSec = Math.max(0, Math.floor((endTime - startTime) / 1000));
+        setElapsed(elapsedSec);
+        void loadContext(res.data.id);
+        if (callEnded) {
+          setSuccessNotice(`Resumed pending wrap-up for call with ${res.data.phoneNumber}.`);
+        } else {
+          setSuccessNotice(`Restored active call with ${res.data.phoneNumber}.`);
+        }
+      }
+    } catch {
+      /* active call check is best effort */
+    }
+  };
 
   useEffect(() => {
+    void loadQueue();
+    void loadActiveCall();
+  }, []);
+
+  // Fetch Knowledge Base guidance records on mount for instant zero-latency mid-call lookup
+  useEffect(() => {
     let cancelled = false;
+    setKbLoading(true);
     api
-      .get<QueueItem[]>('/calls/queue')
+      .get<KnowledgeGuidance[]>('/assistant/guidance')
       .then((res) => {
-        if (!cancelled) setQueue(res.data);
+        if (!cancelled) setKbGuidanceList(res.data || []);
       })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err));
-      })
+      .catch(() => undefined)
       .finally(() => {
-        if (!cancelled) setQueueLoading(false);
+        if (!cancelled) setKbLoading(false);
       });
     return () => {
       cancelled = true;
@@ -78,81 +253,210 @@ export function AgentWorkspacePage() {
     }
   };
 
-  // Status polling while the call is live (server reconciles with the provider).
+  // Status polling while the call is live
   useEffect(() => {
     if (!activeCall || !isActive(activeCall.status)) return;
     const id = window.setInterval(() => {
       void refreshCall(activeCall.id).then((call) => {
         if (!call) return;
         if (!isActive(call.status)) {
-          void api.get<QueueItem[]>('/calls/queue').then((res) => setQueue(res.data)).catch(() => undefined);
+          // Call hung up or finished remotely -> transition to wrap-up mode
+          setIsWrapUp(true);
+          void loadQueue();
         }
         const customerKnown = context?.customer?.id === call.customerId;
         if (call.customerId && !customerKnown) {
           void loadContext(call.id);
         }
       });
-    }, 1500);
+    }, 2000);
     return () => window.clearInterval(id);
   }, [activeCall, context]);
 
-  // Elapsed timer while the call is live.
+  // Elapsed timer while call is actively connected
   useEffect(() => {
-    if (!activeCall) return;
-    const id = window.setInterval(() => {
-      setElapsed(Math.max(0, Math.floor((Date.now() - new Date(activeCall.startedAt).getTime()) / 1000)));
+    if (!activeCall || !isActive(activeCall.status)) return;
+    const interval = window.setInterval(() => {
+      setElapsed((prev) => prev + 1);
     }, 1000);
-    return () => window.clearInterval(id);
-  }, [activeCall?.id, activeCall?.startedAt]);
+    return () => window.clearInterval(interval);
+  }, [activeCall?.status]);
 
-  // Auto-pass the active call's farmer + crop into the assistant widget so a
-  // telecaller can ask “what do I recommend for this crop?” without retyping it.
+  // Keyboard shortcut: Press 'M' to toggle mute during an active call (when not typing in inputs/textareas)
   useEffect(() => {
-    const customer = context?.customer ?? null;
-    if (activeCall && customer) {
-      setAssistantContext({
-        customerId: customer.id,
-        cropId: customer.crops[0]?.crop.id,
-        customerName: customer.fullName,
-      });
-    } else {
-      setAssistantContext(null);
-    }
-  }, [activeCall, context?.customer, setAssistantContext]);
+    if (!callActive) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        toggleMute();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [callActive]);
+
+  // Clean up media tracks on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+    };
+  }, []);
+
+  // Filter Knowledge Base records for instant in-call advisory
+  const filteredGuidance = useMemo(() => {
+    const q = kbQuery.trim().toLowerCase();
+    return kbGuidanceList.filter((item) => {
+      if (kbFilterCrop !== 'ALL') {
+        const cropMatch =
+          item.crop?.name?.toLowerCase().includes(kbFilterCrop.toLowerCase()) ||
+          item.crop?.code?.toLowerCase().includes(kbFilterCrop.toLowerCase());
+        if (!cropMatch) return false;
+      }
+      if (!q) return true;
+      const inCrop = item.crop?.name?.toLowerCase().includes(q);
+      const inType = item.problemType?.toLowerCase().includes(q);
+      const inKeywords = item.problemKeywords?.some((k) => k.toLowerCase().includes(q));
+      const inProducts = item.recommendedProducts?.some((p) => p.toLowerCase().includes(q));
+      const inUsage = item.usageGuidance?.toLowerCase().includes(q);
+      return inCrop || inType || inKeywords || inProducts || inUsage;
+    });
+  }, [kbGuidanceList, kbQuery, kbFilterCrop]);
+
+  function insertGuidanceIntoNotes(item: KnowledgeGuidance) {
+    const advisorySnippet = `\n[Advisory for ${item.crop.name}: Recommend ${item.recommendedProducts.join(', ')}. Usage: ${item.usageGuidance || 'Follow label directions'}]`;
+    setNoteDraft((prev) => (prev ? `${prev.trimEnd()}${advisorySnippet}` : advisorySnippet.trim()));
+    setSuccessNotice(`Inserted advisory for ${item.crop.name} into call notes.`);
+  }
+
+  function suggestGuidanceProducts(item: KnowledgeGuidance) {
+    // If any item recommended matches BIO_INPUT_RECOMMENDATIONS, toggle it
+    item.recommendedProducts.forEach((prodName) => {
+      const match = BIO_INPUT_RECOMMENDATIONS.find((b) =>
+        b.name.toLowerCase().includes(prodName.toLowerCase()) || prodName.toLowerCase().includes(b.name.toLowerCase()),
+      );
+      if (match && !suggestedProducts.includes(match.id)) {
+        setSuggestedProducts((prev) => [...prev, match.id]);
+      }
+    });
+    setSuccessNotice(`Added ${item.recommendedProducts.join(', ')} to recommended bio-inputs.`);
+  }
 
   async function dial(phoneNumber: string, customerId?: string, leadId?: string) {
     if (busy) return;
     setBusy(true);
     setError(null);
+    setSuccessNotice(null);
     try {
       const res = await api.post<Call>('/calls', { phoneNumber, customerId, leadId });
       setActiveCall(res.data);
+      setIsMuted(false);
+      setIsWrapUp(false);
+      setIsMinimized(false);
       setContext(null);
       setManualNumber('');
       setElapsed(0);
+      setNoteDraft('');
+      setDisposition('INTERESTED');
+      setNextAction('CALLBACK');
+      setFollowUpDate(new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10));
+      setFollowUpTime('10:00');
+      setFollowUpNote('');
       await loadContext(res.data.id);
-    } catch (err) {
+    } catch (err: any) {
+      const existingCallId = err?.response?.data?.details?.callId;
+      if (existingCallId) {
+        const call = await refreshCall(existingCallId);
+        if (call) {
+          const callEnded = call.status === 'ENDED' || !isActive(call.status);
+          setIsWrapUp(callEnded);
+          setIsMinimized(false);
+          setIsMuted(false);
+          const startTime = call.connectedAt ? new Date(call.connectedAt).getTime() : new Date(call.startedAt).getTime();
+          const endTime = call.endedAt ? new Date(call.endedAt).getTime() : Date.now();
+          setElapsed(Math.max(0, Math.floor((endTime - startTime) / 1000)));
+          await loadContext(call.id);
+          setError(null);
+          setSuccessNotice('Active call detected and restored to your screen.');
+          return;
+        }
+      }
       setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
   }
 
-  function handleRecorded(result: OutcomeRecordResult) {
-    setActiveCall(result.call);
-    void api.get<QueueItem[]>('/calls/queue').then((q) => setQueue(q.data)).catch(() => undefined);
-    if (result.call.id) void loadContext(result.call.id);
+  // Quick simulated start for testing the active call screen from mock
+  function startMockActiveCall(name: string, phone: string) {
+    setActiveCall({
+      id: 'mock-call-1',
+      customerId: null,
+      leadId: null,
+      agentId: 'agent-1',
+      startedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      connectedAt: new Date().toISOString(),
+      endedAt: null,
+      outcome: null,
+      nextAction: null,
+      disconnectReason: null,
+      phoneNumber: phone,
+      direction: 'OUTBOUND',
+      provider: 'MOCK_DIALER',
+      providerCallId: 'sim-call-98421',
+      status: 'CONNECTED',
+      notes: [],
+    });
+    setIsMuted(false);
+    setIsWrapUp(false);
+    setElapsed(204); // 03:24 timer matching PDF mockup
+    setNoteDraft(
+      'Farmer reports slight leaf curl on paddy. Advised check on water stagnation. Interested in Phos bio-fertilizer for upcoming phosphate solubilization trial.',
+    );
+    setDisposition('INTERESTED');
+    setNextAction('CALLBACK');
+    setFollowUpDate('2026-03-12');
+    setFollowUpTime('10:00');
+    setFollowUpNote('Check phosphate solubilization trial results');
+    setError(null);
+    setSuccessNotice(null);
   }
 
+  // Hang up call without leaving screen -> transition into wrap-up
   async function endCall() {
     if (!activeCall || busy) return;
     setBusy(true);
     setError(null);
+    setIsMuted(false);
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
     try {
+      if (activeCall.id === 'mock-call-1') {
+        setActiveCall({ ...activeCall, status: 'ENDED', endedAt: new Date().toISOString() });
+        setIsWrapUp(true);
+        return;
+      }
       const res = await api.post<Call>(`/calls/${activeCall.id}/end`);
       setActiveCall(res.data);
-      void api.get<QueueItem[]>('/calls/queue').then((q) => setQueue(q.data)).catch(() => undefined);
-      void loadContext(activeCall.id); // final state in the history panel
+      setIsWrapUp(true);
+      void loadQueue();
+      void loadContext(activeCall.id);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -160,427 +464,1217 @@ export function AgentWorkspacePage() {
     }
   }
 
-  async function addNote() {
-    if (!activeCall || !noteDraft.trim() || savingNote) return;
-    setSavingNote(true);
+  // Option 1: Save notes, record outcome, and complete session
+  async function saveAndCompleteDisposition() {
+    if (!activeCall || busy) return;
+    setBusy(true);
+    setError(null);
     try {
-      await api.post(`/calls/${activeCall.id}/notes`, { body: noteDraft.trim() });
+      const isMock = activeCall.id === 'mock-call-1';
+
+      if (!isMock) {
+        // Ensure call status is ENDED before recording outcome
+        if (isActive(activeCall.status)) {
+          await api.post(`/calls/${activeCall.id}/end`).catch(() => undefined);
+        }
+
+        // Save note if drafted
+        if (noteDraft.trim()) {
+          await api.post(`/calls/${activeCall.id}/notes`, { body: noteDraft.trim() }).catch(() => undefined);
+        }
+
+        // Record outcome
+        const outcomePayload: any = {
+          outcome: disposition,
+        };
+        if (disposition === 'INTERESTED') {
+          outcomePayload.nextAction = nextAction;
+          if (nextAction === 'CALLBACK') {
+            outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
+            outcomePayload.followUpTime = followUpTime || '10:00';
+            outcomePayload.followUpNote =
+              followUpNote.trim() || noteDraft.trim() || 'Telecaller follow-up callback';
+          }
+        }
+        await api.post(`/calls/${activeCall.id}/outcome`, outcomePayload);
+      }
+
+      const farmerName = farmerDisplayName;
+      const outcomeText =
+        disposition === 'INTERESTED'
+          ? `Interested (${nextAction === 'CALLBACK' ? `Follow-up on ${followUpDate}` : 'Handed over to RM'})`
+          : disposition === 'NOT_INTERESTED'
+            ? 'Not Interested'
+            : 'Not Answered';
+
+      setActiveCall(null);
+      setIsWrapUp(false);
+      setIsMuted(false);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+      }
+      setPendingWrapUp(null);
       setNoteDraft('');
-      const res = await api.get<Call>(`/calls/${activeCall.id}`);
-      setActiveCall(res.data);
+      try {
+        if (activeCall?.id) localStorage.removeItem(`grotec_draft_note_${activeCall.id}`);
+        localStorage.removeItem('grotec_draft_note_active');
+      } catch {}
+      setSuggestedProducts([]);
+      setSuccessNotice(`Call session completed for ${farmerName}. Disposition saved: ${outcomeText}.`);
+      void loadQueue();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
-      setSavingNote(false);
+      setBusy(false);
     }
   }
 
-  const dialableNumber = manualNumber.trim();
+  // Option 2: Wrap up later -> save draft and return to queue
+  function wrapUpLater() {
+    if (!activeCall) return;
+    const item: PendingWrapUpItem = {
+      callId: activeCall.id,
+      customerId: activeCall.customerId || context?.customer?.id,
+      leadId: activeCall.leadId,
+      phoneNumber: farmerDisplayPhone,
+      farmerName: farmerDisplayName,
+      endedAt: new Date().toISOString(),
+      durationSeconds: elapsed,
+      notes: noteDraft,
+      disposition,
+      nextAction,
+      followUpDate,
+      followUpTime,
+      followUpNote,
+      suggestedProducts,
+    };
+    setPendingWrapUp(item);
+    setActiveCall(null);
+    setIsWrapUp(false);
+    setSuccessNotice(
+      `Call draft saved for ${farmerDisplayName}. You can complete follow-up anytime from the card above.`,
+    );
+  }
+
+  // Resume full workstation from outside card
+  function resumePendingWrapUp(item: PendingWrapUpItem) {
+    setNoteDraft(item.notes);
+    setDisposition(item.disposition);
+    setNextAction(item.nextAction);
+    setFollowUpDate(item.followUpDate);
+    setFollowUpTime(item.followUpTime);
+    setFollowUpNote(item.followUpNote);
+    setSuggestedProducts(item.suggestedProducts);
+    setElapsed(item.durationSeconds);
+    setActiveCall({
+      id: item.callId,
+      customerId: item.customerId ?? null,
+      leadId: item.leadId ?? null,
+      agentId: 'agent-1',
+      phoneNumber: item.phoneNumber,
+      direction: 'OUTBOUND',
+      status: 'ENDED',
+      outcome: null,
+      nextAction: null,
+      provider: 'MOCK_DIALER',
+      providerCallId: item.callId,
+      connectedAt: item.endedAt,
+      startedAt: item.endedAt,
+      endedAt: item.endedAt,
+      disconnectReason: null,
+      createdAt: item.endedAt,
+      updatedAt: item.endedAt,
+      notes: [],
+    });
+    setIsWrapUp(true);
+    setPendingWrapUp(null);
+    setError(null);
+    setSuccessNotice(null);
+    if (item.callId !== 'mock-call-1') {
+      void loadContext(item.callId);
+    }
+  }
+
+  // Quick submit directly from outside card
+  async function submitQuickDisposition(item: PendingWrapUpItem) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (item.callId !== 'mock-call-1') {
+        if (item.notes.trim()) {
+          await api.post(`/calls/${item.callId}/notes`, { body: item.notes.trim() }).catch(() => undefined);
+        }
+        const outcomePayload: any = {
+          outcome: item.disposition,
+        };
+        if (item.disposition === 'INTERESTED') {
+          outcomePayload.nextAction = item.nextAction;
+          if (item.nextAction === 'CALLBACK') {
+            outcomePayload.followUpDate = item.followUpDate || new Date().toISOString().slice(0, 10);
+            outcomePayload.followUpTime = item.followUpTime || '10:00';
+            outcomePayload.followUpNote =
+              item.followUpNote.trim() || item.notes.trim() || 'Follow-up callback';
+          }
+        }
+        await api.post(`/calls/${item.callId}/outcome`, outcomePayload);
+      }
+      setPendingWrapUp(null);
+      setSuccessNotice(
+        `Follow-up recorded for ${item.farmerName}: ${item.disposition === 'INTERESTED' ? `Interested (Follow-up: ${item.followUpDate})` : item.disposition}.`,
+      );
+      void loadQueue();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Launch wrap-up for a queue item that ended without outcome
+  function launchWrapUpForQueueItem(item: QueueItem) {
+    if (!item.lastCall) return;
+    setElapsed(180);
+    setNoteDraft(item.notes || '');
+    setDisposition('INTERESTED');
+    setNextAction('CALLBACK');
+    setFollowUpDate(new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10));
+    setFollowUpTime('10:00');
+    setFollowUpNote('');
+    setActiveCall({
+      id: item.lastCall.id,
+      customerId: item.customer.id,
+      leadId: item.leadId,
+      agentId: 'agent-1',
+      phoneNumber: item.lastCall.phoneNumber,
+      direction: 'OUTBOUND',
+      status: 'ENDED',
+      outcome: null,
+      nextAction: null,
+      provider: 'MOCK_DIALER',
+      providerCallId: item.lastCall.id,
+      connectedAt: item.lastCall.startedAt,
+      startedAt: item.lastCall.startedAt,
+      endedAt: item.lastCall.endedAt,
+      disconnectReason: item.lastCall.disconnectReason,
+      createdAt: item.lastCall.startedAt,
+      updatedAt: item.lastCall.endedAt || item.lastCall.startedAt,
+      notes: [],
+    });
+    setIsWrapUp(true);
+    setPendingWrapUp(null);
+    setError(null);
+    setSuccessNotice(null);
+    void loadContext(item.lastCall.id);
+  }
+
+  const matchedQueueItem = useMemo(() => {
+    if (!activeCall) return null;
+    return queue.find(
+      (q) =>
+        (activeCall.leadId && q.leadId === activeCall.leadId) ||
+        (activeCall.customerId && q.customer.id === activeCall.customerId) ||
+        (activeCall.phoneNumber && q.customer.primaryPhone === activeCall.phoneNumber),
+    );
+  }, [queue, activeCall]);
+
+  const farmerDisplayName =
+    context?.customer?.fullName ||
+    matchedQueueItem?.customer?.fullName ||
+    queryName ||
+    (activeCall?.phoneNumber?.includes('43003') ? 'Amar Singh' : activeCall?.phoneNumber || 'Farmer Contact');
+  const farmerDisplayPhone =
+    activeCall?.phoneNumber || matchedQueueItem?.customer?.primaryPhone || queryPhone || '+91 98421 88321';
 
   return (
-    <div className="flex h-screen flex-col">
-      {/* Workspace header */}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-slate-800">Agent Calling Workspace</h1>
-          {activeCall ? (
-            <Badge tone={callStatusTone(activeCall.status)}>
-              {activeCall.status.replace('_', ' ')}
-              {isActive(activeCall.status) ? ` · ${formatTimer(elapsed)}` : ''}
-            </Badge>
-          ) : (
-            <Badge tone="slate">Idle — pick a lead to dial</Badge>
+    <div className="p-6 space-y-4">
+      {/* 1. Notifications */}
+      {successNotice && (
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-xs font-semibold text-emerald-800 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{successNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessNotice(null)}
+            className="text-emerald-600 hover:text-emerald-900 p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {error ? (
+        <div className="space-y-2">
+          <Alert tone="error">{error}</Alert>
+          {error.toLowerCase().includes('active call') && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-center justify-between">
+              <span className="text-xs text-red-800 font-medium">An active call is already running on this workspace.</span>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => void loadActiveCall()}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs"
+              >
+                <PhoneCall className="h-3.5 w-3.5 mr-1" /> Resume Active Call Now
+              </Button>
+            </div>
           )}
         </div>
-        <p className="hidden text-xs text-slate-400 md:block">Auto-dial through your SIM · provider behind internal abstraction</p>
-      </header>
+      ) : null}
+
+      {/* 2. Top Banner: Active Red OR Wrap-Up Amber */}
+      {callActive && (
+        <div className="rounded-lg bg-red-600 text-white px-5 py-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="h-2.5 w-2.5 rounded-full bg-white animate-ping shrink-0"></span>
+            <span className="text-xs font-black uppercase tracking-wider">
+              ACTIVE OUTBOUND CALL IN PROGRESS
+            </span>
+            <span className="text-red-200">|</span>
+            <span className="text-xs font-bold">
+              {farmerDisplayName} ({formatE164(farmerDisplayPhone)})
+            </span>
+            {isMuted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 text-amber-950 px-2.5 py-0.5 text-xs font-black uppercase tracking-wider animate-pulse shadow-xs">
+                <MicOff className="h-3.5 w-3.5" /> Mic Muted
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={toggleMute}
+              className={cx(
+                'rounded px-2.5 py-1 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs',
+                isMuted
+                  ? 'bg-amber-400 hover:bg-amber-300 text-amber-950 border border-amber-300 font-extrabold ring-2 ring-amber-300/60'
+                  : 'bg-red-700/90 hover:bg-red-800 text-white border border-red-400/50',
+              )}
+              title={isMuted ? 'Microphone is MUTED (Press M to Unmute)' : 'Microphone is LIVE (Press M to Mute)'}
+            >
+              {isMuted ? <MicOff className="h-3.5 w-3.5 text-amber-950" /> : <Mic className="h-3.5 w-3.5 text-red-200" />}
+              <span>{isMuted ? 'Unmute Mic' : 'Mute Mic'}</span>
+              <kbd className={cx('text-[10px] px-1 py-0.2 rounded font-mono font-normal opacity-80', isMuted ? 'bg-amber-500/40 text-amber-950' : 'bg-black/20 text-red-100')}>M</kbd>
+            </button>
+            <div className="bg-red-700/90 border border-red-500/40 px-3 py-1 rounded font-mono text-xs font-bold tracking-widest text-white shadow-xs">
+              {formatTimer(elapsed)}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsMinimized(true)}
+              className="rounded bg-red-700/80 hover:bg-red-800 border border-red-400/50 px-2.5 py-1 text-xs font-semibold text-white transition cursor-pointer"
+              title="Minimize workstation to view call queue"
+            >
+              Minimize / View Queue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isWrapUp && (
+        <div className="rounded-lg bg-amber-500 text-white px-5 py-3 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-white animate-pulse"></span>
+            <span className="text-xs font-black uppercase tracking-wider">
+              CALL COMPLETED — PENDING DISPOSITION &amp; FOLLOW-UP
+            </span>
+            <span className="text-amber-200">|</span>
+            <span className="text-xs font-bold">
+              {farmerDisplayName} ({formatE164(farmerDisplayPhone)})
+            </span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <div className="bg-amber-600/90 border border-amber-400/40 px-3 py-1 rounded font-mono text-xs font-bold tracking-widest text-white shadow-xs">
+              TALK TIME: {formatTimer(elapsed)}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsMinimized(true)}
+              className="rounded bg-amber-600/80 hover:bg-amber-700 border border-amber-300/50 px-2.5 py-1 text-xs font-semibold text-white transition cursor-pointer"
+              title="Minimize wrap-up to view call queue"
+            >
+              Minimize / View Queue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Two-column Call Workstation Screen (Active Call OR Post-Call Wrap-Up) */}
+      {showWorkstation ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left Column: Farm Profile & In-Call Knowledge Base Search (~40% width) */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Tab selector for Profile vs Knowledge Base */}
+            <div className="flex items-center gap-1 bg-slate-200/80 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setLeftColumnTab('profile')}
+                className={cx(
+                  'flex-1 py-1.5 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5',
+                  leftColumnTab === 'profile'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                <Sprout className="h-3.5 w-3.5 text-emerald-700" /> Farm Profile
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeftColumnTab('kb')}
+                className={cx(
+                  'flex-1 py-1.5 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5',
+                  leftColumnTab === 'kb'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                <BookOpen className="h-3.5 w-3.5 text-emerald-700" /> Knowledge Base
+                {filteredGuidance.length > 0 && (
+                  <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.2 font-bold">
+                    {filteredGuidance.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {leftColumnTab === 'profile' ? (
+              <Card className="p-4 shadow-xs space-y-4">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-100 pb-2">
+                    Quick Farm Profile
+                  </h2>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-400">District</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">Trichy, Tamil Nadu</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Crops Sown</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">Paddy, Sugarcane</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Land Area</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">5.2 Acres</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Soil &amp; Salinity</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">Clay Loam / Normal</p>
+                    </div>
+                  </div>
+
+                  {/* Sub-card: Last Purchase Context */}
+                  <div className="mt-4 pt-3 border-t border-slate-100 bg-slate-50/60 p-3 rounded-md">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-2">
+                      Last Purchase Context
+                    </p>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Product Sown/Utilized:</span>
+                        <span className="font-semibold text-slate-800">Ultra Action +</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Dispatched Time:</span>
+                        <span className="font-medium text-slate-700">2 Months Ago</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Total Value:</span>
+                        <span className="font-bold text-slate-900">₹ 2,450</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick In-Call KB Teaser */}
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-900 text-[11px] flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5 text-emerald-700" />
+                      Mid-Call Agronomy Advisory
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setLeftColumnTab('kb')}
+                      className="text-[11px] font-bold text-emerald-700 hover:underline"
+                    >
+                      Open Search →
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Search crop diseases, nutrient deficiencies, and dosage guidance live while on the phone with the farmer.
+                  </p>
+                </div>
+              </Card>
+            ) : (
+              /* Knowledge Base Search & Advisory Panel */
+              <Card className="p-4 shadow-xs space-y-3.5">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                      <BookOpen className="h-4 w-4 text-emerald-700" />
+                      Knowledge Base Advisory
+                    </h2>
+                    <span className="text-[10px] text-slate-400 font-medium">Mid-Call Lookup</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Search instant advisory for farmer questions and insert into notes with 1 click
+                  </p>
+                </div>
+
+                {/* Live Search Input */}
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={kbQuery}
+                    onChange={(e) => setKbQuery(e.target.value)}
+                    placeholder="Search problem, pest, nutrient, or product..."
+                    className="w-full rounded-md border border-slate-200 bg-white pl-8 pr-8 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none"
+                  />
+                  {kbQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setKbQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Crop Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setKbFilterCrop('ALL')}
+                    className={cx(
+                      'px-2 py-0.5 rounded font-bold transition',
+                      kbFilterCrop === 'ALL'
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                    )}
+                  >
+                    All Crops
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKbFilterCrop('Rice')}
+                    className={cx(
+                      'px-2 py-0.5 rounded font-bold transition',
+                      kbFilterCrop === 'Rice'
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100',
+                    )}
+                  >
+                    🌾 Paddy (Rice)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKbFilterCrop('Sugarcane')}
+                    className={cx(
+                      'px-2 py-0.5 rounded font-bold transition',
+                      kbFilterCrop === 'Sugarcane'
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100',
+                    )}
+                  >
+                    🎋 Sugarcane
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKbFilterCrop('Tomato')}
+                    className={cx(
+                      'px-2 py-0.5 rounded font-bold transition',
+                      kbFilterCrop === 'Tomato'
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                    )}
+                  >
+                    🍅 Tomato
+                  </button>
+                </div>
+
+                {/* Advisory Guidance Cards List */}
+                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1 divide-y divide-slate-100">
+                  {kbLoading ? (
+                    <div className="py-6 text-center text-xs text-slate-400">Loading guidance...</div>
+                  ) : filteredGuidance.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-500">
+                      No matching agronomy guidance found for &ldquo;{kbQuery}&rdquo;.
+                    </div>
+                  ) : (
+                    filteredGuidance.map((item) => (
+                      <div key={item.id} className="pt-2.5 first:pt-0 space-y-1.5">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-bold text-xs text-slate-900">
+                            {item.crop?.name}
+                          </span>
+                          <span className="rounded bg-slate-100 text-slate-700 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                            {item.problemType?.replace('_', ' ') || 'General'}
+                          </span>
+                        </div>
+
+                        {/* Keywords */}
+                        {item.problemKeywords?.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {item.problemKeywords.map((kw) => (
+                              <span
+                                key={kw}
+                                className="rounded bg-amber-50 text-amber-900 border border-amber-200 px-1.5 py-0.2 text-[10px] font-medium"
+                              >
+                                {kw}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Recommended Products */}
+                        <div className="text-xs">
+                          <span className="text-[10px] font-bold uppercase text-slate-400">Recommended: </span>
+                          <span className="font-bold text-emerald-800">
+                            {item.recommendedProducts.join(', ')}
+                          </span>
+                        </div>
+
+                        {/* Usage Guidance Note */}
+                        {item.usageGuidance && (
+                          <p className="rounded bg-slate-50 p-2 text-[11px] text-slate-700 leading-relaxed border border-slate-100">
+                            {item.usageGuidance}
+                          </p>
+                        )}
+
+                        {/* 1-Click Action Buttons for Telecaller */}
+                        <div className="flex items-center justify-end gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => suggestGuidanceProducts(item)}
+                            className="rounded px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+                          >
+                            + Suggest
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertGuidanceIntoNotes(item)}
+                            className="rounded px-2.5 py-1 text-[10px] font-bold bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-xs flex items-center gap-1"
+                          >
+                            <Plus className="h-3 w-3" /> Insert in Notes
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Right Column: Call Notes, Disposition & Recommendations (~60% width) */}
+          <div className="lg:col-span-7 space-y-4">
+            <Card className="p-5 shadow-xs space-y-4">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Call Notes &amp; Session Disposition
+                </h2>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">
+                  {isWrapUp
+                    ? 'FINALIZE CALL NOTES & SELECT DISPOSITION TO COMPLETE'
+                    : 'TYPE NOTES DURING CALL'}
+                </p>
+              </div>
+
+              {/* In-Call Microphone Muted Notice */}
+              {isMuted && callActive && (
+                <div className="rounded-lg bg-amber-50 border-2 border-amber-400/80 p-3 flex items-center justify-between gap-3 shadow-xs animate-pulse">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-full bg-amber-500 text-white shrink-0">
+                      <MicOff className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-amber-950">Your microphone is currently muted</p>
+                      <p className="text-[11px] text-amber-800">
+                        The farmer cannot hear you. You can take notes or consult the Knowledge Base in private.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={toggleMute}
+                    className="bg-amber-600 hover:bg-amber-700 text-white border-amber-600 font-bold text-xs shrink-0 cursor-pointer shadow-xs"
+                  >
+                    <Mic className="h-3.5 w-3.5 mr-1" /> Unmute (Press M)
+                  </Button>
+                </div>
+              )}
+
+              {/* Notes Textarea */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  <span>{isWrapUp ? 'Call Advisory Notes (Final)' : 'Live Advisory Notes'}</span>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" /> Draft saved locally
+                  </span>
+                </div>
+                <textarea
+                  rows={4}
+                  value={noteDraft}
+                  onChange={(e) => handleNoteChange(e.target.value)}
+                  placeholder="Record crop status, farmer inquiries, pest observations, and recommended Grotec organic solutions..."
+                  className="w-full rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none leading-relaxed"
+                />
+              </div>
+
+              {/* Disposition Selector */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Call Disposition
+                </label>
+                <select
+                  value={disposition}
+                  onChange={(e) => setDisposition(e.target.value as any)}
+                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none"
+                >
+                  <option value="INTERESTED">Interested (Follow-Up or Sales Handover)</option>
+                  <option value="NOT_INTERESTED">Not Interested</option>
+                  <option value="NOT_ANSWERED">Not Answered / Callback Needed</option>
+                </select>
+              </div>
+
+              {/* Interested Next Action Sub-Panel */}
+              {disposition === 'INTERESTED' && (
+                <div className="rounded-md border border-emerald-100 bg-emerald-50/50 p-3 space-y-2.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    Interested Next Action (Required)
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="nextAction"
+                        value="CALLBACK"
+                        checked={nextAction === 'CALLBACK'}
+                        onChange={() => setNextAction('CALLBACK')}
+                        className="text-brand-600 focus:ring-brand-500"
+                      />
+                      Schedule Callback Follow-Up
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="nextAction"
+                        value="SALES"
+                        checked={nextAction === 'SALES'}
+                        onChange={() => setNextAction('SALES')}
+                        className="text-brand-600 focus:ring-brand-500"
+                      />
+                      Sales Handover (Assign to RM)
+                    </label>
+                  </div>
+
+                  {nextAction === 'CALLBACK' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-emerald-200/60">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                          Follow-Up Date *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={followUpDate}
+                          onChange={(e) => setFollowUpDate(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                          Follow-Up Time *
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={followUpTime}
+                          onChange={(e) => setFollowUpTime(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                          Reason / Specifics
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Discuss Phos trial quote"
+                          value={followUpNote}
+                          onChange={(e) => setFollowUpNote(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-emerald-800 pt-1">
+                      Converting to Sales will mark the lead converted, assign a Relationship Manager (RM), and automatically queue product guidance SMS.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Contextual Bio-Input Recommendations */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    Recommended Bio-Inputs for this Call
+                  </p>
+                  <span className="text-[10px] text-slate-400 font-medium">Grotec Advisory Formulations</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {BIO_INPUT_RECOMMENDATIONS.map((prod) => {
+                    const isSuggested = suggestedProducts.includes(prod.id);
+                    return (
+                      <div
+                        key={prod.id}
+                        className={cx(
+                          "rounded-md border p-2.5 flex flex-col justify-between transition-colors",
+                          isSuggested ? "border-emerald-300 bg-emerald-50/40" : "border-slate-200/80 bg-slate-50/50"
+                        )}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-bold text-xs text-slate-900">{prod.name}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSuggestedProducts((prev) =>
+                                  isSuggested ? prev.filter((x) => x !== prod.id) : [...prev, prod.id],
+                                )
+                              }
+                              className={cx(
+                                'rounded px-2 py-0.5 text-[10px] font-bold transition shrink-0',
+                                isSuggested
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-white border border-slate-200 text-emerald-700 hover:bg-emerald-50',
+                              )}
+                            >
+                              {isSuggested ? 'Suggested ✓' : 'Suggest'}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1">{prod.category}</p>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2">
+                          Advisory ref &bull; <span className="font-mono text-slate-600 font-medium">{prod.price}</span>
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                {isWrapUp ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="md"
+                      disabled={busy}
+                      onClick={wrapUpLater}
+                      className="text-slate-600 border-slate-300 hover:bg-slate-50 font-semibold"
+                    >
+                      <Clock className="h-4 w-4" /> Wrap Up Later / Back to Queue
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      loading={busy}
+                      onClick={() => void saveAndCompleteDisposition()}
+                      className="px-5 py-2 font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Save &amp; Complete Follow-Up
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="md"
+                        onClick={toggleMute}
+                        className={cx(
+                          'font-bold transition-all flex items-center gap-2 shadow-xs cursor-pointer',
+                          isMuted
+                            ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-2 ring-amber-300 ring-offset-1 animate-pulse'
+                            : 'text-slate-700 border-slate-300 hover:bg-slate-100',
+                        )}
+                        title={isMuted ? 'Microphone is MUTED — click or press M to speak' : 'Mute microphone — click or press M'}
+                      >
+                        {isMuted ? (
+                          <>
+                            <MicOff className="h-4 w-4 text-white" />
+                            <span>Unmute Mic</span>
+                            <span className="bg-amber-700/60 text-[10px] text-amber-100 px-1.5 py-0.5 rounded font-mono">MUTED</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="h-4 w-4 text-slate-500" />
+                            <span>Mute Mic</span>
+                            <span className="bg-slate-100 text-[10px] text-slate-500 px-1.5 py-0.5 rounded font-mono">Hotkey: M</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="md"
+                        disabled={busy}
+                        onClick={() => void endCall()}
+                        className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 font-semibold"
+                      >
+                        <PhoneOff className="h-4 w-4" /> End Call Only
+                      </Button>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      loading={busy}
+                      onClick={() => void saveAndCompleteDisposition()}
+                      className="px-5 py-2 font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Save &amp; End Session
+                    </Button>
+                  </>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        /* 4. Outside View: Telecaller Call Queue & Quick Dialer */
+        <div className="space-y-5">
+          {/* Active Call In Progress Card (visible when workstation is minimized or returning to queue) */}
+          {callActive && (
+            <div className="rounded-lg border-2 border-red-500 bg-red-50/95 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <span className="h-3.5 w-3.5 rounded-full bg-red-600 animate-ping shrink-0"></span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-red-700">
+                      Active Call in Progress
+                    </span>
+                    <Badge tone="red">LIVE</Badge>
+                    {isMuted && (
+                      <span className="inline-flex items-center gap-1 rounded bg-amber-400 text-amber-950 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider">
+                        <MicOff className="h-3 w-3" /> Muted
+                      </span>
+                    )}
+                    <span className="font-mono text-xs font-bold text-red-900 bg-red-100 border border-red-200 px-2 py-0.5 rounded">
+                      {formatTimer(elapsed)}
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 mt-1">
+                    {farmerDisplayName} &bull; <span className="font-mono text-slate-600">{formatE164(farmerDisplayPhone)}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={toggleMute}
+                  className={cx(
+                    'font-bold flex items-center gap-1.5 cursor-pointer',
+                    isMuted
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
+                      : 'text-slate-700 border-slate-300 hover:bg-white',
+                  )}
+                  title={isMuted ? 'Unmute microphone (Hotkey: M)' : 'Mute microphone (Hotkey: M)'}
+                >
+                  {isMuted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                  {isMuted ? 'Unmute' : 'Mute'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setIsMinimized(false)}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-xs"
+                >
+                  <PhoneCall className="h-3.5 w-3.5" /> Return to Active Call
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void endCall()}
+                  className="text-red-700 border-red-300 hover:bg-red-100 font-bold"
+                >
+                  <PhoneOff className="h-3.5 w-3.5" /> End Call
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Pending Wrap-Up without saved draft Card */}
+          {isWrapUp && !pendingWrapUp && (
+            <div className="rounded-lg border-2 border-amber-400 bg-amber-50/95 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="h-3.5 w-3.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-800">
+                      Call Ended — Pending Wrap-Up
+                    </span>
+                    <Badge tone="amber">Action Required</Badge>
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 mt-1">
+                    {farmerDisplayName} &bull; <span className="font-mono text-slate-600">{formatE164(farmerDisplayPhone)}</span> &bull; Talk Time: {formatTimer(elapsed)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setIsMinimized(false)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-xs"
+                >
+                  <FileEdit className="h-3.5 w-3.5" /> Complete Wrap-Up &amp; Disposition
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* A. Outside In-Progress / Pending Wrap-Up Card */}
+          {pendingWrapUp && (
+            <div className="rounded-lg border-2 border-amber-300 bg-amber-50/90 p-5 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500 text-white font-bold text-sm shadow-xs">
+                    !
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Pending Call Wrap-Up: {pendingWrapUp.farmerName}
+                      </h3>
+                      <Badge tone="amber">Action Required</Badge>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Phone: <span className="font-mono font-medium">{formatE164(pendingWrapUp.phoneNumber)}</span> • Talk Duration: {formatTimer(pendingWrapUp.durationSeconds)} • Call ended without finalized follow-up.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => resumePendingWrapUp(pendingWrapUp)}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-xs"
+                  >
+                    <FileEdit className="h-3.5 w-3.5" /> Resume Workstation
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPendingWrapUp(null)}
+                    className="text-slate-500 hover:text-slate-800"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+
+              {pendingWrapUp.notes && (
+                <div className="rounded bg-white/80 p-2.5 border border-amber-200/70 text-xs text-slate-700">
+                  <span className="font-bold text-slate-600">Draft Notes: </span>
+                  {pendingWrapUp.notes}
+                </div>
+              )}
+
+              {/* Quick Inline Follow-Up Bar */}
+              <div className="pt-2 border-t border-amber-200/70 flex flex-wrap items-center gap-3 bg-white/70 p-3 rounded-md">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Quick Disposition:
+                </span>
+                <select
+                  value={pendingWrapUp.disposition}
+                  onChange={(e) =>
+                    setPendingWrapUp({ ...pendingWrapUp, disposition: e.target.value as any })
+                  }
+                  className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-800"
+                >
+                  <option value="INTERESTED">Interested</option>
+                  <option value="NOT_INTERESTED">Not Interested</option>
+                  <option value="NOT_ANSWERED">Not Answered / Callback</option>
+                </select>
+
+                {pendingWrapUp.disposition === 'INTERESTED' && (
+                  <>
+                    <select
+                      value={pendingWrapUp.nextAction}
+                      onChange={(e) =>
+                        setPendingWrapUp({ ...pendingWrapUp, nextAction: e.target.value as any })
+                      }
+                      className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-800"
+                    >
+                      <option value="CALLBACK">Schedule Callback</option>
+                      <option value="SALES">Sales / RM Handover</option>
+                    </select>
+
+                    {pendingWrapUp.nextAction === 'CALLBACK' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 font-medium">Follow-Up Date:</span>
+                        <input
+                          type="date"
+                          value={pendingWrapUp.followUpDate}
+                          onChange={(e) =>
+                            setPendingWrapUp({ ...pendingWrapUp, followUpDate: e.target.value })
+                          }
+                          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={busy}
+                  onClick={() => void submitQuickDisposition(pendingWrapUp)}
+                  className="ml-auto bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Submit Follow-Up
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* B. Calling Queue & Direct Dial Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Left: Calling Queue (~65% width) */}
+            <div className="lg:col-span-8 rounded-lg border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 bg-white">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Calling Queue
+                  </h2>
+                  <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                    {queue.length} assigned
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">Click &ldquo;Call&rdquo; to launch outbound active session</p>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {queueLoading ? (
+                  <div className="p-8"><Spinner label="Loading queue…" /></div>
+                ) : queue.length === 0 ? (
+                  <div className="p-6 space-y-3 text-center text-xs text-slate-500">
+                    <p>Queue empty or all completed for today.</p>
+                    <Button
+                      size="sm"
+                      variant="call"
+                      onClick={() => startMockActiveCall('Murugan V.', '+91 98421 88321')}
+                    >
+                      Simulate Active Call with Murugan V. (PDF Screen 4)
+                    </Button>
+                  </div>
+                ) : (
+                  queue.map((item) => {
+                    const hasPendingOutcome = item.lastCall?.status === 'ENDED' && !item.lastCall?.outcome;
+                    return (
+                      <div
+                        key={item.leadId}
+                        className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/70 transition"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-slate-900">{item.customer.fullName}</p>
+                            {hasPendingOutcome && (
+                              <Badge tone="amber">Wrap-Up Needed</Badge>
+                            )}
+                            {item.lastCall?.outcome === 'INTERESTED' && (
+                              <Badge tone="green">Interested</Badge>
+                            )}
+                            {item.lastCall?.outcome === 'NOT_INTERESTED' && (
+                              <Badge tone="red">Not Interested</Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {item.customer.farmerCode ?? '—'} • {item.customer.primaryPhone ? formatE164(item.customer.primaryPhone) : 'no phone'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {hasPendingOutcome ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-amber-700 border-amber-300 hover:bg-amber-50 font-bold"
+                              onClick={() => launchWrapUpForQueueItem(item)}
+                            >
+                              <FileEdit className="h-3 w-3" /> Finish Follow-Up
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="call"
+                            size="sm"
+                            onClick={() => void dial(item.customer.primaryPhone ?? item.customer.id, item.customer.id, item.leadId)}
+                            disabled={busy}
+                          >
+                            <Phone className="h-3 w-3 fill-current" /> Call
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Right: Manual Quick Dialer */}
+            <div className="lg:col-span-4 rounded-lg border border-slate-200/90 bg-white shadow-xs p-5 space-y-4">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-100 pb-2">
+                Direct Dial
+              </h2>
+              <div className="space-y-3">
+                <Input
+                  inputMode="tel"
+                  placeholder="Mobile number (e.g. +91 98421 88321)"
+                  value={manualNumber}
+                  onChange={(e) => setManualNumber(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="call"
+                    size="md"
+                    className="w-full"
+                    disabled={!manualNumber.trim() || busy}
+                    onClick={() => void dial(manualNumber.trim())}
+                  >
+                    <PhoneCall className="h-4 w-4" /> Dial Farmer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => startMockActiveCall('Murugan V.', '+91 98421 88321')}
+                    title="Simulate active call from mockup"
+                  >
+                    Demo Live Call
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showNewCustomer ? (
         <NewCustomerModal
-          initialPhone={activeCall?.customerId ? undefined : (context?.call.phoneNumber ?? '')}
+          initialPhone={manualNumber}
           onClose={() => setShowNewCustomer(false)}
-          onCreated={() => {
-            setShowNewCustomer(false);
-            if (activeCall) void loadContext(activeCall.id);
-          }}
+          onCreated={() => setShowNewCustomer(false)}
         />
       ) : null}
-
-      <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[320px_1fr_380px]">
-        {/* LEFT — calling queue */}
-        <Card className="flex min-h-0 flex-col">
-          <CardHeader title="Calling queue" action={<Badge tone="slate">{queue.length}</Badge>} />
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {queueLoading ? (
-              <Spinner label="Loading queue…" />
-            ) : queue.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-400">
-                Nothing assigned to you yet.
-                <br />
-                Try dialing any number below.
-              </div>
-            ) : (
-              <ul className="divide-y divide-slate-100">
-                {queue.map((item) => (
-                  <li key={item.leadId} className="px-4 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">{item.customer.fullName}</p>
-                        <p className="truncate text-xs text-slate-500">
-                          {item.customer.farmerCode ?? '—'} · {item.customer.primaryPhone ? formatE164(item.customer.primaryPhone) : 'no phone'}
-                        </p>
-                        {item.customer.crops.length > 0 ? (
-                          <p className="mt-1 truncate text-xs text-slate-500">
-                            <Sprout className="mr-1 inline h-3 w-3" />
-                            {item.customer.crops.map((c) => `${c.crop.name} (${c.acreage} ${c.unit})`).join(', ')}
-                          </p>
-                        ) : null}
-                        {item.lastCall ? (
-                          <p className="mt-1 text-xs text-slate-400">
-                            Last: <Badge tone={callStatusTone(item.lastCall.status)}>{item.lastCall.status.replace('_', ' ')}</Badge>
-                            <span className="ml-1">{formatDate(item.lastCall.startedAt)}</span>
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-xs text-slate-400">Not called yet</p>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={isActive(activeCall?.status) ? 'outline' : 'primary'}
-                        disabled={busy}
-                        onClick={() => void dial(item.customer.primaryPhone ?? item.customer.id, item.customer.id, item.leadId)}
-                        title={item.customer.primaryPhone ? `Dial ${formatE164(item.customer.primaryPhone)}` : 'Customer has no phone'}
-                      >
-                        <Phone className="h-3.5 w-3.5" />
-                        Dial
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="border-t border-slate-200 p-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Dial any number</p>
-              <div className="flex gap-2">
-                <Input inputMode="tel" placeholder="Mobile number" value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && dialableNumber && void dial(dialableNumber)} />
-                <Button disabled={!dialableNumber || busy || isActive(activeCall?.status)} onClick={() => void dial(dialableNumber)}>
-                  <PhoneCall className="h-4 w-4" />
-                  Call
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* CENTER — call controls */}
-        <Card className="flex min-h-0 flex-col">
-          <CardHeader title="Call" />
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-6">
-            {error ? (
-              <div className="w-full max-w-sm">
-                <Alert tone="error">{error}</Alert>
-              </div>
-            ) : null}
-
-            {!activeCall ? (
-              <div className="max-w-sm text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                  <Phone className="h-7 w-7" />
-                </div>
-                <p className="text-sm font-medium text-slate-700">Ready to call</p>
-                <p className="mt-1 text-sm text-slate-500">Pick a lead from the queue on the left, or dial any number. Customer context appears here.</p>
-              </div>
-            ) : (
-              <div className="w-full max-w-sm text-center">
-                <div className="mb-3 flex items-center justify-center gap-2 text-sm font-medium text-slate-600">
-                  {context?.customer ? (
-                    <span>{context.customer.fullName}</span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-amber-600">
-                      <UserPlus className="h-4 w-4" /> New number
-                    </span>
-                  )}
-                </div>
-                <p className="text-2xl font-semibold tracking-tight text-slate-900">{formatE164(activeCall.phoneNumber)}</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {activeCall.provider} · {activeCall.providerCallId.slice(0, 14)}…
-                </p>
-
-                <div className="my-8 flex items-center justify-center">
-                  <div
-                    className={cx(
-                      'relative flex h-28 w-28 items-center justify-center rounded-full border-4',
-                      activeCall.status === 'CONNECTED' ? 'border-green-200 bg-green-50 text-green-600' : activeCall.status === 'ENDED' || activeCall.status === 'NOT_ANSWERED' ? 'border-slate-200 bg-slate-50 text-slate-400' : 'border-amber-200 bg-amber-50 text-amber-600',
-                    )}
-                  >
-                    {activeCall.status === 'CONNECTED' ? <Phone className="h-9 w-9 animate-pulse" /> : <Phone className="h-9 w-9" />}
-                    <span className="absolute -bottom-8 whitespace-nowrap text-xs font-medium text-slate-600">{activeCall.status.replace('_', ' ')}</span>
-                  </div>
-                </div>
-
-                {isActive(activeCall.status) ? (
-                  <Button variant="danger" size="md" onClick={() => void endCall()} disabled={busy}>
-                    <PhoneOff className="h-4 w-4" /> End call
-                  </Button>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-slate-500">
-                      {activeCall.status === 'NOT_ANSWERED' ? 'Call not answered.' : activeCall.status === 'FAILED' ? 'Call failed.' : 'Call finished.'}
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => void dial(activeCall.phoneNumber, activeCall.customerId ?? undefined, activeCall.leadId ?? undefined)} disabled={busy}>
-                      <RotateCcw className="h-3.5 w-3.5" /> Call again
-                    </Button>
-                  </div>
-                )}
-
-                {/* Outcome recording — exactly three outcomes (PRD §6.3.6) */}
-                {!callActive && !activeCall.outcome && (activeCall.status === 'ENDED' || activeCall.status === 'NOT_ANSWERED') ? (
-                  <div className="mt-8 flex w-full flex-col items-center">
-                    <OutcomeFlow callId={activeCall.id} onRecorded={handleRecorded} />
-                  </div>
-                ) : null}
-                {!callActive && activeCall.outcome ? (
-                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <Badge tone={OUTCOME_META[activeCall.outcome].tone}>{OUTCOME_META[activeCall.outcome].label}</Badge>
-                    {activeCall.nextAction ? (
-                      <span>
-                        Next action: <span className="font-medium text-slate-700">{activeCall.nextAction === 'SALES' ? 'Sales' : 'Callback'}</span>
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {/* Note composer — always available on the call */}
-                <div className="mt-10 text-left">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    <StickyNote className="mr-1 inline h-3 w-3" /> Call note
-                  </p>
-                  <textarea
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                    rows={3}
-                    placeholder="What did the farmer say?"
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value)}
-                  />
-                  <div className="mt-2 flex justify-end">
-                    <Button size="sm" variant="outline" onClick={() => void addNote()} disabled={!noteDraft.trim() || savingNote}>
-                      {savingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StickyNote className="h-3.5 w-3.5" />}
-                      Add note
-                    </Button>
-                  </div>
-                  {activeCall.notes.length > 0 ? (
-                    <ul className="mt-3 space-y-2">
-                      {activeCall.notes.map((note) => (
-                        <li key={note.id} className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                          <p>{note.body}</p>
-                          <p className="mt-1 text-xs text-slate-400">
-                            {note.author.fullName} · {formatDate(note.createdAt)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* RIGHT — customer context */}
-        <Card className="flex min-h-0 flex-col">
-          <CardHeader title="Customer context" />
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {!activeCall ? (
-              <EmptyPanel text="Start a call to see the customer's profile, crops, history and notes." />
-            ) : context?.customer ? (
-              <ProfilePanel
-                customer={context.customer}
-                history={context.history ?? []}
-                followUps={context.followUps ?? []}
-                relationshipOwner={context.relationshipOwner ?? null}
-                onChanged={() => {
-                  if (activeCall) void loadContext(activeCall.id);
-                }}
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-                  <UserPlus className="h-6 w-6" />
-                </div>
-                <p className="text-sm text-slate-600">This number is not on any customer record.</p>
-                <p className="text-xs text-slate-400">Creating the customer keeps the call active — nothing is interrupted.</p>
-                <Button onClick={() => setShowNewCustomer(true)}>
-                  <UserPlus className="h-4 w-4" /> Create customer
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function EmptyPanel({ text }: { text: string }) {
-  return (
-    <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-400">
-      <p>{text}</p>
-    </div>
-  );
-}
-
-function ProfilePanel({
-  customer,
-  history,
-  followUps,
-  relationshipOwner,
-  onChanged,
-}: {
-  customer: CustomerDetail;
-  history: Call[];
-  followUps: FollowUp[];
-  relationshipOwner: { id: string; fullName: string } | null;
-  onChanged: () => void;
-}) {
-  const primary = customer.phones.find((p) => p.isPrimary) ?? customer.phones[0];
-  const location = customer.locations.find((l) => l.isPrimary) ?? customer.locations[0];
-  const rows: Array<{ label: string; value: string | null }> = [];
-  if (location) {
-    const parts = [location.village, location.taluk, location.district, location.state].filter(Boolean);
-    rows.push({ label: 'Location', value: parts.join(', ') || null });
-  }
-  rows.push({ label: 'Farmer ID', value: customer.farmerCode });
-  if (relationshipOwner) rows.push({ label: 'Relationship Manager', value: relationshipOwner.fullName });
-
-  return (
-    <div className="space-y-4 p-4">
-      <div>
-        <p className="text-base font-semibold text-slate-900">{customer.fullName}</p>
-        <p className="text-xs text-slate-500">{customer.phones.length > 0 ? formatE164(primary?.phone ?? '') : 'No phone'}</p>
-        {customer.phones.length > 1 ? (
-          <p className="mt-0.5 flex flex-wrap gap-1">
-            {customer.phones
-              .filter((p) => !p.isPrimary)
-              .map((p) => (
-                <span key={p.id} className="text-xs text-slate-400">
-                  alt: {formatE164(p.phone)}
-                </span>
-              ))}
-          </p>
-        ) : null}
-      </div>
-
-      {rows.length > 0 ? (
-        <dl className="space-y-1.5">
-          {rows.map((row) => (
-            <div key={row.label} className="flex justify-between gap-3 text-sm">
-              <dt className="text-slate-500">{row.label}</dt>
-              <dd className="text-right font-medium text-slate-700">{row.value ?? '—'}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-
-      {customer.crops.length > 0 ? (
-        <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Crops & acreage</p>
-          <div className="flex flex-wrap gap-1.5">
-            {customer.crops.map((c) => (
-              <span key={c.id} className="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                <Sprout className="h-3 w-3" />
-                {c.crop.name} · {c.acreage} {c.unit}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {customer.leads.length > 0 ? (
-        <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Lead / source</p>
-          <ul className="space-y-1.5">
-            {customer.leads.slice(0, 3).map((lead) => (
-              <li key={lead.id} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-xs">
-                <span className="text-slate-600">{lead.source ?? '—'}</span>
-                <span className="flex items-center gap-2">
-                  {lead.currentOwner ? <span className="text-slate-400">{lead.currentOwner.fullName}</span> : null}
-                  <Badge tone={lead.status === 'OPEN' ? 'green' : 'slate'}>{lead.status}</Badge>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div>
-        <p className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-          <History className="h-3 w-3" /> Call history
-        </p>
-        {history.length === 0 ? (
-          <p className="text-xs text-slate-400">No previous calls.</p>
-        ) : (
-          <ul className="space-y-2">
-            {history.slice(0, 6).map((call) => (
-              <li key={call.id} className="rounded-md border border-slate-100 px-2.5 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-slate-700">{formatE164(call.phoneNumber)}</span>
-                  <span className="flex items-center gap-1.5">
-                    {call.outcome ? <Badge tone={OUTCOME_META[call.outcome].tone}>{OUTCOME_META[call.outcome].label}</Badge> : null}
-                    <Badge tone={callStatusTone(call.status)}>{call.status.replace('_', ' ')}</Badge>
-                  </span>
-                </div>
-                <p className="mt-0.5 text-[11px] text-slate-400">{formatDate(call.startedAt)}</p>
-                {call.notes.length > 0 ? (
-                  <p className="mt-1 text-xs text-slate-500">
-                    <StickyNote className="mr-0.5 inline h-3 w-3 text-slate-400" />
-                    {call.notes[0]?.body}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Follow-ups (callback records from Month 3 outcomes) */}
-      <div>
-        <p className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-          <span>Follow-ups</span>
-          {followUps.filter((f) => f.status === 'PENDING').length > 0 ? (
-            <Badge tone="amber">{followUps.filter((f) => f.status === 'PENDING').length} pending</Badge>
-          ) : null}
-        </p>
-        {followUps.length === 0 ? (
-          <p className="rounded-md bg-slate-50 px-2.5 py-2 text-xs text-slate-400">No follow-ups yet — record an Interested → Callback outcome to schedule one.</p>
-        ) : (
-          <ul className="space-y-2">
-            {followUps.slice(0, 6).map((followUp) => (
-              <li key={followUp.id} className="rounded-md border border-slate-100 px-2.5 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-slate-700">{formatDate(followUp.dueAt)}</span>
-                  <span className="flex items-center gap-1.5">
-                    <Badge tone={followUp.status === 'COMPLETED' ? 'green' : followUp.status === 'CANCELLED' ? 'slate' : 'amber'}>{followUp.status.replace('_', ' ')}</Badge>
-                    {followUp.status === 'PENDING' ? (
-                      <button
-                        type="button"
-                        className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-50"
-                        onClick={() => {
-                          void api.post(`/follow-ups/${followUp.id}/complete`).then(onChanged).catch(() => undefined);
-                        }}
-                      >
-                        Complete
-                      </button>
-                    ) : null}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">{followUp.note}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   );
 }

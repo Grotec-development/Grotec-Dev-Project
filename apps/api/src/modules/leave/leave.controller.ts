@@ -24,6 +24,38 @@ export class LeaveController {
     return this.leave.createType(dto);
   }
 
+  @Get('my/balances')
+  @RequirePermission(PERMISSIONS.leaveRead)
+  async getBalancesMy(
+    @CurrentEmployee() actor: AuthEmployee,
+    @Query('year') year?: string,
+  ) {
+    return this.leave.getBalancesMy(actor, { year });
+  }
+
+  @Get('my/applications')
+  @RequirePermission(PERMISSIONS.leaveRead)
+  async getApplicationsMy(
+    @CurrentEmployee() actor: AuthEmployee,
+    @Query('status') status?: string,
+    @Query('leaveTypeId') leaveTypeId?: string,
+    @Query('year') year?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.leave.getApplicationsMy(actor, parsePagination(page, pageSize), {
+      status: status as LeaveStatus,
+      leaveTypeId,
+      year,
+    });
+  }
+
+  @Post('my/apply')
+  @RequirePermission(PERMISSIONS.leaveApply)
+  async applyMy(@CurrentEmployee() actor: AuthEmployee, @Body() dto: ApplyLeaveDto) {
+    return this.leave.applyMy(actor, dto);
+  }
+
   @Get('balances')
   @RequirePermission(PERMISSIONS.leaveRead)
   async getBalances(

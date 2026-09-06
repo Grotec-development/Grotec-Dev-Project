@@ -1,0 +1,24 @@
+{
+  "name": "GROTEC FarmerOS",
+  "short_name": "FarmerOS",
+  "description": "GROTEC FarmerOS — CRM and HRMS for agricultural operations.",
+  "start_url": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#15803d",
+  "icons": [
+    {
+      "src": "/grotec_logo.webp",
+      "sizes": "474x474",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -144,6 +144,10 @@ export class KpiService {
     return target;
   }
 
+  async getMyScore(actor: AuthEmployee, period: string) {
+    return this.getScore(actor, actor.id, period);
+  }
+
   async getScore(actor: AuthEmployee, employeeId: string, period: string) {
     const isSelf = employeeId === actor.id;
     const targetEmp = await this.prisma.employee.findUnique({

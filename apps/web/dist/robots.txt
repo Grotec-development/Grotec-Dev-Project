@@ -1,0 +1,8 @@
+# GROTEC FarmerOS — robots.txt
+# Private, login-gated internal platform.
+
+User-agent: *
+Disallow: /
+Allow: /login
+
+Sitemap: https://grotec.in/sitemap.xml

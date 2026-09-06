@@ -101,6 +101,31 @@ let CallsService = class CallsService {
         });
         return this.serialize({ ...call, notes: [] });
     }
+    async getActiveCall(actor) {
+        const active = await this.prisma.call.findFirst({
+            where: {
+                agentId: actor.id,
+                status: { in: [...shared_1.ACTIVE_CALL_STATUSES] },
+            },
+            include: {
+                notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
+            },
+            orderBy: { startedAt: 'desc' },
+        });
+        if (active) {
+            await this.syncFromProvider(active);
+            const fresh = await this.prisma.call.findUnique({
+                where: { id: active.id },
+                include: {
+                    notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
+                },
+            });
+            if (fresh && (shared_1.ACTIVE_CALL_STATUSES.includes(fresh.status) || (fresh.status === shared_1.CallStatus.ENDED && !fresh.outcome))) {
+                return this.serialize(fresh);
+            }
+        }
+        return null;
+    }
     async detailOrThrow(id, actor) {
         const call = await this.requireCall(id, actor);
         await this.syncFromProvider(call);
@@ -574,6 +599,7 @@ let CallsService = class CallsService {
             disconnectReason: call.disconnectReason,
             startedAt: call.startedAt,
             endedAt: call.endedAt,
+            outcome: call.outcome ?? null,
         };
     }
 };

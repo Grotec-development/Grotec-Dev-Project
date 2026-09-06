@@ -12,24 +12,48 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuditService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+function cleanStringForDb(str) {
+    if (!str)
+        return str;
+    return str
+        .replace(/[\u2010-\u2015]/g, '-')
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+        .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+        .replace(/\u2026/g, '...')
+        .replace(/\u2248/g, '~')
+        .replace(/[\u2000-\u200F\u2028-\u202F\u00A0\uFEFF]/g, ' ')
+        .replace(/[^\x00-\x7F]/g, (char) => {
+        const code = char.charCodeAt(0);
+        if (code >= 160 && code <= 255)
+            return char;
+        if (char === '₹')
+            return 'Rs.';
+        return ' ';
+    });
+}
 let AuditService = class AuditService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
     async record(db, input) {
-        await db.auditEvent.create({
-            data: {
-                actorId: input.actorId ?? null,
-                entityType: input.entityType,
-                entityId: input.entityId ?? null,
-                entityLabel: input.entityLabel ?? null,
-                action: input.action,
-                before: toJsonValue(input.before),
-                after: toJsonValue(input.after),
-                meta: toJsonValue(input.meta),
-            },
-        });
+        try {
+            await db.auditEvent.create({
+                data: {
+                    actorId: input.actorId ?? null,
+                    entityType: input.entityType,
+                    entityId: input.entityId ?? null,
+                    entityLabel: cleanStringForDb(input.entityLabel) ?? null,
+                    action: input.action,
+                    before: toJsonValue(input.before),
+                    after: toJsonValue(input.after),
+                    meta: toJsonValue(input.meta),
+                },
+            });
+        }
+        catch (err) {
+            console.warn('Audit record warning:', err instanceof Error ? err.message : String(err));
+        }
     }
     async recordDirect(input) {
         await this.record(this.prisma, input);
@@ -44,6 +68,8 @@ function toJsonValue(value) {
     if (value === undefined)
         return undefined;
     return JSON.parse(JSON.stringify(value, (_key, v) => {
+        if (typeof v === 'string')
+            return cleanStringForDb(v);
         if (v instanceof Date)
             return v.toISOString();
         if (typeof v === 'bigint')

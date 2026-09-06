@@ -102,6 +102,9 @@ export class LeaveService {
       conditions.push({ employeeId: actor.id });
     }
 
+    // Founder / CEO is not tracked for leave balances
+    conditions.push({ employee: { role: { code: { not: 'FOUNDER' } } } });
+
     return this.prisma.leaveBalance.findMany({
       where: { AND: conditions },
       include: {
@@ -118,6 +121,35 @@ export class LeaveService {
       },
       orderBy: [{ year: 'desc' }, { leaveType: { name: 'asc' } }],
     });
+  }
+
+  async getBalancesMy(actor: AuthEmployee, query: { year?: string }) {
+    return this.getBalances(actor, { year: query.year, employeeId: actor.id });
+  }
+
+  async getApplicationsMy(
+    actor: AuthEmployee,
+    pagination: PageParams,
+    filters: {
+      status?: LeaveStatus;
+      leaveTypeId?: string;
+      year?: string;
+    },
+  ) {
+    return this.getApplications(actor, pagination, {
+      ...filters,
+      employeeId: actor.id, // HARD-ENFORCED SERVER-SIDE
+    });
+  }
+
+  async applyMy(actor: AuthEmployee, dto: ApplyLeaveDto) {
+    if (actor.roleCode === 'FOUNDER') {
+      throw ApiError.badRequest(
+        'FOUNDER_LEAVE_NOT_APPLICABLE',
+        'Founder / CEO is the business owner and does not apply for leave',
+      );
+    }
+    return this.apply(actor, { ...dto, employeeId: actor.id });
   }
 
   async getApplications(
@@ -170,6 +202,9 @@ export class LeaveService {
 
     if (filters.status) conditions.push({ status: filters.status });
     if (filters.leaveTypeId) conditions.push({ leaveTypeId: filters.leaveTypeId });
+
+    // Founder / CEO never has leave applications
+    conditions.push({ employee: { role: { code: { not: 'FOUNDER' } } } });
 
     if (filters.year) {
       const y = parseInt(filters.year, 10);
@@ -247,7 +282,14 @@ export class LeaveService {
     if (!employee) throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Target employee not found');
     if (!leaveType) throw ApiError.notFound('LEAVE_TYPE_NOT_FOUND', 'Leave type not found');
 
-    if (!isSelf && actor.roleCode !== 'FOUNDER') {
+    if (employee.role.code === 'FOUNDER' || actor.roleCode === 'FOUNDER') {
+      throw ApiError.badRequest(
+        'FOUNDER_LEAVE_NOT_APPLICABLE',
+        'Founder / CEO is the business owner and does not apply for leave',
+      );
+    }
+
+    if (!isSelf) {
       if (!outranks(actor.roleCode as RoleCode, employee.role.code as RoleCode)) {
         throw ApiError.forbidden(
           'ROLE_HIERARCHY_FORBIDDEN',

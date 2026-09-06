@@ -13,6 +13,21 @@ export default defineConfig({
       '@grotec/shared': sharedSource,
     },
   },
+  build: {
+    // Never ship source maps to production — they expose your source tree.
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Split the monolith 550 KB bundle into independently-cacheable chunks.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-router': ['react-router-dom'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,

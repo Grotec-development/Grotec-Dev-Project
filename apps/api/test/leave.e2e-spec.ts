@@ -79,8 +79,8 @@ describe("leave e2e & rbac", () => {
       .expect(201);
     expect(approveRes.body.status).toBe("APPROVED");
 
-    // Founder applies
-    const founderLeave = await request(app.getHttpServer())
+    // Founder cannot apply for leave (no leave.apply permission -> 403)
+    await request(app.getHttpServer())
       .post("/api/v1/leave/apply")
       .set("Authorization", `Bearer ${founderToken}`)
       .send({
@@ -90,11 +90,24 @@ describe("leave e2e & rbac", () => {
         daysCount: 1,
         reason: "Board meeting",
       })
-      .expect(201);
+      .expect(403);
 
-    // Manager tries to approve Founder leave -> 403 ROLE_HIERARCHY_FORBIDDEN
+    // Manager cannot approve higher rank (e.g. Founder) -> 403 ROLE_HIERARCHY_FORBIDDEN
+    const founderEmp = await prisma.employee.findUniqueOrThrow({ where: { email: USERS.FOUNDER.email } });
+    const directFounderLeave = await prisma.leaveApplication.create({
+      data: {
+        employeeId: founderEmp.id,
+        leaveTypeId: leaveType.id,
+        startDate: new Date("2026-10-12"),
+        endDate: new Date("2026-10-12"),
+        daysCount: 1,
+        reason: "Owner out of office",
+        status: "PENDING",
+      },
+    });
+
     const rejectRes = await request(app.getHttpServer())
-      .post(`/api/v1/leave/applications/${founderLeave.body.id}/approve`)
+      .post(`/api/v1/leave/applications/${directFounderLeave.id}/approve`)
       .set("Authorization", `Bearer ${managerToken}`)
       .expect(403);
     expect(rejectRes.body.error.code).toBe("ROLE_HIERARCHY_FORBIDDEN");

@@ -59,14 +59,29 @@ _Resolved items carry PRD references; everything still OPEN must be confirmed by
    reset password, audit logs, founder-role assignment are founder-only.
 4. **Customer preferred-language vocabulary.** Column reserved (`preferred_language`); no list
    defined. Needed before multi-language content/messaging.
-5. **Crop master.** PRD defines crop *category* (field/tree/plantation, §6.5.1) but no canonical
-   crop list or acreage-unit/locale rules. ~~Seed catalog is provisional; category column arrives
-   with Month 4~~ → **done (Sept 4)**: `crops.category` (FIELD/TREE/PLANTATION/VEGETABLE/OTHER)
-   + `crop_product_guidance.problem_type` (PEST/DISEASE/NUTRIENT_DEFICIENCY/WEED/OTHER) shipped
-   with migration `20260904180000_kb_taxonomy`; every seeded crop carries a category, every
-   seeded guidance row a problem type; the Knowledge Base page filters by problem type and the
-   Crops page shows categories. Still open: the *canonical* crop list and acreage-unit/locale
-   rules GROTEC must confirm.
+5. **Crop master & source site grounding audit (Sept 6 pass against grotecagro.com).**
+   - **Grounded & confirmed crop targets:** Cross-referenced against Grotec's live product catalog
+     (`grotecagro.com/index.php?route=product/category&path=211`):
+     - Explicitly targeted on product detail pages: **Rice/Paddy** (Sheath blight, Bacterial leaf blight,
+       Azos graminaceous BNF), **Sugarcane** (Red rot of sugarcane, Azos/Azotob BNF), **Grapes** (Mildews of
+       grapes — added to catalog as `GRAPES`), **Chillies** (Damping off of chillies), **Tomato** (Wilt of
+       tomato), **Banana** (Panama wilt of banana), **Chickpea/Gram** (Chickpea wilt, Rhizob legume nodulation),
+       **Groundnut** (Leaf spot/Tikka disease, Rhizob symbiosis), **Cotton** (Jeevan Sakthi boll retention),
+       **Maize** (Azos BNF), **Wheat** (Azos/TV symbiosis), **Soybean** (Rhizob/PHOS nodulation), **Mango**
+       (Dharmapuri regional horticulture), **Onion**, **Potato**.
+     - **De-prioritized / retired from active list:** **Mustard** (`MUSTARD` set to `isActive: false`), as
+       it is a North Indian Rabi oilseed with zero commercial presence in Grotec's Tamil Nadu / South India
+       operational zone and zero references across `grotecagro.com`.
+   - **Unverified items logged against source site:**
+     - *Crop category taxonomy:* `grotecagro.com` lists products by biochemical formulation (Bio-fertilizers,
+       Jeevan Sakthi protectors) rather than publishing an explicit crop taxonomy. The PRD §6.5.2 values
+       (`FIELD`, `TREE`, `PLANTATION`, `VEGETABLE`) are maintained as placeholders. In particular, `GRAPES`
+       is assigned `PLANTATION` (provisional orchard/vine horticultural classification) and marked
+       *unverified against source site*.
+     - *Formulation line product pairings:* Live product detail pages on `grotecagro.com` for `Ultra Action +`,
+       `Trishul`, `Asthra`, `Sanjeevini Gel`, `Raksha`, `Thavam`, and `Organic Fertilizer` contain empty
+       description tags (`<p><br></p>`). Their existing crop relationships in `crop_product_guidance` are
+       retained from field notes and marked *unverified against source site product pages*.
 6. **Farmer identity extras** from the brief (crop age/stage, farm profile). Not modelled yet;
    evaluate with the customer-profile build-out rather than speculatively.
 7. **Calling-queue formation rules.** Not defined by the PRD; provisional = agent's open owned

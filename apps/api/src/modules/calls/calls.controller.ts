@@ -24,6 +24,12 @@ export class CallsController {
     return this.calls.queue(actor, { ownerId });
   }
 
+  @Get('active')
+  @RequirePermission(PERMISSIONS.callRead)
+  active(@CurrentEmployee() actor: AuthEmployee) {
+    return this.calls.getActiveCall(actor);
+  }
+
   @Get(':id/context')
   @RequirePermission(PERMISSIONS.callRead)
   context(@CurrentEmployee() actor: AuthEmployee, @Param('id') id: string) {

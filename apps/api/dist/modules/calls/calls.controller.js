@@ -32,6 +32,9 @@ let CallsController = class CallsController {
     queue(actor, ownerId) {
         return this.calls.queue(actor, { ownerId });
     }
+    active(actor) {
+        return this.calls.getActiveCall(actor);
+    }
     context(actor, id) {
         return this.calls.callContext(id, actor);
     }
@@ -67,6 +70,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], CallsController.prototype, "queue", null);
+__decorate([
+    (0, common_1.Get)('active'),
+    (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.callRead),
+    __param(0, (0, current_employee_decorator_1.CurrentEmployee)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], CallsController.prototype, "active", null);
 __decorate([
     (0, common_1.Get)(':id/context'),
     (0, require_permission_decorator_1.RequirePermission)(shared_1.PERMISSIONS.callRead),

@@ -29,28 +29,36 @@ let OpenAiCompatibleLlmProvider = class OpenAiCompatibleLlmProvider {
     async complete(messages) {
         if (!this.key)
             throw new llm_provider_1.LlmUnavailableError('LLM_API_KEY is not configured');
-        let response;
-        try {
-            response = await fetch(`${this.baseUrl}/chat/completions`, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json', authorization: `Bearer ${this.key}` },
-                body: JSON.stringify({ model: this.model, messages, temperature: 0.3, max_tokens: 500 }),
-            });
+        for (let attempt = 0; attempt < 2; attempt++) {
+            let response;
+            try {
+                response = await fetch(`${this.baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json', authorization: `Bearer ${this.key}` },
+                    body: JSON.stringify({ model: this.model, messages, temperature: 0.3, max_tokens: 450 }),
+                });
+            }
+            catch (error) {
+                this.logger.warn(`LLM request failed: ${error instanceof Error ? error.message : String(error)}`);
+                throw new llm_provider_1.LlmUnavailableError('LLM request failed');
+            }
+            if (response.status === 429 && attempt === 0) {
+                this.logger.warn('LLM rate limit reached (429), waiting 3s for token bucket replenishment...');
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+                continue;
+            }
+            if (!response.ok) {
+                const body = await response.text().catch(() => '');
+                this.logger.warn(`LLM responded ${response.status}: ${body.slice(0, 200)}`);
+                throw new llm_provider_1.LlmUnavailableError(`LLM responded ${response.status}`);
+            }
+            const data = (await response.json());
+            const content = data.choices?.[0]?.message?.content?.trim();
+            if (!content)
+                throw new llm_provider_1.LlmUnavailableError('LLM returned an empty completion');
+            return content;
         }
-        catch (error) {
-            this.logger.warn(`LLM request failed: ${error instanceof Error ? error.message : String(error)}`);
-            throw new llm_provider_1.LlmUnavailableError('LLM request failed');
-        }
-        if (!response.ok) {
-            const body = await response.text().catch(() => '');
-            this.logger.warn(`LLM responded ${response.status}: ${body.slice(0, 200)}`);
-            throw new llm_provider_1.LlmUnavailableError(`LLM responded ${response.status}`);
-        }
-        const data = (await response.json());
-        const content = data.choices?.[0]?.message?.content?.trim();
-        if (!content)
-            throw new llm_provider_1.LlmUnavailableError('LLM returned an empty completion');
-        return content;
+        throw new llm_provider_1.LlmUnavailableError('LLM rate limit exceeded after retry');
     }
 };
 exports.OpenAiCompatibleLlmProvider = OpenAiCompatibleLlmProvider;

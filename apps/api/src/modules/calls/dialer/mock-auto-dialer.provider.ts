@@ -70,12 +70,36 @@ export class MockAutoDialerProvider implements AutoDialerProvider {
   }
 
   getStatus(providerCallId: string): Promise<CallStatusSnapshot | null> {
-    const call = this.calls.get(providerCallId);
+    let call = this.calls.get(providerCallId);
+    if (!call && providerCallId.startsWith('mock_')) {
+      call = {
+        providerCallId,
+        status: CallStatus.CONNECTED,
+        connectedAt: new Date(),
+        endedAt: null,
+        disconnectReason: null,
+        timers: [],
+        ended: false,
+      };
+      this.calls.set(providerCallId, call);
+    }
     return Promise.resolve(call ? this.snapshot(call) : null);
   }
 
   endCall(providerCallId: string): Promise<CallStatusSnapshot | null> {
-    const call = this.calls.get(providerCallId);
+    let call = this.calls.get(providerCallId);
+    if (!call && providerCallId.startsWith('mock_')) {
+      call = {
+        providerCallId,
+        status: CallStatus.CONNECTED,
+        connectedAt: new Date(),
+        endedAt: null,
+        disconnectReason: null,
+        timers: [],
+        ended: false,
+      };
+      this.calls.set(providerCallId, call);
+    }
     if (!call || call.ended) return Promise.resolve(call ? this.snapshot(call) : null);
     call.ended = true;
     for (const timer of call.timers) clearTimeout(timer);

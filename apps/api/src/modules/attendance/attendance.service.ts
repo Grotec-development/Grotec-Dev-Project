@@ -118,6 +118,9 @@ export class AttendanceService {
       conditions.push({ employeeId: actor.id });
     }
 
+    // Founder / CEO is not tracked for attendance
+    conditions.push({ employee: { role: { code: { not: 'FOUNDER' } } } });
+
     if (filters.status) conditions.push({ status: filters.status });
     if (filters.approvalStatus) conditions.push({ approvalStatus: filters.approvalStatus });
     if (filters.source) conditions.push({ source: filters.source });
@@ -167,6 +170,85 @@ export class AttendanceService {
     ]);
 
     return toPage(items, total, pagination);
+  }
+
+  async listMy(
+    actor: AuthEmployee,
+    pagination: PageParams,
+    filters: {
+      month?: string;
+      from?: string;
+      to?: string;
+      status?: AttendanceStatus;
+      source?: AttendanceSource;
+    },
+  ): Promise<any> {
+    const conditions: Prisma.AttendanceRecordWhereInput[] = [
+      { employeeId: actor.id }, // HARD-ENFORCED SERVER-SIDE (Zero override)
+    ];
+
+    if (filters.status) conditions.push({ status: filters.status });
+    if (filters.source) conditions.push({ source: filters.source });
+
+    if (filters.month) {
+      const [yearStr, monthStr] = filters.month.split('-');
+      const y = parseInt(yearStr, 10);
+      const m = parseInt(monthStr, 10);
+      const startDate = new Date(Date.UTC(y, m - 1, 1));
+      const endDate = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+      conditions.push({ date: { gte: startDate, lte: endDate } });
+    } else if (filters.from || filters.to) {
+      const dateCond: Prisma.DateTimeFilter = {};
+      if (filters.from) dateCond.gte = parseDateOnly(filters.from);
+      if (filters.to) dateCond.lte = parseDateOnly(filters.to);
+      conditions.push({ date: dateCond });
+    }
+
+    const where: Prisma.AttendanceRecordWhereInput = { AND: conditions };
+
+    const [total, items] = await Promise.all([
+      this.prisma.attendanceRecord.count({ where }),
+      this.prisma.attendanceRecord.findMany({
+        where,
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        skip: (pagination.page - 1) * pagination.pageSize,
+        take: pagination.pageSize,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              employeeCode: true,
+              fullName: true,
+              email: true,
+              department: true,
+              designation: true,
+            },
+          },
+          approvalHistory: {
+            orderBy: { createdAt: 'asc' },
+          },
+          punches: {
+            orderBy: { punchTime: 'asc' },
+          },
+        },
+      }),
+    ]);
+
+    return toPage(items, total, pagination);
+  }
+
+  async getSummaryMy(actor: AuthEmployee, query: { month: string }) {
+    return this.getSummary(actor, { month: query.month, employeeId: actor.id });
+  }
+
+  async markMy(actor: AuthEmployee, dto: MarkAttendanceDto) {
+    if (actor.roleCode === 'FOUNDER') {
+      throw ApiError.badRequest(
+        'FOUNDER_ATTENDANCE_NOT_APPLICABLE',
+        'Founder / CEO is the business owner and is not tracked for attendance',
+      );
+    }
+    return this.mark(actor, { ...dto, employeeId: actor.id });
   }
 
   async getSummary(actor: AuthEmployee, query: { month: string; employeeId?: string }) {
@@ -247,7 +329,14 @@ export class AttendanceService {
     });
     if (!employee) throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Target employee not found');
 
-    if (!isSelf && actor.roleCode !== 'FOUNDER') {
+    if (employee.role.code === 'FOUNDER' || actor.roleCode === 'FOUNDER') {
+      throw ApiError.badRequest(
+        'FOUNDER_ATTENDANCE_NOT_APPLICABLE',
+        'Founder / CEO is the business owner and is not tracked for attendance',
+      );
+    }
+
+    if (!isSelf) {
       if (!outranks(actor.roleCode as RoleCode, employee.role.code as RoleCode)) {
         throw ApiError.forbidden(
           'ROLE_HIERARCHY_FORBIDDEN',
@@ -635,7 +724,7 @@ export class AttendanceService {
 
   async getRoster(actor: AuthEmployee) {
     const employees = await this.prisma.employee.findMany({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', role: { code: { not: 'FOUNDER' } } },
       select: {
         id: true,
         fullName: true,

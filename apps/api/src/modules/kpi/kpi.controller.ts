@@ -53,6 +53,24 @@ export class KpiController {
     return this.kpi.addReviewEntry(actor, dto);
   }
 
+  @Get('my/score')
+  @RequirePermission(PERMISSIONS.kpiRead)
+  async getMyScore(
+    @CurrentEmployee() actor: AuthEmployee,
+    @Query('period') period?: string,
+  ) {
+    return this.kpi.getMyScore(actor, period || new Date().toISOString().slice(0, 7));
+  }
+
+  @Get('my/score/:period')
+  @RequirePermission(PERMISSIONS.kpiRead)
+  async getMyScoreByPeriod(
+    @CurrentEmployee() actor: AuthEmployee,
+    @Param('period') period: string,
+  ) {
+    return this.kpi.getMyScore(actor, period);
+  }
+
   @Get('scores/:employeeId')
   @RequirePermission(PERMISSIONS.kpiRead)
   async getScore(
@@ -96,7 +114,7 @@ export class KpiController {
   }
 
   @Get('team-summary/:period')
-  @RequirePermission(PERMISSIONS.kpiRead)
+  @RequirePermission(PERMISSIONS.kpiManage)
   async getTeamSummary(
     @CurrentEmployee() actor: AuthEmployee,
     @Param('period') period: string,

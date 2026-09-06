@@ -1,6 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { Shell } from './pages/Shell';
 import { LoginPage } from './pages/LoginPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { RouteErrorBoundary } from './components/RouteErrorBoundary';
 import { DashboardPage } from './pages/DashboardPage';
 import { AgentWorkspacePage } from './pages/AgentWorkspacePage';
 import { RelationshipManagerPage } from './pages/RelationshipManagerPage';
@@ -26,6 +28,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Shell />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'dashboard', element: <DashboardPage /> },
@@ -52,5 +55,6 @@ export const router = createBrowserRouter([
       { path: 'restricted', element: <RestrictedPage /> },
     ],
   },
-  { path: '*', element: <LoginPage /> },
+  // Wildcard — proper 404 page instead of silently redirecting to login
+  { path: '*', element: <NotFoundPage /> },
 ]);

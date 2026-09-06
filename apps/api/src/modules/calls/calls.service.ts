@@ -113,6 +113,34 @@ export class CallsService {
     return this.serialize({ ...call, notes: [] });
   }
 
+  async getActiveCall(actor: AuthEmployee) {
+    const active = await this.prisma.call.findFirst({
+      where: {
+        agentId: actor.id,
+        status: { in: [...ACTIVE_CALL_STATUSES] },
+      },
+      include: {
+        notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    if (active) {
+      await this.syncFromProvider(active);
+      const fresh = await this.prisma.call.findUnique({
+        where: { id: active.id },
+        include: {
+          notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
+        },
+      });
+      if (fresh && (ACTIVE_CALL_STATUSES.includes(fresh.status) || (fresh.status === CallStatus.ENDED && !fresh.outcome))) {
+        return this.serialize(fresh);
+      }
+    }
+
+    return null;
+  }
+
   async detailOrThrow(id: string, actor: AuthEmployee) {
     const call = await this.requireCall(id, actor);
     await this.syncFromProvider(call);
@@ -688,7 +716,15 @@ export class CallsService {
     };
   }
 
-  private serializeCallBrief(call: { id: string; status: CallStatusEnum; startedAt: Date; endedAt: Date | null; phoneNumber: string; disconnectReason: string | null }) {
+  private serializeCallBrief(call: {
+    id: string;
+    status: CallStatusEnum;
+    startedAt: Date;
+    endedAt: Date | null;
+    phoneNumber: string;
+    disconnectReason: string | null;
+    outcome?: CallOutcome | string | null;
+  }) {
     return {
       id: call.id,
       phoneNumber: call.phoneNumber,
@@ -696,6 +732,7 @@ export class CallsService {
       disconnectReason: call.disconnectReason,
       startedAt: call.startedAt,
       endedAt: call.endedAt,
+      outcome: (call as any).outcome ?? null,
     };
   }
 }

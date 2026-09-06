@@ -302,5 +302,6 @@ export interface QueueItem {
     disconnectReason: string | null;
     startedAt: string;
     endedAt: string | null;
+    outcome?: CallOutcome | null;
   } | null;
 }

@@ -26,25 +26,36 @@ export class OpenAiCompatibleLlmProvider implements LlmProvider {
 
   async complete(messages: LlmMessage[]): Promise<string> {
     if (!this.key) throw new LlmUnavailableError('LLM_API_KEY is not configured');
-    let response: Response;
-    try {
-      response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${this.key}` },
-        body: JSON.stringify({ model: this.model, messages, temperature: 0.3, max_tokens: 500 }),
-      });
-    } catch (error) {
-      this.logger.warn(`LLM request failed: ${error instanceof Error ? error.message : String(error)}`);
-      throw new LlmUnavailableError('LLM request failed');
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let response: Response;
+      try {
+        response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${this.key}` },
+          body: JSON.stringify({ model: this.model, messages, temperature: 0.3, max_tokens: 450 }),
+        });
+      } catch (error) {
+        this.logger.warn(`LLM request failed: ${error instanceof Error ? error.message : String(error)}`);
+        throw new LlmUnavailableError('LLM request failed');
+      }
+
+      if (response.status === 429 && attempt === 0) {
+        this.logger.warn('LLM rate limit reached (429), waiting 3s for token bucket replenishment...');
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        continue;
+      }
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        this.logger.warn(`LLM responded ${response.status}: ${body.slice(0, 200)}`);
+        throw new LlmUnavailableError(`LLM responded ${response.status}`);
+      }
+      const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      const content = data.choices?.[0]?.message?.content?.trim();
+      if (!content) throw new LlmUnavailableError('LLM returned an empty completion');
+      return content;
     }
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      this.logger.warn(`LLM responded ${response.status}: ${body.slice(0, 200)}`);
-      throw new LlmUnavailableError(`LLM responded ${response.status}`);
-    }
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new LlmUnavailableError('LLM returned an empty completion');
-    return content;
+    throw new LlmUnavailableError('LLM rate limit exceeded after retry');
   }
 }

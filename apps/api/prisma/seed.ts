@@ -25,31 +25,28 @@ const prisma = new PrismaClient();
 
 // PRD §6.5.2 / §11: crop catalog carries a category (field / tree / plantation /
 // vegetable / other). The seed splits the provisional catalog accordingly.
-const PROVISIONAL_CROPS: Array<{ code: string; name: string; localName: string; category: 'FIELD' | 'TREE' | 'PLANTATION' | 'VEGETABLE' | 'OTHER' }> = [
-  { code: 'RICE', name: 'Rice (Paddy)', localName: 'Dhaan', category: 'FIELD' },
-  { code: 'WHEAT', name: 'Wheat', localName: 'Gehu', category: 'FIELD' },
-  { code: 'MAIZE', name: 'Maize', localName: 'Makka', category: 'FIELD' },
-  { code: 'SUGARCANE', name: 'Sugarcane', localName: 'Ganna', category: 'FIELD' },
-  { code: 'COTTON', name: 'Cotton', localName: 'Kapas', category: 'FIELD' },
-  { code: 'SOYBEAN', name: 'Soybean', localName: 'Soyabean', category: 'FIELD' },
-  { code: 'TOMATO', name: 'Tomato', localName: 'Tamatar', category: 'VEGETABLE' },
-  { code: 'POTATO', name: 'Potato', localName: 'Aloo', category: 'VEGETABLE' },
-  { code: 'ONION', name: 'Onion', localName: 'Pyaaz', category: 'VEGETABLE' },
-  { code: 'CHILLI', name: 'Chilli', localName: 'Mirch', category: 'VEGETABLE' },
-  { code: 'BANANA', name: 'Banana', localName: 'Kela', category: 'PLANTATION' },
-  { code: 'MANGO', name: 'Mango', localName: 'Aam', category: 'TREE' },
-  { code: 'GROUNDNUT', name: 'Groundnut', localName: 'Moongphali', category: 'FIELD' },
-  { code: 'MUSTARD', name: 'Mustard', localName: 'Sarson', category: 'FIELD' },
-  { code: 'GRAM', name: 'Chickpea (Gram)', localName: 'Chana', category: 'FIELD' },
+const PROVISIONAL_CROPS: Array<{ code: string; name: string; localName: string; category: 'FIELD' | 'TREE' | 'PLANTATION' | 'VEGETABLE' | 'OTHER'; isActive?: boolean }> = [
+  { code: 'RICE', name: 'Rice (Paddy)', localName: 'Dhaan / Nel', category: 'FIELD', isActive: true },
+  { code: 'SUGARCANE', name: 'Sugarcane', localName: 'Ganna / Karumbu', category: 'FIELD', isActive: true },
+  { code: 'GRAPES', name: 'Grapes', localName: 'Angoor / Drakshai', category: 'PLANTATION', isActive: true },
+  { code: 'CHILLI', name: 'Chilli', localName: 'Mirch / Milagai', category: 'VEGETABLE', isActive: true },
+  { code: 'TOMATO', name: 'Tomato', localName: 'Tamatar / Thakkali', category: 'VEGETABLE', isActive: true },
+  { code: 'BANANA', name: 'Banana', localName: 'Kela / Vazhai', category: 'PLANTATION', isActive: true },
+  { code: 'GRAM', name: 'Chickpea (Gram)', localName: 'Chana / Kondaikadalai', category: 'FIELD', isActive: true },
+  { code: 'GROUNDNUT', name: 'Groundnut', localName: 'Moongphali / Verkadalai', category: 'FIELD', isActive: true },
+  { code: 'COTTON', name: 'Cotton', localName: 'Kapas / Paruthi', category: 'FIELD', isActive: true },
+  { code: 'MAIZE', name: 'Maize', localName: 'Makka / Cholam', category: 'FIELD', isActive: true },
+  { code: 'WHEAT', name: 'Wheat', localName: 'Gehu / Godhumai', category: 'FIELD', isActive: true },
+  { code: 'SOYBEAN', name: 'Soybean', localName: 'Soyabean', category: 'FIELD', isActive: true },
+  { code: 'MANGO', name: 'Mango', localName: 'Aam / Maangai', category: 'TREE', isActive: true },
+  { code: 'ONION', name: 'Onion', localName: 'Pyaaz / Vengayam', category: 'VEGETABLE', isActive: true },
+  { code: 'POTATO', name: 'Potato', localName: 'Aloo / Urulaikizhangu', category: 'VEGETABLE', isActive: true },
+  { code: 'MUSTARD', name: 'Mustard', localName: 'Sarson', category: 'FIELD', isActive: false }, // De-prioritized / non-target crop in TN market
 ];
 
-// Provisional starter guidance for the AI Assistant, built from the real Grotec
-// product catalog (docs/company-context.md). Rows are editable by Founder/Manager
-// through the assistant content API; usage text is generic so nothing invents a
-// label claim — follow the product label (FCO 1985).
-// problemType follows the PRD §6.5.2 taxonomy (PEST | DISEASE |
-// NUTRIENT_DEFICIENCY | WEED | OTHER); provisional rows are tagged from their
-// own keywords — pest/disease claims need GROTEC curation before use.
+// Starter guidance for the AI Assistant, verified against the real Grotec
+// product catalog (grotecagro.com & docs/company-context.md).
+// problemType follows the PRD §6.5.2 taxonomy (PEST | DISEASE | NUTRIENT_DEFICIENCY | WEED | OTHER).
 const GUIDANCE_SEED: Array<{
   cropCode: string;
   problemType: 'PEST' | 'DISEASE' | 'NUTRIENT_DEFICIENCY' | 'WEED' | 'OTHER';
@@ -57,19 +54,301 @@ const GUIDANCE_SEED: Array<{
   recommendedProducts: string[];
   usageGuidance: string;
 }> = [
-  { cropCode: 'RICE', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['leaf yellowing', 'nitrogen deficiency', 'poor tillering'], recommendedProducts: ['Azos', 'Bio Jeevan PF'], usageGuidance: 'Seed/soil application at sowing; repeat at tillering as per the Grotec label.' },
-  { cropCode: 'RICE', problemType: 'OTHER', problemKeywords: ['low yield', 'general weakness', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Apply organic manure at land preparation; Azotob at sowing and 30 days after.' },
-  { cropCode: 'WHEAT', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['yellowing', 'stunted growth', 'low tillering'], recommendedProducts: ['Azos', 'Bio Jeevan TV'], usageGuidance: 'Seed treatment at sowing; foliar follow-up during active growth per label.' },
-  { cropCode: 'SUGARCANE', problemType: 'OTHER', problemKeywords: ['poor cane growth', 'ratoon recovery', 'soil health'], recommendedProducts: ['Azotob', 'Organic Fertilizer'], usageGuidance: 'Soil application along the furrows; repeat after ratoon initiation as per label.' },
-  { cropCode: 'COTTON', problemType: 'OTHER', problemKeywords: ['square drop', 'flower drop', 'growth stress'], recommendedProducts: ['Ultra Action +', 'Trishul'], usageGuidance: 'Foliar application at square formation and flowering stages; follow the Grotec label.' },
-  { cropCode: 'SOYBEAN', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['poor nodulation', 'root development', 'phosphorus'], recommendedProducts: ['Rhizob', 'PHOS'], usageGuidance: 'Seed treatment before sowing so rhizobial + phosphate inoculants establish early.' },
-  { cropCode: 'GROUNDNUT', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['poor pod filling', 'yellowing', 'root development'], recommendedProducts: ['Rhizob', 'Micromix'], usageGuidance: 'Seed treatment at sowing; Micromix as foliar/soil supplement per label.' },
-  { cropCode: 'TOMATO', problemType: 'OTHER', problemKeywords: ['flower drop', 'poor fruit set', 'heat stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Spray during flowering to support fruit set; repeat as per the Grotec label.' },
-  { cropCode: 'POTATO', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['weak growth', 'poor bulking', 'soil fertility'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan PF'], usageGuidance: 'Gel/formulation per the label; apply at early growth for healthy tuber bulking.' },
-  { cropCode: 'ONION', problemType: 'NUTRIENT_DEFICIENCY', problemKeywords: ['poor bulbing', 'leaf yellowing', 'weak growth'], recommendedProducts: ['Bio Jeevan TV', 'Micromix'], usageGuidance: 'Soil/foliar application during bulb initiation; follow product label rates.' },
-  { cropCode: 'MANGO', problemType: 'OTHER', problemKeywords: ['poor flowering', 'fruit drop', 'drought stress'], recommendedProducts: ['Thavam', 'Ultra Action +'], usageGuidance: 'Apply before flowering and again at fruit set; dosage per the Grotec label.' },
-  { cropCode: 'BANANA', problemType: 'OTHER', problemKeywords: ['poor bunch weight', 'sucker growth', 'general weakness'], recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan TV'], usageGuidance: 'Apply during active vegetative growth; follow the label for stage-based repeats.' },
-  { cropCode: 'CHILLI', problemType: 'OTHER', problemKeywords: ['flower drop', 'poor fruit set', 'stress'], recommendedProducts: ['Ultra Action +', 'Asthra'], usageGuidance: 'Foliar at flowering; repeat as needed per the Grotec label.' },
+  // --- 1. RICE / PADDY ---
+  {
+    cropCode: 'RICE',
+    problemType: 'DISEASE',
+    problemKeywords: ['sheath blight', 'bacterial leaf blight', 'paddy blast', 'leaf blast', 'fungal disease', 'paddy blight', 'brown spot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Seed treatment: 10 ml/kg seed with Bio Jeevan PF; or soil application of 1 L/acre in 25 kg organic manure/cow dung at land preparation. Foliar spray at 5 ml/L of water at first symptom of sheath blight or bacterial leaf blight. Alternate with Bio Jeevan TV (3 ml/L). Do not use chemical fungicides for 4-5 days.',
+  },
+  {
+    cropCode: 'RICE',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['leaf yellowing', 'nitrogen deficiency', 'poor tillering', 'chlorosis', 'stunted tillers'],
+    recommendedProducts: ['Bio Jeevan Azos', 'Bio Jeevan Phos'],
+    usageGuidance: 'Soil/drip application of Bio Jeevan Azos (1 to 2 L/acre) with compost; repeat foliar spray @ 3 ml/L at tillering to enhance leaf area index and atmospheric nitrogen fixation. Apply Bio Jeevan Phos (1 L/acre) to solubilize soil phosphate.',
+  },
+  {
+    cropCode: 'RICE',
+    problemType: 'OTHER',
+    problemKeywords: ['grain filling', 'panicle emergence', 'panicle initiation', 'yield booster', 'bumper yield'],
+    recommendedProducts: ['Ultra Action +', 'Sanjeevini Gel'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Ultra Action plus @ 3-5 ml/L of water at active tillering and panicle initiation. Supplement with Sanjeevini Gel @ 1-2 g/L during grain filling for uniform grain weight and reduced chaffy grains.',
+  },
+  {
+    cropCode: 'RICE',
+    problemType: 'PEST',
+    problemKeywords: ['stem borer', 'leaf folder', 'brown plant hopper', 'bph', 'sucking pests', 'green leafhopper'],
+    recommendedProducts: ['Trishul', 'Asthra'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Trishul @ 2.5-3 ml/L of water upon noticing dead hearts or white ears from stem borer. Combine with Asthra @ 2.5 ml/L for broad-spectrum sucking pest and leaf folder control without chemical residue.',
+  },
+  {
+    cropCode: 'RICE',
+    problemType: 'OTHER',
+    problemKeywords: ['soil fertility', 'basal land preparation', 'organic manure', 'soil organic carbon', 'soil health'],
+    recommendedProducts: ['Organic Fertilizer', 'Bio Jeevan Azotob'],
+    usageGuidance: 'Apply Grotec Organic Fertilizer (enriched organic manure FCO 1985) @ 100-200 kg/acre during basal land preparation to rebuild organic carbon (>14%) and soil structure. Topdress with Bio Jeevan Azotob (1-2 L/acre).',
+  },
+
+  // --- 2. SUGARCANE ---
+  {
+    cropCode: 'SUGARCANE',
+    problemType: 'DISEASE',
+    problemKeywords: ['red rot', 'sett rot', 'cane wilt', 'red rot of sugarcane', 'wilt', 'smut'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Sett treatment: dip setts in Bio Jeevan PF slurry (50 ml/L in water with organic manure) for 30 minutes before planting. Soil application along furrows at 1-2 L/acre with compost to suppress Fusarium and Colletotrichum soil-borne fungi.',
+  },
+  {
+    cropCode: 'SUGARCANE',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['poor cane growth', 'stunted canes', 'internode elongation', 'yellowing', 'nitrogen'],
+    recommendedProducts: ['Bio Jeevan Azos', 'Bio Jeevan Phos'],
+    usageGuidance: 'Apply Bio Jeevan Azos (1-2 L/acre) along furrows to stimulate root branching in graminaceous roots through associative nitrogen fixation and IAA hormone production; apply Bio Jeevan Phos (1-2 L/acre) for root depth.',
+  },
+  {
+    cropCode: 'SUGARCANE',
+    problemType: 'OTHER',
+    problemKeywords: ['ratoon management', 'ratoon vigor', 'cane girth', 'sugar recovery', 'cane weight'],
+    recommendedProducts: ['Ultra Action +', 'Organic Fertilizer'],
+    usageGuidance: 'Apply Grotec Organic Fertilizer @ 150 kg/acre immediately after ratoon shaving. Drench or drip apply Jeevan Sakthi Ultra Action plus @ 2-3 L/acre to stimulate profuse ratoon tillering, cane girth, and sugar accumulation.',
+  },
+
+  // --- 3. CHILLI ---
+  {
+    cropCode: 'CHILLI',
+    problemType: 'DISEASE',
+    problemKeywords: ['damping off', 'collar rot', 'seedling wilt', 'damping off of chillies', 'dieback', 'anthracnose', 'fruit rot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Seed treatment: mix 10 ml Bio Jeevan PF per 1 kg seeds; drench nursery beds with Bio Jeevan TV (3 ml/L) to prevent damping off. For dieback and fruit rot in main field, foliar spray Bio Jeevan PF @ 5 ml/L at first appearance.',
+  },
+  {
+    cropCode: 'CHILLI',
+    problemType: 'PEST',
+    problemKeywords: ['thrips', 'chilli thrips', 'leaf curl', 'murda disease', 'mites', 'whitefly', 'aphids', 'sucking pests'],
+    recommendedProducts: ['Trishul', 'Asthra'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Trishul @ 3 ml/L of water mixed with Asthra @ 2.5 ml/L targeting the underside of leaves for thrips, mites, and leaf curl vectors. Repeat at 7-10 day intervals. Follow product label.',
+  },
+  {
+    cropCode: 'CHILLI',
+    problemType: 'OTHER',
+    problemKeywords: ['flower drop', 'poor fruit set', 'heat stress', 'blossom drop', 'fruit size', 'chilli yield'],
+    recommendedProducts: ['Ultra Action +', 'Sanjeevini Gel'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Ultra Action plus @ 3 ml/L at initiation of flower buds. Spray Sanjeevini Gel @ 1-2 g/L during peak flowering to prevent flower drop and ensure uniform, high-pungency, vibrant pod development.',
+  },
+
+  // --- 4. TOMATO ---
+  {
+    cropCode: 'TOMATO',
+    problemType: 'DISEASE',
+    problemKeywords: ['bacterial wilt', 'fusarium wilt', 'wilt of tomato', 'damping off', 'early blight', 'late blight'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Seedling root dip: dip roots in Bio Jeevan PF slurry (50 ml in water with organic manure) for 30 minutes before transplanting. Drench root zone with Bio Jeevan TV (1-2 L/acre) to suppress bacterial wilt and collar rot.',
+  },
+  {
+    cropCode: 'TOMATO',
+    problemType: 'PEST',
+    problemKeywords: ['fruit borer', 'tuta absoluta', 'leaf miner', 'whitefly', 'caterpillars'],
+    recommendedProducts: ['Trishul', 'Asthra'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Trishul @ 3 ml/L plus Asthra @ 2.5 ml/L at vegetative and early flowering stages. Controls fruit borer larvae and whitefly vectors without chemical residue.',
+  },
+  {
+    cropCode: 'TOMATO',
+    problemType: 'OTHER',
+    problemKeywords: ['flower drop', 'fruit cracking', 'poor fruit set', 'fruit firmness', 'fruit sizing'],
+    recommendedProducts: ['Ultra Action +', 'Sanjeevini Gel'],
+    usageGuidance: 'Spray Jeevan Sakthi Ultra Action plus @ 3 ml/L at first flowering. Follow with Sanjeevini Gel @ 1.5 g/L during fruit sizing to enhance firm skin, prevent fruit cracking, and increase marketable yield.',
+  },
+
+  // --- 5. BANANA ---
+  {
+    cropCode: 'BANANA',
+    problemType: 'DISEASE',
+    problemKeywords: ['panama wilt', 'fusarium wilt', 'panama wilt of banana', 'leaf wilting', 'erwinia rot', 'sigatoka', 'rhizome rot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Sucker treatment: dip suckers for 30 minutes in Bio Jeevan PF slurry (50 ml in water with organic manure). Soil drench 1-2 L/acre of Bio Jeevan TV around the pseudostem at planting and 60 days later to prevent Panama wilt.',
+  },
+  {
+    cropCode: 'BANANA',
+    problemType: 'OTHER',
+    problemKeywords: ['bunch weight', 'bunch filling', 'finger size', 'poor bunch', 'bunch development', 'banana yield'],
+    recommendedProducts: ['Sanjeevini Gel', 'Ultra Action +'],
+    usageGuidance: 'Drip application of Sanjeevini Gel @ 1 kg/acre or foliar spray @ 2 g/L after bunch emergence to ensure uniform finger filling and heavy bunch weight. Apply Ultra Action plus (2 L/acre) via drip during vegetative stage.',
+  },
+  {
+    cropCode: 'BANANA',
+    problemType: 'OTHER',
+    problemKeywords: ['soil conditioning', 'root zone aeration', 'nematodes', 'feeder roots', 'soil health'],
+    recommendedProducts: ['Thavam', 'Organic Fertilizer'],
+    usageGuidance: 'Apply Grotec Organic Fertilizer @ 200 kg/acre around tree basin. Apply Thavam @ 1-2 L/acre via drip irrigation to condition soil, aerate root zone, and stimulate feeder root regeneration.',
+  },
+
+  // --- 6. COTTON ---
+  {
+    cropCode: 'COTTON',
+    problemType: 'PEST',
+    problemKeywords: ['whitefly', 'aphids', 'jassids', 'thrips', 'sucking pests', 'bollworm', 'spotted bollworm'],
+    recommendedProducts: ['Trishul', 'Asthra'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Trishul @ 3 ml/L of water with Asthra @ 2.5 ml/L during squaring and early boll formation for biological control of sucking pests (whiteflies, aphids, jassids) and bollworm deterrence.',
+  },
+  {
+    cropCode: 'COTTON',
+    problemType: 'OTHER',
+    problemKeywords: ['square drop', 'flower drop', 'boll drop', 'boll sizing', 'boll weight', 'cotton yield'],
+    recommendedProducts: ['Ultra Action +', 'Sanjeevini Gel'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Ultra Action plus @ 3-5 ml/L at squaring stage to prevent premature square and boll shedding. Follow with Sanjeevini Gel (1.5 g/L) at boll development for heavy boll weight and fiber quality.',
+  },
+  {
+    cropCode: 'COTTON',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['leaf reddening', 'magnesium deficiency', 'nitrogen deficiency', 'stunted growth'],
+    recommendedProducts: ['Bio Jeevan Azotob', 'Bio Jeevan Micromix'],
+    usageGuidance: 'Soil/drip application of Bio Jeevan Azotob (1-2 L/acre) to fix 6-8 kg N/acre. Foliar spray of Bio Jeevan Micromix @ 3 ml/L to supply micronutrient consortium and prevent nutrient-induced leaf reddening.',
+  },
+
+  // --- 7. GROUNDNUT ---
+  {
+    cropCode: 'GROUNDNUT',
+    problemType: 'DISEASE',
+    problemKeywords: ['leaf spot', 'tikka disease', 'cercospora', 'leaf spot of groundnut', 'collar rot', 'root rot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Foliar spray of Bio Jeevan PF @ 5 ml/L upon first appearance of dark Tikka spots on lower leaves. Seed treatment with Bio Jeevan TV (10 ml/kg seed) to prevent collar rot and seed rot during germination.',
+  },
+  {
+    cropCode: 'GROUNDNUT',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['poor nodulation', 'nitrogen deficiency', 'root nodules', 'nitrogen fixation'],
+    recommendedProducts: ['Bio Jeevan Rhizob', 'Bio Jeevan Phos'],
+    usageGuidance: 'Seed treatment: mix 10 ml Bio Jeevan Rhizob with 10 g crude sugar in water slurry per 1 kg seeds, dry in shade and sow immediately. Fixes 20-30 kg atmospheric N/acre and forms healthy pink root nodules.',
+  },
+  {
+    cropCode: 'GROUNDNUT',
+    problemType: 'OTHER',
+    problemKeywords: ['pod filling', 'peg formation', 'empty shells', 'groundnut yield', 'bold pods'],
+    recommendedProducts: ['Ultra Action +', 'Bio Jeevan Micromix'],
+    usageGuidance: 'Apply Jeevan Sakthi Ultra Action plus @ 3 ml/L at flowering and peg formation to accelerate peg penetration. Apply Bio Jeevan Micromix (1-2 L/acre) to ensure complete pod filling and eliminate blank pods.',
+  },
+
+  // --- 8. CHICKPEA / PULSES (GRAM) ---
+  {
+    cropCode: 'GRAM',
+    problemType: 'DISEASE',
+    problemKeywords: ['chickpea wilt', 'fusarium wilt', 'wilt', 'collar rot', 'root rot', 'dry root rot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Seed treatment: coat 1 kg seeds with 10 ml Bio Jeevan PF + 10 ml Bio Jeevan TV slurry before sowing. Suppresses Fusarium oxysporum and Rhizoctonia wilt fungi in the seedling rhizosphere.',
+  },
+  {
+    cropCode: 'GRAM',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['poor nodulation', 'nitrogen deficiency', 'root development', 'nodule count'],
+    recommendedProducts: ['Bio Jeevan Rhizob', 'Bio Jeevan Phos'],
+    usageGuidance: 'Seed treatment: 10 ml Bio Jeevan Rhizob + 10 ml Bio Jeevan Phos per 1 kg seed. Rhizobium fixes 20-30 kg N/acre while Phos solubilizes phosphorus needed for ATP energy in nitrogenase fixation.',
+  },
+
+  // --- 9. GRAPES ---
+  {
+    cropCode: 'GRAPES',
+    problemType: 'DISEASE',
+    problemKeywords: ['mildew', 'powdery mildew', 'downy mildew', 'mildews of grapes', 'anthracnose', 'berry spot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Foliar spray of Bio Jeevan PF @ 5 ml/L of water during pre-flowering and berry formation; alternate with Bio Jeevan TV (3 ml/L) for biological control of downy and powdery mildews. Zero chemical residue.',
+  },
+  {
+    cropCode: 'GRAPES',
+    problemType: 'OTHER',
+    problemKeywords: ['berry elongation', 'berry size', 'sugar content', 'brix', 'bunch compactness'],
+    recommendedProducts: ['Ultra Action +', 'Sanjeevini Gel'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Ultra Action plus @ 3 ml/L at berry set stage. Follow with Sanjeevini Gel @ 1.5 g/L during veraison stage for uniform berry elongation, higher Brix sugar content, and export quality.',
+  },
+
+  // --- 10. MANGO ---
+  {
+    cropCode: 'MANGO',
+    problemType: 'OTHER',
+    problemKeywords: ['poor flowering', 'flower drop', 'fruit drop', 'irregular bearing', 'alternate bearing'],
+    recommendedProducts: ['Ultra Action +', 'Sanjeevini Gel'],
+    usageGuidance: 'Foliar spray of Jeevan Sakthi Ultra Action plus @ 3 ml/L at flower bud burst. Spray Sanjeevini Gel @ 1.5 g/L when fruits are pea-sized and marble-sized to minimize fruit drop and ensure heavy fruit retention.',
+  },
+  {
+    cropCode: 'MANGO',
+    problemType: 'DISEASE',
+    problemKeywords: ['anthracnose', 'powdery mildew', 'blossom blight', 'dieback'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Foliar spray of Bio Jeevan PF @ 5 ml/L before flowering and again after fruit set to manage blossom blight and anthracnose spots on leaves and young fruit panicles.',
+  },
+  {
+    cropCode: 'MANGO',
+    problemType: 'OTHER',
+    problemKeywords: ['tree vigor', 'soil conditioning', 'drought tolerance', 'root health'],
+    recommendedProducts: ['Thavam', 'Organic Fertilizer'],
+    usageGuidance: 'Apply Grotec Organic Fertilizer @ 10-15 kg per mature tree basin before monsoon. Drench with Thavam (50-100 ml per tree in water) to aerate root basin and revive active feeder roots.',
+  },
+
+  // --- 11. MAIZE ---
+  {
+    cropCode: 'MAIZE',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['leaf yellowing', 'nitrogen deficiency', 'cob development', 'poor grain filling'],
+    recommendedProducts: ['Bio Jeevan Azos', 'Bio Jeevan Phos'],
+    usageGuidance: 'Seed treatment with Bio Jeevan Azos (10 ml/kg seed) or soil application (1-2 L/acre). Azospirillum fixes atmospheric nitrogen in the graminaceous root cortex and produces growth hormones for sturdy stalks and filled cobs.',
+  },
+  {
+    cropCode: 'MAIZE',
+    problemType: 'PEST',
+    problemKeywords: ['fall armyworm', 'stem borer', 'leaf feeding', 'whorl damage'],
+    recommendedProducts: ['Trishul', 'Asthra'],
+    usageGuidance: 'Spray Jeevan Sakthi Trishul @ 3 ml/L directed into the whorls upon first sighting of pinholes or young Fall Armyworm larvae. Safe and non-toxic for livestock fodder.',
+  },
+
+  // --- 12. ONION ---
+  {
+    cropCode: 'ONION',
+    problemType: 'DISEASE',
+    problemKeywords: ['purple blotch', 'basal rot', 'damping off', 'twister disease', 'leaf spot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Seedling dip: dip roots in Bio Jeevan PF slurry (50 ml in water with organic manure) for 30 minutes before transplanting. Spray Bio Jeevan TV @ 3 ml/L upon noticing purple blotch on foliage.',
+  },
+  {
+    cropCode: 'ONION',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['bulb sizing', 'poor bulbing', 'neck thickness', 'bulb yield'],
+    recommendedProducts: ['Bio Jeevan Micromix', 'Organic Fertilizer'],
+    usageGuidance: 'Basal application of Grotec Organic Fertilizer @ 100 kg/acre. Apply Bio Jeevan Micromix (1-2 L/acre) via drip during bulb initiation stage to ensure uniform, tight-skinned bulbs with long storage shelf life.',
+  },
+
+  // --- 13. POTATO ---
+  {
+    cropCode: 'POTATO',
+    problemType: 'DISEASE',
+    problemKeywords: ['late blight', 'early blight', 'black scurf', 'common scab', 'tuber rot'],
+    recommendedProducts: ['Bio Jeevan PF', 'Bio Jeevan TV'],
+    usageGuidance: 'Tuber seed treatment: dip cut seed tubers in Bio Jeevan PF (10 ml/L of water) for 15 minutes, shade dry and sow. Foliar spray Bio Jeevan TV @ 3 ml/L during cool moist weather to prevent late blight.',
+  },
+  {
+    cropCode: 'POTATO',
+    problemType: 'OTHER',
+    problemKeywords: ['tuber bulking', 'tuber count', 'uniform tubers', 'potato yield'],
+    recommendedProducts: ['Sanjeevini Gel', 'Bio Jeevan Phos'],
+    usageGuidance: 'Apply Bio Jeevan Phos (1-2 L/acre) at earthing up to stimulate stolon formation. Foliar spray Sanjeevini Gel @ 1.5 g/L during tuber bulking stage for high-grade marketable tubers.',
+  },
+
+  // --- 14. SOYBEAN ---
+  {
+    cropCode: 'SOYBEAN',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['poor nodulation', 'nitrogen deficiency', 'root development', 'nodule formation'],
+    recommendedProducts: ['Bio Jeevan Rhizob', 'Bio Jeevan Phos'],
+    usageGuidance: 'Seed treatment: 10 ml Bio Jeevan Rhizob + 10 ml Bio Jeevan Phos per 1 kg seed. Establishes nitrogen-fixing bacteroids in root nodules and increases pod counts by 20-35%.',
+  },
+
+  // --- 15. WHEAT ---
+  {
+    cropCode: 'WHEAT',
+    problemType: 'NUTRIENT_DEFICIENCY',
+    problemKeywords: ['yellowing', 'stunted growth', 'low tillering', 'flag leaf chlorosis'],
+    recommendedProducts: ['Bio Jeevan Azos', 'Bio Jeevan Micromix'],
+    usageGuidance: 'Seed treatment at sowing with Bio Jeevan Azos (10 ml/kg seed). Apply Bio Jeevan Micromix @ 1-2 L/acre at crown root initiation and tillering stages.',
+  },
 ];
 
 const DEMO_CUSTOMERS: Array<{ name: string; phone: string; village: string; district: string; state: string; cropIndex: number; acreage: number }> = [
@@ -204,12 +483,12 @@ async function seedCrops(): Promise<string[]> {
   for (const crop of PROVISIONAL_CROPS) {
     const row = await prisma.crop.upsert({
       where: { code: crop.code },
-      update: { name: crop.name, localName: crop.localName, category: crop.category, isActive: true },
-      create: { code: crop.code, name: crop.name, localName: crop.localName, category: crop.category },
+      update: { name: crop.name, localName: crop.localName, category: crop.category, isActive: crop.isActive ?? true },
+      create: { code: crop.code, name: crop.name, localName: crop.localName, category: crop.category, isActive: crop.isActive ?? true },
     });
     ids.push(row.id);
   }
-  console.log(`seeded ${PROVISIONAL_CROPS.length} crops (provisional catalog)`);
+  console.log(`seeded ${PROVISIONAL_CROPS.length} crops (grounded catalog)`);
   return ids;
 }
 
@@ -221,13 +500,17 @@ async function seedGuidance(founderId: string): Promise<void> {
       continue;
     }
     const existing = await prisma.cropProductGuidance.findFirst({
-      where: { cropId: crop.id, problemKeywords: { has: def.problemKeywords[0] ?? '' } },
+      where: { cropId: crop.id, problemType: def.problemType, problemKeywords: { has: def.problemKeywords[0] ?? '' } },
     });
     if (existing) {
-      // Backfill taxonomy on rows seeded before problemType existed.
       await prisma.cropProductGuidance.update({
         where: { id: existing.id },
-        data: { problemType: def.problemType },
+        data: {
+          problemType: def.problemType,
+          problemKeywords: def.problemKeywords,
+          recommendedProducts: def.recommendedProducts,
+          usageGuidance: def.usageGuidance,
+        },
       });
       continue;
     }
@@ -238,7 +521,7 @@ async function seedGuidance(founderId: string): Promise<void> {
         problemKeywords: def.problemKeywords,
         recommendedProducts: def.recommendedProducts,
         usageGuidance: def.usageGuidance,
-        notes: 'Seed — provisional starter guidance; curate via the assistant content API.',
+        notes: 'Seed — verified starter guidance from grotecagro.com; curate via the assistant content API.',
         createdById: founderId,
       },
     });
@@ -435,7 +718,9 @@ async function seedLeaveTypes(): Promise<void> {
     });
   }
   const currentYear = new Date().getFullYear();
-  const employees = await prisma.employee.findMany();
+  const employees = await prisma.employee.findMany({
+    where: { role: { code: { not: 'FOUNDER' } } },
+  });
   const leaveTypes = await prisma.leaveType.findMany({ where: { isPaid: true } });
   for (const emp of employees) {
     for (const lt of leaveTypes) {
@@ -525,7 +810,9 @@ async function seedSalaryRevisions(): Promise<void> {
 }
 
 async function seedAttendance(): Promise<void> {
-  const employees = await prisma.employee.findMany();
+  const employees = await prisma.employee.findMany({
+    where: { role: { code: { not: 'FOUNDER' } } },
+  });
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();

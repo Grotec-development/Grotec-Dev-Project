@@ -85,14 +85,27 @@ describe("attendance e2e & rbac", () => {
       .expect(201);
     expect(approveRes.body.approvalStatus).toBe("APPROVED");
 
-    const founderMark = await request(app.getHttpServer())
+    // Founder cannot mark attendance (no attendance.mark permission -> 403)
+    await request(app.getHttpServer())
       .post("/api/v1/attendance/mark")
       .set("Authorization", `Bearer ${founderToken}`)
       .send({ date: "2026-09-02", status: "PRESENT" })
-      .expect(201);
+      .expect(403);
+
+    // Manager cannot approve higher rank (e.g. Founder) -> 403 ROLE_HIERARCHY_FORBIDDEN
+    const founderEmp = await prisma.employee.findUniqueOrThrow({ where: { email: USERS.FOUNDER.email } });
+    const directFounderAtt = await prisma.attendanceRecord.create({
+      data: {
+        employeeId: founderEmp.id,
+        date: new Date("2026-09-02"),
+        status: "PRESENT",
+        source: "MANUAL",
+        approvalStatus: "PENDING",
+      },
+    });
 
     const rejectRes = await request(app.getHttpServer())
-      .post(`/api/v1/attendance/${founderMark.body.id}/approve`)
+      .post(`/api/v1/attendance/${directFounderAtt.id}/approve`)
       .set("Authorization", `Bearer ${managerToken}`)
       .expect(403);
     expect(rejectRes.body.error.code).toBe("ROLE_HIERARCHY_FORBIDDEN");

@@ -1,0 +1,14 @@
+# GROTEC FarmerOS
+
+> GROTEC FarmerOS is a private, login-gated CRM and HRMS platform for GROTEC Organic Private Limited, an agricultural inputs company in India.
+
+## About
+This is an internal business operations platform. All pages beyond /login require authenticated sessions.
+
+## Capabilities
+- CRM: Lead management, customer registry, telecaller workspace, relationship manager, crop advisory.
+- HRMS: Employee identity, attendance (ESSL biometric), leave, payroll (PF/ESI/TDS), payslips, KPI scoring.
+- Notifications & Audit log.
+
+## Technology
+React 18, NestJS, Prisma, PostgreSQL. Domain: https://grotec.in

@@ -38,7 +38,7 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            config_1.ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env'] }),
+            config_1.ConfigModule.forRoot({ isGlobal: true, envFilePath: ['apps/api/.env', '.env'] }),
             prisma_module_1.PrismaModule,
             audit_module_1.AuditModule,
             auth_module_1.AuthModule,

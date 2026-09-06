@@ -45,8 +45,13 @@ describe('assistant — AI chat + Knowledge Base guidance content', () => {
     const stub = await createAppWithLlm(stubLlm);
     app = stub.app;
     prisma = stub.prisma;
-    const plain = await createTestApp();
-    noKeyApp = plain.app;
+    const noKeyStub: LlmProvider = {
+      available: false,
+      model: 'no-key-stub',
+      complete: async () => { throw new Error('LLM unavailable'); },
+    };
+    const noKey = await createAppWithLlm(noKeyStub);
+    noKeyApp = noKey.app;
     founderToken = await loginToken(app, USERS.FOUNDER);
     managerToken = await loginToken(app, USERS.MANAGER);
     agentToken = await loginToken(app, USERS.AGENT);

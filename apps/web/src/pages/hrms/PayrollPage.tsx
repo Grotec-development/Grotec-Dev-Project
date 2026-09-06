@@ -23,6 +23,7 @@ import {
   Button,
   Card,
   CardHeader,
+  ConfirmModal,
   Field,
   Input,
   Select,
@@ -52,6 +53,8 @@ export function PayrollPage() {
 
   // Issue Advance Modal
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [advForm, setAdvForm] = useState({
     employeeId: '',
     amount: 15000,
@@ -331,7 +334,7 @@ export function PayrollPage() {
                     {hasPermission('payroll.approve') && (
                       <Button
                         size="sm"
-                        onClick={handleApprove}
+                        onClick={() => setShowApproveConfirm(true)}
                         disabled={operating}
                         className="text-xs flex-1"
                       >
@@ -365,7 +368,7 @@ export function PayrollPage() {
                   user?.roleCode === 'FOUNDER' ? (
                     <Button
                       size="sm"
-                      onClick={handlePublish}
+                      onClick={() => setShowPublishConfirm(true)}
                       disabled={operating}
                       className="mt-3 w-full"
                     >
@@ -624,6 +627,54 @@ export function PayrollPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Approve & Lock Run Modal */}
+      <ConfirmModal
+        isOpen={showApproveConfirm}
+        onClose={() => setShowApproveConfirm(false)}
+        onConfirm={async () => {
+          setShowApproveConfirm(false);
+          await handleApprove();
+        }}
+        title={`Approve & Lock Payroll Run for ${currentRun?.month}?`}
+        variant="warning"
+        confirmLabel="Approve & Lock Payroll"
+        isLoading={operating}
+        description={
+          <div className="space-y-2">
+            <p>
+              Are you sure you want to approve and lock the payroll calculation for <strong>{currentRun?.month}</strong>?
+            </p>
+            <p className="text-slate-500">
+              This action freezes gross pay, attendance penalties, and advance deductions. The run cannot be recalculated or modified once locked.
+            </p>
+          </div>
+        }
+      />
+
+      {/* Confirm Publish Payslips Modal */}
+      <ConfirmModal
+        isOpen={showPublishConfirm}
+        onClose={() => setShowPublishConfirm(false)}
+        onConfirm={async () => {
+          setShowPublishConfirm(false);
+          await handlePublish();
+        }}
+        title={`Sign-off & Publish Payslips for ${currentRun?.month}?`}
+        variant="primary"
+        confirmLabel="Publish Payslips"
+        isLoading={operating}
+        description={
+          <div className="space-y-2">
+            <p>
+              Are you sure you want to sign-off and publish payslips for <strong>{currentRun?.month}</strong>?
+            </p>
+            <p className="text-slate-500">
+              This will release individual payslips to all employees in their portal, post recoveries to the advance ledger, and initiate bank disbursement notifications. This action cannot be undone.
+            </p>
+          </div>
+        }
+      />
     </div>
   );
 }

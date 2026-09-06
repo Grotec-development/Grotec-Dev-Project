@@ -35,6 +35,43 @@ import {
 export class AttendanceController {
   constructor(private readonly attendance: AttendanceService) {}
 
+  @Get('my')
+  @RequirePermission(PERMISSIONS.attendanceRead)
+  async listMy(
+    @CurrentEmployee() actor: AuthEmployee,
+    @Query('month') month?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('status') status?: string,
+    @Query('source') source?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.attendance.listMy(actor, parsePagination(page, pageSize), {
+      month,
+      from,
+      to,
+      status: status as AttendanceStatus,
+      source: source as AttendanceSource,
+    });
+  }
+
+  @Get('my/summary')
+  @RequirePermission(PERMISSIONS.attendanceRead)
+  async summaryMy(
+    @CurrentEmployee() actor: AuthEmployee,
+    @Query('month') month?: string,
+  ) {
+    const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    return this.attendance.getSummaryMy(actor, { month: targetMonth });
+  }
+
+  @Post('my/mark')
+  @RequirePermission(PERMISSIONS.attendanceMark)
+  async markMy(@CurrentEmployee() actor: AuthEmployee, @Body() dto: MarkAttendanceDto) {
+    return this.attendance.markMy(actor, dto);
+  }
+
   @Get()
   @RequirePermission(PERMISSIONS.attendanceRead)
   async list(
@@ -84,7 +121,7 @@ export class AttendanceController {
   }
 
   @Post('bulk')
-  @RequirePermission(PERMISSIONS.attendanceMark)
+  @RequirePermission(PERMISSIONS.attendanceApprove)
   async bulkMark(@CurrentEmployee() actor: AuthEmployee, @Body() dto: BulkAttendanceDto) {
     return this.attendance.bulkMark(actor, dto);
   }

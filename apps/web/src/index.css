@@ -3,5 +3,102 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  background-color: #f4f6f4;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========================================================================= */
+/* GROTEC Agricultural Ambient & Interactive Animations                      */
+/* ========================================================================= */
+
+@keyframes floatSeed {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.7);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.6;
+    transform: translateY(-60px) translateX(12px) scale(0.9);
+  }
+  65% {
+    opacity: 0.45;
+    transform: translateY(-160px) translateX(-8px) scale(1.1);
+  }
+  100% {
+    transform: translateY(-260px) translateX(18px) scale(1.3);
+    opacity: 0;
+  }
+}
+
+@keyframes swayField {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.015);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes organicPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(31, 122, 66, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(31, 122, 66, 0);
+  }
+}
+
+@keyframes sunbeamGlide {
+  0% {
+    transform: translateX(-150%) rotate(25deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.12;
+  }
+  60% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: translateX(250%) rotate(25deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sproutSway {
+  0%, 100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+.animate-float-seed-1 { animation: floatSeed 7s ease-in-out infinite; }
+.animate-float-seed-2 { animation: floatSeed 9s ease-in-out 1.5s infinite; }
+.animate-float-seed-3 { animation: floatSeed 8s ease-in-out 3s infinite; }
+.animate-float-seed-4 { animation: floatSeed 10s ease-in-out 0.8s infinite; }
+.animate-float-seed-5 { animation: floatSeed 8.5s ease-in-out 2.2s infinite; }
+
+.animate-field-sway {
+  animation: swayField 10s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.animate-organic-pulse {
+  animation: organicPulse 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-sunbeam {
+  animation: sunbeamGlide 12s ease-in-out infinite;
+}
+
+.animate-sprout-sway {
+  animation: sproutSway 3.5s ease-in-out infinite;
+  transform-origin: bottom center;
 }

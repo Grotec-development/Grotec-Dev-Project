@@ -16,12 +16,14 @@ const queryClient = new QueryClient({
   },
 });
 
-// Global link interceptor: Prevent any internal link from opening in a new tab/window
+// Global link interceptor — keeps ALL internal navigation in the same tab.
+// External links (target=_blank, mailto:, tel:, downloads) are untouched.
 if (typeof document !== 'undefined') {
   document.addEventListener(
     'click',
     (event: MouseEvent) => {
-      // Allow user modifier clicks (Cmd/Ctrl click to explicitly open in new tab)
+      // Only plain left-click; modifier keys (Cmd/Ctrl/Shift) are intentional
+      // "open in new tab" gestures — respect them.
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
         return;
       }
@@ -32,7 +34,7 @@ if (typeof document !== 'undefined') {
       const href = anchor.getAttribute('href');
       if (!href) return;
 
-      // Ignore mailto, tel, javascript, downloads
+      // Never intercept: mailto, tel, javascript:, downloads.
       if (
         href.startsWith('mailto:') ||
         href.startsWith('tel:') ||
@@ -42,35 +44,32 @@ if (typeof document !== 'undefined') {
         return;
       }
 
-      const isRelative = href.startsWith('/') || href.startsWith('#');
-      const isSameHost =
+      // Never intercept explicit external links (full URL to a different host).
+      const isExternal =
         (href.startsWith('http://') || href.startsWith('https://')) &&
-        (href.startsWith(window.location.origin) || href.startsWith('http://localhost:5173'));
+        !href.startsWith(window.location.origin) &&
+        !href.startsWith('http://localhost:5173') &&
+        !href.startsWith('http://localhost:3000');
+      if (isExternal) return;
 
-      if (isRelative || isSameHost) {
-        if (anchor.target && anchor.target !== '_self') {
-          anchor.target = '_self';
-        }
-        anchor.removeAttribute('target');
-
-        let targetPath = href;
-        if (isSameHost) {
-          try {
-            const url = new URL(href);
-            targetPath = url.pathname + url.search + url.hash;
-          } catch {
-            targetPath = href;
-          }
-        }
-
-        if (!targetPath.startsWith('/api')) {
-          event.preventDefault();
-          event.stopPropagation();
-          void router.navigate(targetPath);
+      // At this point the link is internal (relative path or same origin).
+      // Skip API routes — let the browser handle them as plain HTTP requests.
+      let targetPath = href;
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        try {
+          targetPath = new URL(href).pathname + new URL(href).search + new URL(href).hash;
+        } catch {
+          return;
         }
       }
+      if (targetPath.startsWith('/api')) return;
+
+      // Route via React Router — guaranteed same-tab, no full-page reload.
+      event.preventDefault();
+      event.stopPropagation();
+      void router.navigate(targetPath);
     },
-    true, // Capture phase
+    true, // capture phase — fires before React's synthetic events
   );
 }
 

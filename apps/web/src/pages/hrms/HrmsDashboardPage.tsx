@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   AlertCircle,
   Calendar,
@@ -34,6 +34,11 @@ import {
 
 export function HrmsDashboardPage() {
   const { user, hasPermission } = useAuth();
+
+  // Self-service roles hitting /hrms or /hrms/dashboard are cleanly routed to My Attendance
+  if (user?.roleCode === 'AGENT' || user?.roleCode === 'STAFF' || user?.roleCode === 'DELIVERY' || !hasPermission('hrms.read')) {
+    return <Navigate to="/hrms/attendance" replace />;
+  }
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

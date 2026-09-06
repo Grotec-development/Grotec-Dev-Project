@@ -5,12 +5,13 @@ import { api, errorMessage } from '../lib/api';
 import type { Crop } from '../lib/types';
 import { useAuth } from '../auth/AuthContext';
 import { CROP_CATEGORIES, CROP_CATEGORY_LABELS, type CropCategory } from '../lib/reference';
-import { Alert, Badge, Button, Card, Field, Input, Select, Spinner, Table, TD, TH, THead } from '../components/ui';
+import { Alert, Badge, Button, Card, ConfirmModal, Field, Input, Select, StatusBadge, Table, TableSkeleton, TD, TH, THead } from '../components/ui';
 
 export function CropsPage() {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [cropToRetire, setCropToRetire] = useState<Crop | null>(null);
   const canManage = hasPermission('crop.manage');
 
   const { data, isError, error } = useQuery({
@@ -22,14 +23,17 @@ export function CropsPage() {
     mutationFn: async (crop: Crop) => {
       await api.patch(`/crops/${crop.id}`, { isActive: !crop.isActive });
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['crops'] }),
+    onSuccess: () => {
+      setCropToRetire(null);
+      void queryClient.invalidateQueries({ queryKey: ['crops'] });
+    },
   });
 
   return (
     <div className="p-8">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Crops</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Crop Catalog</h1>
           <p className="text-sm text-slate-500">
             Reference catalog of the crops GROTEC deals in — field, tree, plantation and vegetable crops (PRD §6.5.2).
           </p>
@@ -45,7 +49,7 @@ export function CropsPage() {
 
       <Card>
         {!data ? (
-          <Spinner />
+          <TableSkeleton rows={7} cols={6} />
         ) : (
           <Table>
             <THead>
@@ -74,7 +78,7 @@ export function CropsPage() {
                   </TD>
                   <TD>{crop.localName ?? '—'}</TD>
                   <TD>
-                    {crop.isActive ? <Badge tone="green">active</Badge> : <Badge tone="slate">inactive</Badge>}
+                    <StatusBadge status={crop.isActive ? 'ACTIVE' : 'INACTIVE'} />
                   </TD>
                   {canManage ? (
                     <TD className="text-right">
@@ -82,7 +86,13 @@ export function CropsPage() {
                         size="sm"
                         variant="outline"
                         disabled={toggleActive.isPending}
-                        onClick={() => toggleActive.mutate(crop)}
+                        onClick={() => {
+                          if (crop.isActive) {
+                            setCropToRetire(crop);
+                          } else {
+                            toggleActive.mutate(crop);
+                          }
+                        }}
                       >
                         {crop.isActive ? 'Retire' : 'Reactivate'}
                       </Button>
@@ -94,6 +104,30 @@ export function CropsPage() {
           </Table>
         )}
       </Card>
+
+      <ConfirmModal
+        isOpen={Boolean(cropToRetire)}
+        onClose={() => setCropToRetire(null)}
+        onConfirm={async () => {
+          if (cropToRetire) {
+            await toggleActive.mutateAsync(cropToRetire);
+          }
+        }}
+        title={`Retire ${cropToRetire?.name || 'Crop'}?`}
+        variant="danger"
+        confirmLabel="Retire Crop"
+        isLoading={toggleActive.isPending}
+        description={
+          <div className="space-y-2">
+            <p>
+              Retiring <strong>{cropToRetire?.name}</strong> will mark it inactive and remove it from active agronomy advisory recommendations during telecaller calls.
+            </p>
+            <p className="text-slate-500">
+              Past call logs and existing farmer crop history will remain unaffected. You can reactivate this crop at any time.
+            </p>
+          </div>
+        }
+      />
 
       {showCreate ? <CreateCropModal onClose={() => setShowCreate(false)} onCreated={() => setShowCreate(false)} /> : null}
     </div>

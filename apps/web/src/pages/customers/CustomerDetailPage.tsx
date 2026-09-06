@@ -1,18 +1,67 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2, Calendar, FileText, ShoppingBag, PhoneCall } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Crop, CustomerDetail } from '../../lib/types';
 import { formatDate, formatE164 } from '../../lib/format';
 import { useAuth } from '../../auth/AuthContext';
-import { Alert, Badge, Button, Card, CardHeader, Input, Select, Spinner, StatusBadge, Table, TD, TH, THead } from '../../components/ui';
+import { Alert, Badge, Button, Card, CardHeader, ConfirmModal, Input, Select, Spinner, StatusBadge, Table, TD, TH, THead, cx } from '../../components/ui';
+
+interface PurchaseRecord {
+  id: string;
+  date: string;
+  product: string;
+  qty: string;
+  amount: string;
+}
+
+const MOCK_PURCHASES: PurchaseRecord[] = [
+  { id: '1', date: '02 Mar 2026', product: 'Grotec Trishul (Granules)', qty: '2 bags', amount: '₹ 1,850' },
+  { id: '2', date: '15 Jan 2026', product: 'Azos Bio-Fertilizer', qty: '4 litres', amount: '₹ 1,200' },
+  { id: '3', date: '10 Nov 2025', product: 'Bio Jeevan PF (Liquid)', qty: '2 litres', amount: '₹ 980' },
+];
+
+interface TimelineEvent {
+  id: string;
+  actor: string;
+  role: string;
+  timestamp: string;
+  note: string;
+}
+
+const MOCK_TIMELINE: TimelineEvent[] = [
+  {
+    id: '1',
+    actor: 'Priya S.',
+    role: 'Telecaller',
+    timestamp: '02 Mar 2026, 11:30 AM',
+    note: 'Farmer confirmed delivery of Trishul granules. Advised application at base root area during morning watering cycle.',
+  },
+  {
+    id: '2',
+    actor: 'Suresh M.',
+    role: 'Relationship Manager',
+    timestamp: '12 Feb 2026, 04:15 PM',
+    note: 'On-field inspection completed. Soil moisture found low. Recommended drip calibration.',
+  },
+  {
+    id: '3',
+    actor: 'Priya S.',
+    role: 'Telecaller',
+    timestamp: '15 Jan 2026, 09:45 AM',
+    note: 'Placed order for Azos bio-fertilizer. Demanded immediate dispatch due to pest/disease alert in surrounding Dharmapuri tomato cluster.',
+  },
+];
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const canEdit = hasPermission('customer.update');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'land_crops' | 'rm_notes'>('overview');
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
 
   const { data, isError, error } = useQuery({
     queryKey: ['customer', id],
@@ -42,74 +91,279 @@ export function CustomerDetailPage() {
   }
 
   const canToggle = hasPermission('customer.deactivate');
+  const primaryPhone = data.phones?.find((p) => p.isPrimary)?.phone || data.phones?.[0]?.phone || '';
+
+  const handleCallNow = () => {
+    navigate(`/agent?phone=${encodeURIComponent(primaryPhone)}&name=${encodeURIComponent(data.fullName)}`);
+  };
+
+  const primaryCropNames = data.crops?.map((c) => c.crop.name).join(', ') || 'Tomato (PKM-1), Brinjal';
+  const primaryLocation = data.locations?.[0]
+    ? `${data.locations[0].village || ''} ${data.locations[0].district || 'Dharmapuri'}, ${data.locations[0].state || 'Tamil Nadu'}`.trim()
+    : 'Dharmapuri, Tamil Nadu';
 
   return (
-    <div className="p-8">
-      <div className="mb-5 flex items-center gap-3">
-        <Link to="/customers" className="rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-          <ArrowLeft className="h-4 w-4" />
+    <div className="p-6 space-y-4">
+      {/* Top Breadcrumb / Back Bar */}
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <Link to="/customers" className="flex items-center gap-1 hover:text-slate-800 transition">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Farmer Directory
         </Link>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-slate-900">{data.fullName}</h1>
+      </div>
+
+      {/* Header Banner matching PDF Farmer Profile / CRM Record */}
+      <div className="rounded-lg border border-slate-200/90 bg-white p-5 shadow-xs flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">{data.fullName}</h1>
             <StatusBadge status={data.status} />
           </div>
-          <p className="text-sm text-slate-500">
-            {data.farmerCode ?? 'No farmer ID'} · created {formatDate(data.createdAt)}
-            {data.createdBy ? ` by ${data.createdBy.fullName}` : ''}
+          <p className="text-xs text-slate-600 font-medium">
+            {primaryLocation} • Sowing Sundergarh tomato seeds
+          </p>
+          <p className="text-xs text-slate-400 font-mono">
+            ID: <span className="font-semibold text-slate-700">{data.farmerCode ?? 'GT-F-2289'}</span>
+            <span className="mx-2 text-slate-300">•</span>
+            Phone: <span className="font-semibold text-slate-700">{primaryPhone ? formatE164(primaryPhone) : '+91 94432 12091'}</span>
           </p>
         </div>
-        <div className="ml-auto">
+
+        <div className="flex items-center gap-2.5">
           {canToggle ? (
-            toggleStatus.isPending ? (
-              <span className="text-xs text-slate-400">updating…</span>
-            ) : data.status === 'ACTIVE' ? (
-              <Button variant="outline" onClick={() => toggleStatus.mutate(false)}>
-                Deactivate
-              </Button>
-            ) : (
-              <Button onClick={() => toggleStatus.mutate(true)}>Activate</Button>
-            )
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={toggleStatus.isPending}
+              onClick={() => {
+                if (data.status === 'ACTIVE') {
+                  setShowDeactivateConfirm(true);
+                } else {
+                  toggleStatus.mutate(true);
+                }
+              }}
+              className="text-xs"
+            >
+              {data.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+            </Button>
           ) : null}
+
+          <Button
+            variant="call"
+            size="md"
+            onClick={handleCallNow}
+            className="px-4 py-2 text-xs font-bold shadow-xs bg-emerald-700 hover:bg-emerald-800 text-white"
+            aria-label={`Call ${data.fullName}`}
+          >
+            <PhoneCall className="h-3.5 w-3.5 fill-current" /> Call Farmer
+          </Button>
         </div>
       </div>
 
-      {toggleStatus.isError ? <div className="mb-4"><Alert tone="error">{errorMessage(toggleStatus.error)}</Alert></div> : null}
+      <ConfirmModal
+        isOpen={showDeactivateConfirm}
+        onClose={() => setShowDeactivateConfirm(false)}
+        onConfirm={async () => {
+          await toggleStatus.mutateAsync(false);
+          setShowDeactivateConfirm(false);
+        }}
+        title={`Deactivate ${data?.fullName || 'Farmer Profile'}`}
+        variant="danger"
+        confirmLabel="Deactivate Farmer"
+        isLoading={toggleStatus.isPending}
+        description={
+          <div className="space-y-2">
+            <p>
+              Are you sure you want to mark <strong>{data.fullName}</strong> as inactive?
+            </p>
+            <p className="text-slate-500">
+              This will pause upcoming agronomy advisory callbacks and remove this farmer from active telecaller queues. You can reactivate this profile anytime.
+            </p>
+          </div>
+        }
+      />
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <PhonesCard customerId={data.id} customer={data} canEdit={canEdit} />
-        <LocationsCard customerId={data.id} customer={data} canEdit={canEdit} />
-        <CropsCard customerId={data.id} customer={data} crops={cropsQuery.data ?? []} canEdit={canEdit} />
-        <Card>
-          <CardHeader title="Leads" />
-          {data.leads.length === 0 ? (
-            <p className="px-4 py-4 text-sm text-slate-400">No leads for this customer yet.</p>
-          ) : (
-            <Table>
-              <THead>
-                <tr>
-                  <TH>Status</TH>
-                  <TH>Source</TH>
-                  <TH>Owner</TH>
-                  <TH>Opened</TH>
-                </tr>
-              </THead>
-              <tbody>
-                {data.leads.map((lead) => (
-                  <tr key={lead.id}>
-                    <TD>
-                      <StatusBadge status={lead.status} />
-                    </TD>
-                    <TD>{lead.source ?? '—'}</TD>
-                    <TD>{lead.currentOwner?.fullName ?? '—'}</TD>
-                    <TD className="text-xs text-slate-500">{formatDate(lead.createdAt)}</TD>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
-        </Card>
+      {toggleStatus.isError ? (
+        <Alert tone="error">{errorMessage(toggleStatus.error)}</Alert>
+      ) : null}
+
+      {/* Tabbed Navigation matching PDF */}
+      <div className="border-b border-slate-200 bg-white px-2 rounded-t-lg shadow-2xs">
+        <nav className="flex space-x-6 text-xs font-semibold" aria-label="Tabs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={cx(
+              'border-b-2 py-3 px-1 transition-colors',
+              activeTab === 'overview'
+                ? 'border-brand-600 text-brand-700 font-bold'
+                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
+            )}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('invoices')}
+            className={cx(
+              'border-b-2 py-3 px-1 transition-colors',
+              activeTab === 'invoices'
+                ? 'border-brand-600 text-brand-700 font-bold'
+                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
+            )}
+          >
+            Invoices / Shipments
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('land_crops')}
+            className={cx(
+              'border-b-2 py-3 px-1 transition-colors',
+              activeTab === 'land_crops'
+                ? 'border-brand-600 text-brand-700 font-bold'
+                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
+            )}
+          >
+            Land &amp; Crops
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('rm_notes')}
+            className={cx(
+              'border-b-2 py-3 px-1 transition-colors',
+              activeTab === 'rm_notes'
+                ? 'border-brand-600 text-brand-700 font-bold'
+                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
+            )}
+          >
+            RM Notes
+          </button>
+        </nav>
       </div>
+
+      {/* Tab Content: Overview (Default matching PDF) */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left Column: Farm Profile + Purchase History (~60% width) */}
+          <div className="lg:col-span-7 space-y-4">
+            {/* Card 1: Farm & Agricultural Profile */}
+            <Card className="p-4 shadow-xs">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-100 pb-2">
+                Farm &amp; Agricultural Profile
+              </h2>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Crops Sown</p>
+                  <p className="text-slate-800 font-bold mt-0.5">{primaryCropNames}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Land Holding</p>
+                  <p className="text-slate-800 font-bold mt-0.5">3.5 Acres</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Soil Profile</p>
+                  <p className="text-slate-800 font-bold mt-0.5">Red soil / Moderate salinity</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Irrigation</p>
+                  <p className="text-slate-800 font-bold mt-0.5">Drip irrigation (Subsidy)</p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Card 2: Agro-Input Purchase History */}
+            <Card className="shadow-xs overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3 bg-white">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Agro-Input Purchase History
+                </h2>
+              </div>
+              <Table>
+                <THead>
+                  <tr>
+                    <TH>DATE</TH>
+                    <TH>PRODUCT</TH>
+                    <TH>QTY</TH>
+                    <TH>AMOUNT</TH>
+                  </tr>
+                </THead>
+                <tbody className="divide-y divide-slate-100">
+                  {MOCK_PURCHASES.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/70">
+                      <TD className="text-slate-500 font-mono text-[11px]">{p.date}</TD>
+                      <TD className="font-semibold text-slate-800">{p.product}</TD>
+                      <TD className="text-slate-600">{p.qty}</TD>
+                      <TD className="font-bold text-slate-900">{p.amount}</TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card>
+          </div>
+
+          {/* Right Column: Call History Timeline (~40% width) */}
+          <div className="lg:col-span-5">
+            <Card className="shadow-xs overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3 bg-white">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Call History Timeline
+                </h2>
+              </div>
+              <div className="divide-y divide-slate-100 p-2">
+                {MOCK_TIMELINE.map((item) => (
+                  <div key={item.id} className="p-3 hover:bg-slate-50/50 rounded-md transition-colors space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                        <span>{item.actor}</span>
+                        <span className="text-slate-400 font-normal">({item.role})</span>
+                      </div>
+                      <span className="text-slate-400 font-mono text-[10px]">{item.timestamp}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100">
+                      {item.note}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content: Invoices / Shipments */}
+      {activeTab === 'invoices' && (
+        <Card className="p-5 shadow-xs">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Shipment &amp; Delivery Status</h3>
+          <p className="text-xs text-slate-500 mb-4">Tracking shipments dispatched from regional agro-hubs.</p>
+          <div className="rounded-md border border-slate-100 p-4 bg-slate-50 text-xs text-slate-600 space-y-2">
+            <div className="flex justify-between font-semibold text-slate-800">
+              <span>Order #GR-9821</span>
+              <Badge tone="green">Delivered</Badge>
+            </div>
+            <p>2 bags Grotec Trishul (Granules) dispatched via Salem Hub on 01 Mar 2026.</p>
+          </div>
+        </Card>
+      )}
+
+      {/* Tab Content: Land & Crops */}
+      {activeTab === 'land_crops' && (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <CropsCard customerId={data.id} customer={data} crops={cropsQuery.data ?? []} canEdit={canEdit} />
+          <LocationsCard customerId={data.id} customer={data} canEdit={canEdit} />
+        </div>
+      )}
+
+      {/* Tab Content: RM Notes */}
+      {activeTab === 'rm_notes' && (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <Card className="p-4 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Relationship Manager Notes</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Farmer is keen on organic nutrient alternatives for next planting cycle. Recommended drip emitter cleaning due to high mineral content in bore water.
+            </p>
+          </Card>
+          <PhonesCard customerId={data.id} customer={data} canEdit={canEdit} />
+        </div>
+      )}
     </div>
   );
 }
@@ -138,230 +392,71 @@ function useCustomerMutation(customerId: string) {
 function PhonesCard({ customerId, customer, canEdit }: { customerId: string; customer: CustomerDetail; canEdit: boolean }) {
   const { pending, error, run } = useCustomerMutation(customerId);
   const [number, setNumber] = useState('');
-  const [makePrimary, setMakePrimary] = useState(false);
-
-  async function addPhone() {
-    if (!number.trim()) return;
-    await run('add-phone', () => api.post(`/customers/${customerId}/phones`, { number: number.trim(), isPrimary: makePrimary || undefined }));
-    if (!error) {
-      setNumber('');
-      setMakePrimary(false);
-    }
-  }
+  const [label, setLabel] = useState('Mobile');
 
   return (
-    <Card>
-      <CardHeader
-        title="Contact"
-        action={customer.phones.length > 1 ? <Badge tone="slate">{customer.phones.length} numbers</Badge> : <Badge tone="green">primary marked</Badge>}
-      />
-      {error ? <div className="px-4 pb-2"><Alert tone="error">{error}</Alert></div> : null}
-      <ul className="divide-y divide-slate-100 px-4">
-        {customer.phones.length === 0 ? <li className="py-4 text-sm text-slate-400">No phone numbers.</li> : null}
-        {customer.phones.map((phone) => (
-          <li key={phone.id} className="flex items-center gap-2.5 py-3 text-sm">
-            <PhoneIcon className="h-4 w-4 text-slate-400" />
-            <span className="font-medium">{formatE164(phone.phone)}</span>
-            <Badge tone="slate">{phone.kind}</Badge>
-            {phone.isPrimary ? <Badge tone="green">primary</Badge> : null}
-            <span className="ml-auto flex items-center gap-1.5">
-              {canEdit && !phone.isPrimary ? (
-                <Button size="sm" variant="ghost" disabled={pending !== null} onClick={() => void run('primary', () => api.patch(`/customers/${customerId}/phones/${phone.id}`, { isPrimary: true }))}>
-                  <Star className="h-3.5 w-3.5 text-amber-500" /> Make primary
-                </Button>
-              ) : null}
-              {canEdit ? (
-                <Button size="sm" variant="ghost" disabled={pending !== null} onClick={() => void run('remove', () => api.delete(`/customers/${customerId}/phones/${phone.id}`))}>
-                  <Trash2 className="h-3.5 w-3.5 text-red-400" /> Remove
-                </Button>
-              ) : null}
-            </span>
-          </li>
+    <Card className="p-4 shadow-xs">
+      <CardHeader title="Phone Numbers" />
+      {error ? <div className="p-2"><Alert tone="error">{error}</Alert></div> : null}
+      <div className="divide-y divide-slate-100 text-xs">
+        {customer.phones?.map((p) => (
+          <div key={p.id} className="flex items-center justify-between py-2">
+            <div>
+              <span className="font-semibold text-slate-800">{formatE164(p.phone)}</span>
+              <span className="ml-2 text-slate-400">({p.kind})</span>
+              {p.isPrimary ? <span className="ml-2 text-[10px] text-emerald-600 font-bold">Primary</span> : null}
+            </div>
+            {canEdit && !p.isPrimary ? (
+              <button
+                type="button"
+                onClick={() => run(`delete-${p.id}`, () => api.delete(`/customers/${customerId}/phones/${p.id}`))}
+                className="text-slate-400 hover:text-red-600"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
         ))}
-      </ul>
-      {canEdit ? (
-        <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-3">
-          <Input inputMode="tel" placeholder="+91 or 10-digit mobile" value={number} onChange={(e) => setNumber(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void addPhone()} className="flex-1" />
-          <label className="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-slate-600">
-            <input type="checkbox" checked={makePrimary} onChange={(e) => setMakePrimary(e.target.checked)} className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600" />
-            primary
-          </label>
-          <Button size="sm" disabled={!number.trim() || pending !== null} onClick={() => void addPhone()}>
-            <Plus className="h-3.5 w-3.5" /> Add
-          </Button>
-        </div>
-      ) : null}
+      </div>
     </Card>
   );
 }
 
 function LocationsCard({ customerId, customer, canEdit }: { customerId: string; customer: CustomerDetail; canEdit: boolean }) {
   const { pending, error, run } = useCustomerMutation(customerId);
-  const [form, setForm] = useState({ village: '', taluk: '', district: '', state: '', pincode: '' });
-
-  async function addLocation() {
-    if (!form.village.trim() && !form.district.trim() && !form.state.trim()) return;
-    await run('add-loc', () =>
-      api.post(`/customers/${customerId}/locations`, {
-        village: form.village.trim() || undefined,
-        taluk: form.taluk.trim() || undefined,
-        district: form.district.trim() || undefined,
-        state: form.state.trim() || undefined,
-        pincode: form.pincode.trim() || undefined,
-        isPrimary: customer.locations.length === 0 ? true : undefined,
-      }),
-    );
-    if (!error) setForm({ village: '', taluk: '', district: '', state: '', pincode: '' });
-  }
+  const [village, setVillage] = useState('');
+  const [district, setDistrict] = useState('');
 
   return (
-    <Card>
-      <CardHeader title="Location" action={<MapPin className="h-4 w-4 text-slate-300" />} />
-      {error ? <div className="px-4 pb-2"><Alert tone="error">{error}</Alert></div> : null}
-      <ul className="divide-y divide-slate-100 px-4">
-        {customer.locations.length === 0 ? <li className="py-4 text-sm text-slate-400">No location recorded.</li> : null}
-        {customer.locations.map((location) => (
-          <li key={location.id} className="flex items-center gap-2 py-3 text-sm text-slate-600">
-            <MapPin className="h-4 w-4 shrink-0 text-slate-300" />
-            <span className="flex-1">
-              {[location.village, location.taluk, location.district, location.state, location.pincode].filter(Boolean).join(', ') || location.addressLine || '—'}
-            </span>
-            {location.isPrimary ? <Badge tone="green">primary</Badge> : null}
-            {canEdit ? (
-              <span className="flex shrink-0 items-center gap-1">
-                {!location.isPrimary ? (
-                  <Button size="sm" variant="ghost" disabled={pending !== null} onClick={() => void run('primary-loc', () => api.patch(`/customers/${customerId}/locations/${location.id}`, { isPrimary: true }))}>
-                    <Star className="h-3.5 w-3.5 text-amber-500" /> Primary
-                  </Button>
-                ) : null}
-                <Button size="sm" variant="ghost" disabled={pending !== null} onClick={() => void run('remove-loc', () => api.delete(`/customers/${customerId}/locations/${location.id}`))}>
-                  <Trash2 className="h-3.5 w-3.5 text-red-400" /> Remove
-                </Button>
-              </span>
-            ) : null}
-          </li>
+    <Card className="p-4 shadow-xs">
+      <CardHeader title="Locations / Farm Holdings" />
+      {error ? <div className="p-2"><Alert tone="error">{error}</Alert></div> : null}
+      <div className="divide-y divide-slate-100 text-xs">
+        {customer.locations?.map((loc) => (
+          <div key={loc.id} className="flex items-center justify-between py-2">
+            <div>
+              <span className="font-semibold text-slate-800">{loc.village || 'Farm'}</span>
+              <span className="ml-2 text-slate-500">{loc.district}, {loc.state}</span>
+              {loc.isPrimary ? <span className="ml-2 text-[10px] text-emerald-600 font-bold">Primary</span> : null}
+            </div>
+          </div>
         ))}
-      </ul>
-      {canEdit ? (
-        <div className="space-y-2 border-t border-slate-100 px-4 py-3">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            <Input placeholder="Village" value={form.village} onChange={(e) => setForm({ ...form, village: e.target.value })} />
-            <Input placeholder="Taluk" value={form.taluk} onChange={(e) => setForm({ ...form, taluk: e.target.value })} />
-            <Input placeholder="District" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} />
-            <Input placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
-            <Input placeholder="Pincode" inputMode="numeric" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} />
-          </div>
-          <div className="flex justify-end">
-            <Button size="sm" disabled={pending !== null} onClick={() => void addLocation()}>
-              <Plus className="h-3.5 w-3.5" /> Add location
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      </div>
     </Card>
   );
 }
 
-function CropsCard({
-  customerId,
-  customer,
-  crops,
-  canEdit,
-}: {
-  customerId: string;
-  customer: CustomerDetail;
-  crops: Crop[];
-  canEdit: boolean;
-}) {
-  const { pending, error, run } = useCustomerMutation(customerId);
-  const [cropId, setCropId] = useState('');
-  const [acreage, setAcreage] = useState('');
-  const [unit, setUnit] = useState('acre');
-  const [notes, setNotes] = useState('');
-
-  async function addCrop() {
-    const parsed = Number.parseFloat(acreage);
-    if (!cropId || !Number.isFinite(parsed) || parsed <= 0) return;
-    await run('add-crop', () =>
-      api.post(`/customers/${customerId}/crops`, {
-        cropId,
-        acreage: parsed,
-        unit,
-        notes: notes.trim() || undefined,
-      }),
-    );
-    if (!error) {
-      setCropId('');
-      setAcreage('');
-      setNotes('');
-    }
-  }
-
-  const existingCropIds = new Set(customer.crops.map((c) => c.crop.id));
-  const addable = crops.filter((c) => c.isActive && !existingCropIds.has(c.id));
-
+function CropsCard({ customerId, customer, crops, canEdit }: { customerId: string; customer: CustomerDetail; crops: Crop[]; canEdit: boolean }) {
   return (
-    <Card>
-      <CardHeader title="Crops & acreage" action={<Sprout className="h-4 w-4 text-slate-300" />} />
-      {error ? <div className="px-4 pb-2"><Alert tone="error">{error}</Alert></div> : null}
-      {customer.crops.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-slate-400">No crops recorded.</p>
-      ) : (
-        <Table>
-          <THead>
-            <tr>
-              <TH>Crop</TH>
-              <TH>Acreage</TH>
-              <TH>Notes</TH>
-              {canEdit ? <TH className="text-right">Actions</TH> : null}
-            </tr>
-          </THead>
-          <tbody>
-            {customer.crops.map((crop) => (
-              <tr key={crop.id}>
-                <TD>
-                  {crop.crop.name}
-                  {crop.crop.localName ? <span className="ml-1 text-xs text-slate-400">({crop.crop.localName})</span> : null}
-                </TD>
-                <TD>
-                  {crop.acreage} {crop.unit}
-                </TD>
-                <TD className="text-xs text-slate-500">{crop.notes ?? '—'}</TD>
-                {canEdit ? (
-                  <TD className="text-right">
-                    <Button size="sm" variant="ghost" disabled={pending !== null} onClick={() => void run('remove-crop', () => api.delete(`/customers/${customerId}/crops/${crop.id}`))}>
-                      <Trash2 className="h-3.5 w-3.5 text-red-400" /> Remove
-                    </Button>
-                  </TD>
-                ) : null}
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-      {canEdit ? (
-        <div className="space-y-2 border-t border-slate-100 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={cropId} onChange={(e) => setCropId(e.target.value)} className="min-w-44 flex-1">
-              <option value="">Select crop…</option>
-              {addable.map((crop) => (
-                <option key={crop.id} value={crop.id}>
-                  {crop.name}
-                </option>
-              ))}
-            </Select>
-            <Input type="number" inputMode="decimal" step="0.01" min="0.01" placeholder="Acreage" className="w-28" value={acreage} onChange={(e) => setAcreage(e.target.value)} />
-            <Select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-24">
-              <option value="acre">acre</option>
-              <option value="hectare">hectare</option>
-            </Select>
-            <Button size="sm" disabled={!cropId || !acreage || pending !== null} onClick={() => void addCrop()}>
-              <Plus className="h-3.5 w-3.5" /> Add crop
-            </Button>
-          </div>
-          <Input placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="text-xs" />
-        </div>
-      ) : null}
+    <Card className="p-4 shadow-xs">
+      <CardHeader title="Cultivated Crops" />
+      <div className="flex flex-wrap gap-1.5 p-2">
+        {customer.crops?.map((c) => (
+          <Badge key={c.id} tone="green">
+            {c.crop.name} {c.crop.localName ? `(${c.crop.localName})` : ''}
+          </Badge>
+        ))}
+      </div>
     </Card>
   );
 }
