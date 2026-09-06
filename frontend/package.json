@@ -1,6 +1,7 @@
 {
   "name": "@grotec/frontend",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "description": "GROTEC FarmerOS CRM — React SPA",
   "scripts": {

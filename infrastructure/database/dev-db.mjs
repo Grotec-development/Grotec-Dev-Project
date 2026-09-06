@@ -9,7 +9,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import pg from 'pg';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const dataDir = path.join(root, '.pgdata');
 const SUPER = { user: 'postgres', password: 'postgres', host: '127.0.0.1', port: 5432 };
 
