@@ -1,4 +1,4 @@
-/** Mirrors the PostgreSQL enums in apps/api/prisma/schema.prisma. */
+/** Mirrors the PostgreSQL enums in backend/prisma/schema.prisma. */
 
 export const EmployeeStatus = {
   ACTIVE: 'ACTIVE',
@@ -139,6 +139,7 @@ export const AuditAction = {
   LOGIN_FAILED: 'login.failed',
   LOGOUT: 'logout',
   PASSWORD_CHANGED: 'password.changed',
+  REFRESH_REUSED: 'auth.refresh_reused',
   // CRUD
   CREATED: 'created',
   UPDATED: 'updated',
@@ -283,4 +284,12 @@ export const NotificationType = {
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
+/** Outbox event processing status (matches PostgreSQL enum OutboxStatus). */
+export const OutboxStatus = {
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  PROCESSED: 'PROCESSED',
+  FAILED: 'FAILED',
+} as const;
+export type OutboxStatus = (typeof OutboxStatus)[keyof typeof OutboxStatus];
 

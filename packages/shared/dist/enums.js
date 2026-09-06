@@ -1,7 +1,7 @@
 "use strict";
-/** Mirrors the PostgreSQL enums in apps/api/prisma/schema.prisma. */
+/** Mirrors the PostgreSQL enums in backend/prisma/schema.prisma. */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NotificationType = exports.KpiMetricType = exports.PayrollRunStatus = exports.PayrollStatus = exports.EmployeeHistoryType = exports.LeaveStatus = exports.ApprovalStatus = exports.AttendanceSource = exports.AttendanceStatus = exports.CROP_CATEGORIES = exports.PROBLEM_TYPES = exports.PAGINATION = exports.AuditAction = exports.AuditEntityType = exports.CallDisconnectReason = exports.MessageType = exports.EmployeeEmploymentStatus = exports.MessageStatus = exports.FollowUpStatus = exports.NextAction = exports.CALL_OUTCOMES = exports.CallOutcome = exports.CallDirection = exports.TERMINAL_CALL_STATUSES = exports.ACTIVE_CALL_STATUSES = exports.CallStatus = exports.LeadStatus = exports.PhoneKind = exports.CustomerStatus = exports.EmployeeStatus = void 0;
+exports.OutboxStatus = exports.NotificationType = exports.KpiMetricType = exports.PayrollRunStatus = exports.PayrollStatus = exports.EmployeeHistoryType = exports.LeaveStatus = exports.ApprovalStatus = exports.AttendanceSource = exports.AttendanceStatus = exports.CROP_CATEGORIES = exports.PROBLEM_TYPES = exports.PAGINATION = exports.AuditAction = exports.AuditEntityType = exports.CallDisconnectReason = exports.MessageType = exports.EmployeeEmploymentStatus = exports.MessageStatus = exports.FollowUpStatus = exports.NextAction = exports.CALL_OUTCOMES = exports.CallOutcome = exports.CallDirection = exports.TERMINAL_CALL_STATUSES = exports.ACTIVE_CALL_STATUSES = exports.CallStatus = exports.LeadStatus = exports.PhoneKind = exports.CustomerStatus = exports.EmployeeStatus = void 0;
 exports.EmployeeStatus = {
     ACTIVE: 'ACTIVE',
     INACTIVE: 'INACTIVE',
@@ -111,6 +111,7 @@ exports.AuditAction = {
     LOGIN_FAILED: 'login.failed',
     LOGOUT: 'logout',
     PASSWORD_CHANGED: 'password.changed',
+    REFRESH_REUSED: 'auth.refresh_reused',
     // CRUD
     CREATED: 'created',
     UPDATED: 'updated',
@@ -230,4 +231,11 @@ exports.NotificationType = {
     ATTENDANCE_STATUS: 'ATTENDANCE_STATUS',
     LEAVE_STATUS: 'LEAVE_STATUS',
     PAYROLL_STATUS: 'PAYROLL_STATUS',
+};
+/** Outbox event processing status (matches PostgreSQL enum OutboxStatus). */
+exports.OutboxStatus = {
+    PENDING: 'PENDING',
+    PROCESSING: 'PROCESSING',
+    PROCESSED: 'PROCESSED',
+    FAILED: 'FAILED',
 };

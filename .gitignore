@@ -5,7 +5,7 @@ node_modules/
 .pgdata/
 
 # Build artifacts
-apps/web/dist/
+frontend/dist/
 *.tsbuildinfo
 
 # Logs
@@ -18,14 +18,16 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
-apps/api/.env
-apps/api/.env.*
-!apps/api/.env.example
-apps/web/.env
-apps/web/.env.*
-!apps/web/.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Documentation
+docs/
 
 # OS files
 .DS_Store
 Thumbs.db
-
