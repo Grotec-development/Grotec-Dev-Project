@@ -29,6 +29,10 @@ frontend/.env.*
 # Documentation
 docs/
 
+# Local tooling & workspaces
+.claude/
+.freebuff/
+
 # OS files
 .DS_Store
 Thumbs.db
