@@ -105,7 +105,7 @@ if (cmd === 'start' || cmd === 'serve') {
     const pg = await bringUp();
     if (cmd === 'serve') {
       // Hold this process open so the embedded postgres child stays alive.
-      // Detached launchers (see .freebuff/run.md) should use `serve`.
+      // Detached launchers (e.g. background runners) should use `serve`.
       console.log('serve: holding process open (pid ' + process.pid + ')');
       const hold = () => setTimeout(hold, 60_000);
       hold();
