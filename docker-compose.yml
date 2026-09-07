@@ -1,0 +1,48 @@
+# ==============================================================
+# GROTEC FarmerOS — Docker Compose Orchestration
+# ==============================================================
+# Usage:
+#   docker compose up -d --build
+#   docker compose logs -f
+#   docker compose down
+# ==============================================================
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: grotec-backend
+    restart: unless-stopped
+    env_file:
+      - backend/.env
+    environment:
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - grotec-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: grotec-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - grotec-net
+
+networks:
+  grotec-net:
+    driver: bridge

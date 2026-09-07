@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+*/node_modules
+*/*/node_modules
+
+# Git
+.git
+.gitignore
+
+# Build outputs
+dist
+*/dist
+*/*/dist
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Database & local data
+.pgdata
+
+# Local environments & secrets
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+!*.example
+
+# Testing tokens and credentials
+*.token.txt
+*.token_only.txt
+*.login.json
+*_cookies.txt
+cookies.txt
+token.txt
+login.json
+docs/testing/
