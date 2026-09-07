@@ -13,9 +13,6 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run build --workspace @grotec/shared && npm run start:dev --workspace @grotec/backend",
     "dev:web": "npm run dev --workspace @grotec/frontend",
-    "db:start": "node infrastructure/database/dev-db.mjs start",
-    "db:stop": "node infrastructure/database/dev-db.mjs stop",
-    "db:status": "node infrastructure/database/dev-db.mjs status",
     "migrate:dev": "npm run prisma:migrate-dev --workspace @grotec/backend",
     "seed": "npm run seed --workspace @grotec/backend",
     "test": "npm run test --workspace @grotec/shared --if-present && npm run test --workspace @grotec/backend && npm run test --workspace @grotec/frontend",
@@ -24,7 +21,7 @@
     "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
-    "embedded-postgres": "18.4.0-beta.17",
+    "@swc-node/register": "^1.12.1",
     "pg": "^8.13.1",
     "prettier": "^3.3.3"
   },
@@ -32,7 +29,6 @@
     "node": ">=20"
   },
   "allowScripts": {
-    "@embedded-postgres/windows-x64@18.4.0-beta.17": true,
     "@nestjs/core@10.4.22": true,
     "@prisma/client@6.19.3": true,
     "@prisma/engines@6.19.3": true,

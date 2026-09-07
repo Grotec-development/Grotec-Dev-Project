@@ -15,7 +15,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment secrets
+# Environment secrets (templates are tracked)
 .env
 .env.*
 !.env.example
@@ -26,8 +26,17 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
-# Documentation
-docs/
+# Test scripts, evidence, and credentials are not part of the deployed product
+docs/testing/
+
+# Test credentials, tokens, and cookie files (root-level)
+*.token.txt
+*.token_only.txt
+*.login.json
+*_cookies.txt
+cookies.txt
+token.txt
+login.json
 
 # Local tooling & workspaces
 .claude/

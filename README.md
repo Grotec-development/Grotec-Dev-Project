@@ -21,22 +21,16 @@ Future modules extend this schema; identity, ownership, and audit are shared inf
 | `apps/web` | React + Vite + Tailwind SPA |
 | `packages/shared` | Domain constants / enums / permission codes shared by both apps |
 | `docs/` | Living documentation (architecture, database, API, permissions, business rules, open items, progress) |
-| `infra/` | Docker Compose (Postgres 16) + embedded-Postgres dev fallback script |
+| `infra/` | Miscellaneous infrastructure utilities (PDF extraction, etc.) |
 
 ## Quick start
 
-Prerequisites: Node >= 20 and npm. PostgreSQL can be provided either way:
-
-- **Docker (recommended for day-to-day dev):** `docker compose -f infra/docker-compose.yml up -d`
-- **No Docker (fallback):** `npm run db:start` — runs a real embedded PostgreSQL in `.pgdata/` (git-ignored)
-
-Then:
+Prerequisites: Node >= 20 and npm. The database is provided by Supabase (configured in `backend/.env`).
 
 ```bash
 npm install
 cp .env.example .env            # root env template; app-specific .env.example files also exist
-npm run db:start                # only when not using Docker
-npm run migrate:dev             # apply Prisma migrations
+npm run migrate:dev             # apply Prisma migrations (connects to Supabase)
 npm run seed                    # roles/permissions/crops + demo users
 npm run dev:api                 # API on http://localhost:3000  (docs at /api/docs)
 npm run dev:web                 # web on http://localhost:5173  (proxies /api)
