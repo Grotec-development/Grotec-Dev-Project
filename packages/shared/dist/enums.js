@@ -168,9 +168,17 @@ exports.PAGINATION = {
     DEFAULT_PAGE_SIZE: 20,
     MAX_PAGE_SIZE: 100,
 };
-/** PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed. */
+/**
+ * PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed.
+ * @typedef {'PEST'|'DISEASE'|'NUTRIENT_DEFICIENCY'|'WEED'|'OTHER'} ProblemType
+ */
+/** @type {readonly ProblemType[]} */
 exports.PROBLEM_TYPES = ['PEST', 'DISEASE', 'NUTRIENT_DEFICIENCY', 'WEED', 'OTHER'];
-/** PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base. */
+/**
+ * PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base.
+ * @typedef {'FIELD'|'TREE'|'PLANTATION'|'VEGETABLE'|'OTHER'} CropCategory
+ */
+/** @type {readonly CropCategory[]} */
 exports.CROP_CATEGORIES = ['FIELD', 'TREE', 'PLANTATION', 'VEGETABLE', 'OTHER'];
 /** PRD §7.5 Attendance status vocabulary */
 exports.AttendanceStatus = {

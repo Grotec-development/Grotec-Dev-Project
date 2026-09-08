@@ -1,263 +1,240 @@
-/** Mirrors the PostgreSQL enums in backend/prisma/schema.prisma. */
-export declare const EmployeeStatus: {
-    readonly ACTIVE: "ACTIVE";
-    readonly INACTIVE: "INACTIVE";
-};
-export type EmployeeStatus = (typeof EmployeeStatus)[keyof typeof EmployeeStatus];
-export declare const CustomerStatus: {
-    readonly ACTIVE: "ACTIVE";
-    readonly INACTIVE: "INACTIVE";
-};
-export type CustomerStatus = (typeof CustomerStatus)[keyof typeof CustomerStatus];
-export declare const PhoneKind: {
-    readonly MOBILE: "MOBILE";
-    readonly OTHER: "OTHER";
-};
-export type PhoneKind = (typeof PhoneKind)[keyof typeof PhoneKind];
+export namespace EmployeeStatus {
+    let ACTIVE: string;
+    let INACTIVE: string;
+}
+export namespace CustomerStatus {
+    let ACTIVE_1: string;
+    export { ACTIVE_1 as ACTIVE };
+    let INACTIVE_1: string;
+    export { INACTIVE_1 as INACTIVE };
+}
+export namespace PhoneKind {
+    let MOBILE: string;
+    let OTHER: string;
+}
+export namespace LeadStatus {
+    let OPEN: string;
+    let CLOSED: string;
+}
+export namespace CallStatus {
+    let DIALING: string;
+    let RINGING: string;
+    let CONNECTED: string;
+    let ENDED: string;
+    let NOT_ANSWERED: string;
+    let FAILED: string;
+}
+export const ACTIVE_CALL_STATUSES: string[];
+export const TERMINAL_CALL_STATUSES: string[];
+export namespace CallDirection {
+    let OUTBOUND: string;
+}
+export namespace CallOutcome {
+    export let INTERESTED: string;
+    export let NOT_INTERESTED: string;
+    let NOT_ANSWERED_1: string;
+    export { NOT_ANSWERED_1 as NOT_ANSWERED };
+}
+export const CALL_OUTCOMES: string[];
+export namespace NextAction {
+    let CALLBACK: string;
+    let SALES: string;
+}
+export namespace FollowUpStatus {
+    let PENDING: string;
+    let COMPLETED: string;
+    let CANCELLED: string;
+}
+export namespace MessageStatus {
+    let PENDING_1: string;
+    export { PENDING_1 as PENDING };
+    export let SENT: string;
+    let FAILED_1: string;
+    export { FAILED_1 as FAILED };
+}
+export namespace EmployeeEmploymentStatus {
+    let ACTIVE_2: string;
+    export { ACTIVE_2 as ACTIVE };
+    export let PROBATION: string;
+    export let ON_LEAVE: string;
+    export let TERMINATED: string;
+}
+export namespace MessageType {
+    let PRODUCT_DETAILS: string;
+    let FOLLOWUP_REMINDER: string;
+    let ATTENDANCE_DECISION: string;
+    let LEAVE_DECISION: string;
+    let PAYROLL_STATUS: string;
+}
+export namespace CallDisconnectReason {
+    export let AGENT_ENDED: string;
+    let NOT_ANSWERED_2: string;
+    export { NOT_ANSWERED_2 as NOT_ANSWERED };
+    let FAILED_2: string;
+    export { FAILED_2 as FAILED };
+    export let UNKNOWN: string;
+}
+export namespace AuditEntityType {
+    let AUTH: string;
+    let EMPLOYEE: string;
+    let CUSTOMER: string;
+    let CUSTOMER_PHONE: string;
+    let CUSTOMER_LOCATION: string;
+    let CUSTOMER_CROP: string;
+    let CROP: string;
+    let CROP_PRODUCT_GUIDANCE: string;
+    let ASSISTANT: string;
+    let LEAD: string;
+    let CALL: string;
+    let CALL_NOTE: string;
+    let FOLLOW_UP: string;
+    let RELATIONSHIP_OWNERSHIP: string;
+    let OUTBOUND_MESSAGE: string;
+    let CUSTOMER_NOTE: string;
+}
+export namespace AuditAction {
+    export let LOGIN_SUCCESS: string;
+    export let LOGIN_FAILED: string;
+    export let LOGOUT: string;
+    export let PASSWORD_CHANGED: string;
+    export let REFRESH_REUSED: string;
+    export let CREATED: string;
+    export let UPDATED: string;
+    export let DELETED: string;
+    export let ACTIVATED: string;
+    export let DEACTIVATED: string;
+    export let OWNERSHIP_ASSIGNED: string;
+    export let CALL_PLACED: string;
+    export let CALL_ENDED: string;
+    export let CALL_LINKED: string;
+    export let NOTE_ADDED: string;
+    export let ASSISTANT_CHAT: string;
+    export let CALL_OUTCOME_RECORDED: string;
+    export let FOLLOW_UP_CREATED: string;
+    export let FOLLOW_UP_COMPLETED: string;
+    export let FOLLOW_UP_CANCELLED: string;
+    export let RELATIONSHIP_ASSIGNED: string;
+    export let RELATIONSHIP_RELEASED: string;
+    export let CUSTOMER_NOTE_ADDED: string;
+    export let MESSAGE_SENT: string;
+    export let MESSAGE_FAILED: string;
+    export let EMPLOYEE_CREATED: string;
+    export let EMPLOYEE_UPDATED: string;
+    export let EMPLOYEE_TERMINATED: string;
+    let TERMINATED_1: string;
+    export { TERMINATED_1 as TERMINATED };
+    export let DOCUMENT_UPLOADED: string;
+    export let DOCUMENT_DELETED: string;
+    export let EMPLOYEE_NOTE_ADDED: string;
+    export let HISTORY_RECORDED: string;
+    export let DISCIPLINARY: string;
+    export let ATTENDANCE_MARKED: string;
+    export let ATTENDANCE_CORRECTED: string;
+    export let ATTENDANCE_APPROVED: string;
+    export let ATTENDANCE_REJECTED: string;
+    export let ATTENDANCE_SYNCED_ESSL: string;
+    export let LEAVE_APPLIED: string;
+    export let LEAVE_APPROVED: string;
+    export let LEAVE_REJECTED: string;
+    export let KPI_TARGET_CREATED: string;
+    export let KPI_TARGET_SET: string;
+    export let KPI_SCORE_FROZEN: string;
+    export let KPI_COMPUTED: string;
+    export let PAYROLL_GENERATED: string;
+    export let PAYROLL_APPROVED: string;
+    export let PAYROLL_PUBLISHED: string;
+}
+export namespace PAGINATION {
+    let DEFAULT_PAGE: number;
+    let DEFAULT_PAGE_SIZE: number;
+    let MAX_PAGE_SIZE: number;
+}
 /**
- * Lead status vocabulary is PROVISIONAL (Month 1 foundation). It must map onto the
- * Month 3 call-outcome flow (Interested / Not Interested / Not Answered) cleanly;
- * see docs/open-items.md item 5.
+ * PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed.
+ * @typedef {'PEST'|'DISEASE'|'NUTRIENT_DEFICIENCY'|'WEED'|'OTHER'} ProblemType
  */
-export declare const LeadStatus: {
-    readonly OPEN: "OPEN";
-    readonly CLOSED: "CLOSED";
-};
-export type LeadStatus = (typeof LeadStatus)[keyof typeof LeadStatus];
+/** @type {readonly ProblemType[]} */
+export const PROBLEM_TYPES: readonly ProblemType[];
 /**
- * Canonical call states (PRD §6.3.3). The PRD marks the final list provider-
- * dependent (open item); these are the canonical states the CRM understands.
- * Providers map their own vocabulary onto these — see docs/open-items.md.
+ * PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base.
+ * @typedef {'FIELD'|'TREE'|'PLANTATION'|'VEGETABLE'|'OTHER'} CropCategory
  */
-export declare const CallStatus: {
-    readonly DIALING: "DIALING";
-    readonly RINGING: "RINGING";
-    readonly CONNECTED: "CONNECTED";
-    readonly ENDED: "ENDED";
-    readonly NOT_ANSWERED: "NOT_ANSWERED";
-    readonly FAILED: "FAILED";
-};
-export type CallStatus = (typeof CallStatus)[keyof typeof CallStatus];
-export declare const ACTIVE_CALL_STATUSES: readonly CallStatus[];
-export declare const TERMINAL_CALL_STATUSES: readonly CallStatus[];
-export declare const CallDirection: {
-    readonly OUTBOUND: "OUTBOUND";
-};
-export type CallDirection = (typeof CallDirection)[keyof typeof CallDirection];
-/** Exactly three call outcomes (PRD §6.3.6). Outcome and Next Action are separate fields. */
-export declare const CallOutcome: {
-    readonly INTERESTED: "INTERESTED";
-    readonly NOT_INTERESTED: "NOT_INTERESTED";
-    readonly NOT_ANSWERED: "NOT_ANSWERED";
-};
-export type CallOutcome = (typeof CallOutcome)[keyof typeof CallOutcome];
-export declare const CALL_OUTCOMES: readonly CallOutcome[];
-/** Next Action for an Interested outcome (PRD §6.3.7) — exactly one, no default. */
-export declare const NextAction: {
-    readonly CALLBACK: "CALLBACK";
-    readonly SALES: "SALES";
-};
-export type NextAction = (typeof NextAction)[keyof typeof NextAction];
-/** Follow-up lifecycle (provisional — vocabulary not fixed by the PRD). */
-export declare const FollowUpStatus: {
-    readonly PENDING: "PENDING";
-    readonly COMPLETED: "COMPLETED";
-    readonly CANCELLED: "CANCELLED";
-};
-export type FollowUpStatus = (typeof FollowUpStatus)[keyof typeof FollowUpStatus];
-/** Outbound message lifecycle (integration failures are stored, never silent). */
-export declare const MessageStatus: {
-    readonly PENDING: "PENDING";
-    readonly SENT: "SENT";
-    readonly FAILED: "FAILED";
-};
-export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus];
-export declare const EmployeeEmploymentStatus: {
-    readonly ACTIVE: "ACTIVE";
-    readonly PROBATION: "PROBATION";
-    readonly ON_LEAVE: "ON_LEAVE";
-    readonly TERMINATED: "TERMINATED";
-};
-export type EmployeeEmploymentStatus = (typeof EmployeeEmploymentStatus)[keyof typeof EmployeeEmploymentStatus];
-/** Message types the CRM can auto-send (extended by HRMS modules). */
-export declare const MessageType: {
-    readonly PRODUCT_DETAILS: "PRODUCT_DETAILS";
-    readonly FOLLOWUP_REMINDER: "FOLLOWUP_REMINDER";
-    readonly ATTENDANCE_DECISION: "ATTENDANCE_DECISION";
-    readonly LEAVE_DECISION: "LEAVE_DECISION";
-    readonly PAYROLL_STATUS: "PAYROLL_STATUS";
-};
-export type MessageType = (typeof MessageType)[keyof typeof MessageType];
-/** Why an outbound call ended (Month 2: agent-ended or provider terminal). */
-export declare const CallDisconnectReason: {
-    readonly AGENT_ENDED: "AGENT_ENDED";
-    readonly NOT_ANSWERED: "NOT_ANSWERED";
-    readonly FAILED: "FAILED";
-    readonly UNKNOWN: "UNKNOWN";
-};
-export type CallDisconnectReason = (typeof CallDisconnectReason)[keyof typeof CallDisconnectReason];
-/** Entity types written to the audit log. */
-export declare const AuditEntityType: {
-    readonly AUTH: "AUTH";
-    readonly EMPLOYEE: "EMPLOYEE";
-    readonly CUSTOMER: "CUSTOMER";
-    readonly CUSTOMER_PHONE: "CUSTOMER_PHONE";
-    readonly CUSTOMER_LOCATION: "CUSTOMER_LOCATION";
-    readonly CUSTOMER_CROP: "CUSTOMER_CROP";
-    readonly CROP: "CROP";
-    readonly CROP_PRODUCT_GUIDANCE: "CROP_PRODUCT_GUIDANCE";
-    readonly ASSISTANT: "ASSISTANT";
-    readonly LEAD: "LEAD";
-    readonly CALL: "CALL";
-    readonly CALL_NOTE: "CALL_NOTE";
-    readonly FOLLOW_UP: "FOLLOW_UP";
-    readonly RELATIONSHIP_OWNERSHIP: "RELATIONSHIP_OWNERSHIP";
-    readonly OUTBOUND_MESSAGE: "OUTBOUND_MESSAGE";
-    readonly CUSTOMER_NOTE: "CUSTOMER_NOTE";
-};
-export type AuditEntityType = (typeof AuditEntityType)[keyof typeof AuditEntityType];
-export declare const AuditAction: {
-    readonly LOGIN_SUCCESS: "login.success";
-    readonly LOGIN_FAILED: "login.failed";
-    readonly LOGOUT: "logout";
-    readonly PASSWORD_CHANGED: "password.changed";
-    readonly REFRESH_REUSED: "auth.refresh_reused";
-    readonly CREATED: "created";
-    readonly UPDATED: "updated";
-    readonly DELETED: "deleted";
-    readonly ACTIVATED: "activated";
-    readonly DEACTIVATED: "deactivated";
-    readonly OWNERSHIP_ASSIGNED: "ownership.assigned";
-    readonly CALL_PLACED: "call.placed";
-    readonly CALL_ENDED: "call.ended";
-    readonly CALL_LINKED: "call.linked";
-    readonly NOTE_ADDED: "call.note_added";
-    readonly ASSISTANT_CHAT: "assistant.chat";
-    readonly CALL_OUTCOME_RECORDED: "call.outcome_recorded";
-    readonly FOLLOW_UP_CREATED: "followup.created";
-    readonly FOLLOW_UP_COMPLETED: "followup.completed";
-    readonly FOLLOW_UP_CANCELLED: "followup.cancelled";
-    readonly RELATIONSHIP_ASSIGNED: "relationship.assigned";
-    readonly RELATIONSHIP_RELEASED: "relationship.released";
-    readonly CUSTOMER_NOTE_ADDED: "customer.note_added";
-    readonly MESSAGE_SENT: "message.sent";
-    readonly MESSAGE_FAILED: "message.failed";
-    readonly EMPLOYEE_CREATED: "employee.created";
-    readonly EMPLOYEE_UPDATED: "employee.updated";
-    readonly EMPLOYEE_TERMINATED: "employee.terminated";
-    readonly TERMINATED: "employee.terminated";
-    readonly DOCUMENT_UPLOADED: "employee.document_uploaded";
-    readonly DOCUMENT_DELETED: "employee.document_deleted";
-    readonly EMPLOYEE_NOTE_ADDED: "employee.note_added";
-    readonly HISTORY_RECORDED: "employee.history_added";
-    readonly DISCIPLINARY: "employee.disciplinary";
-    readonly ATTENDANCE_MARKED: "attendance.marked";
-    readonly ATTENDANCE_CORRECTED: "attendance.corrected";
-    readonly ATTENDANCE_APPROVED: "attendance.approved";
-    readonly ATTENDANCE_REJECTED: "attendance.rejected";
-    readonly ATTENDANCE_SYNCED_ESSL: "attendance.synced_essl";
-    readonly LEAVE_APPLIED: "leave.applied";
-    readonly LEAVE_APPROVED: "leave.approved";
-    readonly LEAVE_REJECTED: "leave.rejected";
-    readonly KPI_TARGET_CREATED: "kpi.target_created";
-    readonly KPI_TARGET_SET: "kpi.target_set";
-    readonly KPI_SCORE_FROZEN: "kpi.score_frozen";
-    readonly KPI_COMPUTED: "kpi.computed";
-    readonly PAYROLL_GENERATED: "payroll.generated";
-    readonly PAYROLL_APPROVED: "payroll.approved";
-    readonly PAYROLL_PUBLISHED: "payroll.published";
-};
-export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
-export declare const PAGINATION: {
-    readonly DEFAULT_PAGE: 1;
-    readonly DEFAULT_PAGE_SIZE: 20;
-    readonly MAX_PAGE_SIZE: 100;
-};
-/** PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed. */
-export declare const PROBLEM_TYPES: readonly ["PEST", "DISEASE", "NUTRIENT_DEFICIENCY", "WEED", "OTHER"];
-export type ProblemType = (typeof PROBLEM_TYPES)[number];
-/** PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base. */
-export declare const CROP_CATEGORIES: readonly ["FIELD", "TREE", "PLANTATION", "VEGETABLE", "OTHER"];
-export type CropCategory = (typeof CROP_CATEGORIES)[number];
-/** PRD §7.5 Attendance status vocabulary */
-export declare const AttendanceStatus: {
-    readonly PRESENT: "PRESENT";
-    readonly ABSENT: "ABSENT";
-    readonly LATE: "LATE";
-    readonly HALF_DAY: "HALF_DAY";
-    readonly WEEKLY_OFF: "WEEKLY_OFF";
-    readonly HOLIDAY: "HOLIDAY";
-    readonly LEAVE: "LEAVE";
-};
-export type AttendanceStatus = (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
-export declare const AttendanceSource: {
-    readonly ESSL: "ESSL";
-    readonly MANUAL: "MANUAL";
-};
-export type AttendanceSource = (typeof AttendanceSource)[keyof typeof AttendanceSource];
-export declare const ApprovalStatus: {
-    readonly PENDING: "PENDING";
-    readonly APPROVED: "APPROVED";
-    readonly REJECTED: "REJECTED";
-};
-export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
-/** PRD §7.7 Leave request status */
-export declare const LeaveStatus: {
-    readonly PENDING: "PENDING";
-    readonly APPROVED: "APPROVED";
-    readonly REJECTED: "REJECTED";
-    readonly CANCELLED: "CANCELLED";
-};
-export type LeaveStatus = (typeof LeaveStatus)[keyof typeof LeaveStatus];
-/** PRD §7.9 Employee History type */
-export declare const EmployeeHistoryType: {
-    readonly TRAINING: "TRAINING";
-    readonly WARNING: "WARNING";
-    readonly COMMENDATION: "COMMENDATION";
-    readonly PROMOTION: "PROMOTION";
-};
-export type EmployeeHistoryType = (typeof EmployeeHistoryType)[keyof typeof EmployeeHistoryType];
-/** PRD §7.8.4 Monthly Payroll workflow states */
-export declare const PayrollStatus: {
-    readonly IDLE: "IDLE";
-    readonly GENERATED: "GENERATED";
-    readonly APPROVED_LOCKED: "APPROVED_LOCKED";
-    readonly PUBLISHED: "PUBLISHED";
-};
-export type PayrollStatus = (typeof PayrollStatus)[keyof typeof PayrollStatus];
-export declare const PayrollRunStatus: {
-    readonly IDLE: "IDLE";
-    readonly GENERATED: "GENERATED";
-    readonly APPROVED_LOCKED: "APPROVED_LOCKED";
-    readonly PUBLISHED: "PUBLISHED";
-};
-export type PayrollRunStatus = PayrollStatus;
-/** PRD §7.4.1 & §7.4.2 KPI metrics */
-export declare const KpiMetricType: {
-    readonly CALLS_DIALED: "CALLS_DIALED";
-    readonly CALLS_CONNECTED: "CALLS_CONNECTED";
-    readonly LEADS_CONVERTED: "LEADS_CONVERTED";
-    readonly CONVERSION_RATE: "CONVERSION_RATE";
-    readonly TOTAL_REVENUE: "TOTAL_REVENUE";
-    readonly CUSTOMER_QUALITY: "CUSTOMER_QUALITY";
-    readonly ATTENDANCE: "ATTENDANCE";
-    readonly CRM_DISCIPLINE: "CRM_DISCIPLINE";
-};
-export type KpiMetricType = (typeof KpiMetricType)[keyof typeof KpiMetricType];
-/** PRD §9 Notification event types */
-export declare const NotificationType: {
-    readonly FOLLOW_UP_REMINDER: "FOLLOW_UP_REMINDER";
-    readonly PRODUCT_DETAILS: "PRODUCT_DETAILS";
-    readonly ATTENDANCE_STATUS: "ATTENDANCE_STATUS";
-    readonly LEAVE_STATUS: "LEAVE_STATUS";
-    readonly PAYROLL_STATUS: "PAYROLL_STATUS";
-};
-export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
-/** Outbox event processing status (matches PostgreSQL enum OutboxStatus). */
-export declare const OutboxStatus: {
-    readonly PENDING: "PENDING";
-    readonly PROCESSING: "PROCESSING";
-    readonly PROCESSED: "PROCESSED";
-    readonly FAILED: "FAILED";
-};
-export type OutboxStatus = (typeof OutboxStatus)[keyof typeof OutboxStatus];
+/** @type {readonly CropCategory[]} */
+export const CROP_CATEGORIES: readonly CropCategory[];
+export namespace AttendanceStatus {
+    let PRESENT: string;
+    let ABSENT: string;
+    let LATE: string;
+    let HALF_DAY: string;
+    let WEEKLY_OFF: string;
+    let HOLIDAY: string;
+    let LEAVE: string;
+}
+export namespace AttendanceSource {
+    let ESSL: string;
+    let MANUAL: string;
+}
+export namespace ApprovalStatus {
+    let PENDING_2: string;
+    export { PENDING_2 as PENDING };
+    export let APPROVED: string;
+    export let REJECTED: string;
+}
+export namespace LeaveStatus {
+    let PENDING_3: string;
+    export { PENDING_3 as PENDING };
+    let APPROVED_1: string;
+    export { APPROVED_1 as APPROVED };
+    let REJECTED_1: string;
+    export { REJECTED_1 as REJECTED };
+    let CANCELLED_1: string;
+    export { CANCELLED_1 as CANCELLED };
+}
+export namespace EmployeeHistoryType {
+    let TRAINING: string;
+    let WARNING: string;
+    let COMMENDATION: string;
+    let PROMOTION: string;
+}
+export namespace PayrollStatus {
+    let IDLE: string;
+    let GENERATED: string;
+    let APPROVED_LOCKED: string;
+    let PUBLISHED: string;
+}
+export namespace PayrollRunStatus { }
+export namespace KpiMetricType {
+    let CALLS_DIALED: string;
+    let CALLS_CONNECTED: string;
+    let LEADS_CONVERTED: string;
+    let CONVERSION_RATE: string;
+    let TOTAL_REVENUE: string;
+    let CUSTOMER_QUALITY: string;
+    let ATTENDANCE: string;
+    let CRM_DISCIPLINE: string;
+}
+export namespace NotificationType {
+    export let FOLLOW_UP_REMINDER: string;
+    let PRODUCT_DETAILS_1: string;
+    export { PRODUCT_DETAILS_1 as PRODUCT_DETAILS };
+    export let ATTENDANCE_STATUS: string;
+    export let LEAVE_STATUS: string;
+    let PAYROLL_STATUS_1: string;
+    export { PAYROLL_STATUS_1 as PAYROLL_STATUS };
+}
+export namespace OutboxStatus {
+    let PENDING_4: string;
+    export { PENDING_4 as PENDING };
+    export let PROCESSING: string;
+    export let PROCESSED: string;
+    let FAILED_3: string;
+    export { FAILED_3 as FAILED };
+}
+/**
+ * PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed.
+ */
+export type ProblemType = "PEST" | "DISEASE" | "NUTRIENT_DEFICIENCY" | "WEED" | "OTHER";
+/**
+ * PRD §6.5.2 content taxonomy used by the Crops catalog and Knowledge Base.
+ */
+export type CropCategory = "FIELD" | "TREE" | "PLANTATION" | "VEGETABLE" | "OTHER";

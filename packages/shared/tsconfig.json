@@ -8,11 +8,14 @@
     "sourceMap": false,
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "allowJs": true,
+    "checkJs": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/**/*.spec.ts"]
+  "exclude": ["node_modules", "dist", "src/**/*.spec.js"]
 }

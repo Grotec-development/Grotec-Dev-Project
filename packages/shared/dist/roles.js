@@ -5,6 +5,8 @@ exports.outranks = outranks;
 /**
  * Phase 1 login roles per the PRD. Relationship Manager is an ownership concept,
  * NOT a login role (see docs/architecture.md).
+ *
+ * @typedef {'FOUNDER'|'MANAGER'|'AGENT'|'STAFF'|'DELIVERY'} RoleCode
  */
 exports.ROLE_CODES = ['FOUNDER', 'MANAGER', 'AGENT', 'STAFF', 'DELIVERY'];
 exports.ROLE_LABELS = {

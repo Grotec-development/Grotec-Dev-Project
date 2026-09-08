@@ -71,6 +71,8 @@ exports.PERMISSIONS = {
     hrmsKpiRead: 'hrms.kpi.read',
     hrmsAuditRead: 'hrms.audit.read',
 };
+/** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
+/** @type {PermissionCode[]} */
 exports.PERMISSION_CODES = Object.values(exports.PERMISSIONS);
 /**
  * Phase 1 role→permission matrix per PRD v2.1 §5.2 (docs/reference/prd-v2.1.md).

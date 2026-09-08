@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "start": "node dist/main.js",
-    "start:dev": "npm run build && node --watch dist/main.js",
+    "start": "node -r @swc-node/register src/main.js",
+    "start:dev": "node --watch -r @swc-node/register src/main.js",
     "dev": "npm run start:dev",
     "prestart:dev": "npm run build --workspace @grotec/shared",
     "test": "npm run build --workspace @grotec/shared && vitest run",
@@ -15,7 +15,7 @@
     "prisma:migrate-dev": "prisma migrate dev",
     "prisma:migrate-deploy": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "node prisma/seed.js"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"

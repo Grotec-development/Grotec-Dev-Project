@@ -44,14 +44,14 @@ COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
 
-# Copy compiled artifacts and node_modules from builder
+# Copy artifacts, source files, and node_modules from builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/shared ./packages/shared
-COPY --from=builder /app/backend/dist ./backend/dist
+COPY --from=builder /app/backend/src ./backend/src
 COPY --from=builder /app/backend/prisma ./backend/prisma
 
 WORKDIR /app/backend
 
 EXPOSE 3000
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "-r", "@swc-node/register", "src/main.js"]
