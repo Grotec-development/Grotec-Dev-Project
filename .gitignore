@@ -26,8 +26,9 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
-# Test scripts, evidence, and credentials are not part of the deployed product
-docs/testing/
+# Docs are not part of the deployed product (session notes, audits, reference
+# material) and are not published to GitHub.
+docs/
 
 # Test credentials, tokens, and cookie files (root-level)
 *.token.txt
