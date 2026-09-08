@@ -3,8 +3,10 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // The shared package ships CommonJS dist (for the Node API). The browser needs
-// ESM, and the package has no Node-only deps, so alias straight to its TS source.
-const sharedSource = fileURLToPath(new URL('../packages/shared/src/index.ts', import.meta.url));
+// ESM, and the package has no Node-only deps, so alias straight to its source.
+// The sources are ESM .js (they were .ts until 5c76b2f renamed them; this alias
+// was left pointing at the old .ts path, which no longer exists).
+const sharedSource = fileURLToPath(new URL('../packages/shared/src/index.js', import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
