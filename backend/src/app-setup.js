@@ -18,7 +18,13 @@ export async function configureApp(app, options = {}) {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-    app.enableCors({ origin: origins.length > 0 ? origins : true, credentials: true });
+    // Local development hosts, used ONLY when CORS_ORIGINS is not configured.
+    // Replaces the previous `origin: true` fallback, which reflected back any
+    // requesting origin while credentials were enabled. An explicit CORS_ORIGINS
+    // list always takes precedence; the production allow-list policy is a
+    // separate, later step.
+    const LOCAL_DEV_ORIGINS = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+    app.enableCors({ origin: origins.length > 0 ? origins : LOCAL_DEV_ORIGINS, credentials: true });
     if (options.swagger !== false) {
         const swaggerConfig = new DocumentBuilder()
             .setTitle('GROTEC FarmerOS CRM API')

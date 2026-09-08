@@ -7,20 +7,28 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var _a;
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator';
 import { PrismaService } from '../../common/prisma/prisma.service';
 let HealthController = class HealthController {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async health() {
+    async health(res) {
         try {
             await this.prisma.$queryRaw `SELECT 1`;
+            res.status(HttpStatus.OK);
             return { status: 'ok', db: 'up' };
         }
         catch {
+            // 503 (not 200) so load balancers, container orchestrators and the
+            // docker-compose healthcheck stop treating an instance with an
+            // unreachable database as healthy. Response body is unchanged.
+            res.status(HttpStatus.SERVICE_UNAVAILABLE);
             return { status: 'degraded', db: 'down' };
         }
     }
@@ -28,8 +36,9 @@ let HealthController = class HealthController {
 __decorate([
     Public(),
     Get(),
+    __param(0, Res({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], HealthController.prototype, "health", null);
 HealthController = __decorate([
