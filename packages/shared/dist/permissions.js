@@ -38,6 +38,11 @@ exports.PERMISSIONS = {
     // AI Assistant (replaces the Knowledge Base screen): use = chat, manage = content
     assistantUse: 'assistant.use',
     assistantManage: 'assistant.manage',
+    // Customer referrals (Step 3B): read = view referrals, manage = create them
+    referralRead: 'referral.read',
+    referralManage: 'referral.manage',
+    // Customer bulk import (Step 4)
+    customerImport: 'customer.import',
     // Audit
     auditRead: 'audit.read',
     // HRMS & Attendance
@@ -108,6 +113,9 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.relationshipManage,
         exports.PERMISSIONS.assistantUse,
         exports.PERMISSIONS.assistantManage,
+        exports.PERMISSIONS.referralRead,
+        exports.PERMISSIONS.referralManage,
+        exports.PERMISSIONS.customerImport,
         exports.PERMISSIONS.auditRead,
         exports.PERMISSIONS.hrmsRead,
         exports.PERMISSIONS.attendanceRead,
@@ -148,6 +156,9 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.relationshipManage,
         exports.PERMISSIONS.assistantUse,
         exports.PERMISSIONS.assistantManage,
+        exports.PERMISSIONS.referralRead,
+        exports.PERMISSIONS.referralManage,
+        exports.PERMISSIONS.customerImport,
         exports.PERMISSIONS.hrmsRead,
         // Self-service
         exports.PERMISSIONS.attendanceRead,
@@ -186,7 +197,12 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.leadUpdate,
         exports.PERMISSIONS.callRead,
         exports.PERMISSIONS.callManage,
+        // Read-only view of the relationship-manager portfolio. Agents do NOT get
+        // relationshipManage: assignment and release stay with Founder/Manager.
+        exports.PERMISSIONS.relationshipRead,
         exports.PERMISSIONS.assistantUse,
+        exports.PERMISSIONS.referralRead,
+        exports.PERMISSIONS.referralManage,
         exports.PERMISSIONS.hrmsRead,
         // Self-service only
         exports.PERMISSIONS.attendanceRead,

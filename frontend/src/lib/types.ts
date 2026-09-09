@@ -65,6 +65,8 @@ export interface CustomerDetail {
   id: string;
   farmerCode: string | null;
   fullName: string;
+  /** Free-text farm soil description. Null when not recorded. */
+  soilType: string | null;
   status: 'ACTIVE' | 'INACTIVE';
   createdBy: { id: string; fullName: string } | null;
   createdAt: string;
@@ -72,6 +74,18 @@ export interface CustomerDetail {
   locations: CustomerLocation[];
   crops: CustomerCrop[];
   leads: CustomerLead[];
+}
+
+/** A referral made BY a customer. referredCustomer is derived from the lead. */
+export interface Referral {
+  id: string;
+  referrerCustomer: { id: string; fullName: string; farmerCode: string | null };
+  leadId: string;
+  leadStatus: 'OPEN' | 'CLOSED';
+  referredCustomer: { id: string; fullName: string; farmerCode: string | null };
+  notes: string | null;
+  createdBy: { id: string; fullName: string };
+  createdAt: string;
 }
 
 export interface Crop {
@@ -304,4 +318,107 @@ export interface QueueItem {
     endedAt: string | null;
     outcome?: CallOutcome | null;
   } | null;
+}
+
+/** Step 4: Customer bulk import types */
+export interface ImportParseResult {
+  fileName: string;
+  headers: string[];
+  rowCount: number;
+  sampleRows: Record<string, string>[];
+  rows: Record<string, string>[];
+  suggestedMapping: Record<string, string>;
+}
+
+export interface ImportRowMapped {
+  fullName: string;
+  phone: string;
+  secondaryPhone: string | null;
+  village: string | null;
+  taluk: string | null;
+  district: string | null;
+  soilType: string | null;
+  preferredLanguage: string | null;
+}
+
+export interface ImportRowItem {
+  rowNumber: number;
+  status: 'VALID' | 'INVALID' | 'DUPLICATE';
+  errors: string[];
+  duplicateReason: string | null;
+  mapped: ImportRowMapped;
+  raw: Record<string, string>;
+}
+
+export interface ImportPreviewResult {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  duplicateRows: number;
+  detectedColumns: string[];
+  mappingApplied: Record<string, string>;
+  items: ImportRowItem[];
+}
+
+/** Step 5: CRM Reports & Operational Leaderboard types */
+export interface CallReportItem {
+  id: string;
+  phoneNumber: string;
+  direction: 'INBOUND' | 'OUTBOUND';
+  status: CallStatus;
+  outcome: CallOutcome | null;
+  nextAction: string | null;
+  startedAt: string;
+  connectedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number;
+  agent: { id: string; employeeCode: string | null; fullName: string; department: string | null } | null;
+  customer: { id: string; farmerCode: string | null; fullName: string } | null;
+}
+
+export interface FollowUpReportItem {
+  id: string;
+  dueAt: string;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  completedAt: string | null;
+  note: string;
+  agent: { id: string; employeeCode: string | null; fullName: string } | null;
+  customer: { id: string; farmerCode: string | null; fullName: string } | null;
+}
+
+export interface CustomerReportItem {
+  id: string;
+  farmerCode: string | null;
+  fullName: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  soilType: string | null;
+  createdAt: string;
+  phones: Array<{ id: string; phoneE164: string }>;
+  locations: Array<{ id: string; village: string | null; taluk: string | null; district: string | null; state: string | null }>;
+}
+
+export interface LeaderboardAgentItem {
+  rank: number;
+  agentId: string;
+  employeeCode: string;
+  fullName: string;
+  department: string;
+  roleCode: string;
+  callsDialed: number;
+  callsConnected: number;
+  totalTalkTimeSeconds: number;
+  followUpsCompleted: number;
+  followUpsPending: number;
+  leadsConverted: number;
+  conversionRate: number;
+  isCurrentAgent: boolean;
+}
+
+export interface LeaderboardResponse {
+  period: 'today' | 'week' | 'month' | 'custom';
+  startDate: string;
+  endDate: string;
+  totalAgents: number;
+  currentAgentRank: number | null;
+  leaderboard: LeaderboardAgentItem[];
 }

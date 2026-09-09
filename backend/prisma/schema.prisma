@@ -142,6 +142,7 @@ model Employee {
   heldRelationshipOwnership RelationshipOwnership[] @relation("RelationshipOwnershipHolder")
   assignedRelationshipOwnership RelationshipOwnership[] @relation("RelationshipOwnershipAssignedBy")
   writtenCustomerNotes CustomerNote[] @relation("CustomerNoteAuthor")
+  createdReferrals  Referral[]     @relation("ReferralCreatedBy")
   documents         EmployeeDocument[]
   uploadedDocuments EmployeeDocument[] @relation("DocUploadedBy")
   writtenEmployeeNotes EmployeeNote[]  @relation("EmployeeNoteAuthor")
@@ -234,6 +235,10 @@ model Customer {
   status     CustomerStatus @default(ACTIVE)
   // Preferred language is provisional; vocabulary TBD (open item).
   preferredLanguage String? @map("preferred_language") @db.VarChar(10)
+  // Free-text farm soil description (owner requirement Q9). Deliberately NOT an
+  // enum: no soil vocabulary has been approved, so the column stays configurable
+  // and the UI presents a plain text input. Same shape as preferred_language.
+  soilType          String? @map("soil_type") @db.VarChar(40)
   createdById String?       @map("created_by") @db.Uuid
   createdBy  Employee?      @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt  DateTime       @default(now()) @map("created_at")
@@ -249,6 +254,7 @@ model Customer {
   relationshipOwnership RelationshipOwnership[]
   outboundMessages OutboundMessage[]
   notes     CustomerNote[]
+  referralsMade Referral[] @relation("ReferralReferrer")
 
   @@index([fullName])
   @@map("customers")
@@ -374,6 +380,7 @@ model Lead {
   ownerships LeadOwnership[]
   calls      Call[]
   followUps  FollowUp[]
+  referrals  Referral[] @relation("ReferralLead")
 
   @@index([customerId])
   @@index([status])
@@ -543,6 +550,33 @@ model CustomerNote {
 
   @@index([customerId])
   @@map("customer_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Customer referrals (Step 3B)
+// ---------------------------------------------------------------------------
+// Append-only record that an existing customer referred a new lead. The referred
+// customer is deliberately NOT stored here — it is derived through
+// lead.customerId, so the two can never drift apart. No soft delete and no
+// update path: referral history is immutable, like lead/relationship ownership.
+model Referral {
+  id                 String   @id @default(uuid()) @db.Uuid
+  referrerCustomerId String   @map("referrer_customer_id") @db.Uuid
+  referrerCustomer   Customer @relation("ReferralReferrer", fields: [referrerCustomerId], references: [id], onDelete: Restrict)
+  leadId             String   @map("lead_id") @db.Uuid
+  lead               Lead     @relation("ReferralLead", fields: [leadId], references: [id], onDelete: Restrict)
+  notes              String?
+  createdById        String   @map("created_by") @db.Uuid
+  createdBy          Employee @relation("ReferralCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  // One referral per (referrer, lead). Different referrers MAY refer the same
+  // lead; the same referrer may not refer it twice. Enforced in the database so
+  // concurrent requests cannot both win.
+  @@unique([referrerCustomerId, leadId])
+  @@index([referrerCustomerId])
+  @@index([leadId])
+  @@map("referrals")
 }
 
 // ---------------------------------------------------------------------------

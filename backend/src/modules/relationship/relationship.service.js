@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a, _b, _c;
+var _a, _b, _c, _d;
 import { Injectable } from '@nestjs/common';
 import { AuditAction, AuditEntityType, DOMAIN_EVENTS } from '@grotec/shared';
 import { Prisma } from '@prisma/client';
@@ -15,6 +15,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CustomersService } from '../customers/customers.service';
 const LIVE_PHONE = { deletedAt: null };
 /**
  * Relationship (RM) ownership — a separate concept from agent lead ownership
@@ -24,10 +25,11 @@ const LIVE_PHONE = { deletedAt: null };
  * recorded as open items where the PRD is silent.
  */
 let RelationshipService = class RelationshipService {
-    constructor(prisma, audit, domainEvents) {
+    constructor(prisma, audit, domainEvents, customers) {
         this.prisma = prisma;
         this.audit = audit;
         this.domainEvents = domainEvents;
+        this.customers = customers;
     }
     /**
      * RM workspace — customers under relationship ownership.
@@ -46,6 +48,12 @@ let RelationshipService = class RelationshipService {
                 throw ApiError.forbidden('RELATIONSHIP_FORBIDDEN', 'Not allowed');
             return this.listUnassigned(actor, ownerId, query.q);
         }
+        // AGENT may only see relationship rows for customers already visible to
+        // them under the established CRM rule (created-by-me OR I currently own a
+        // lead for them). CustomersService.visibilityWhere is the single source of
+        // that rule and returns {} for every other role, so FOUNDER and MANAGER
+        // behaviour is untouched.
+        const customerScope = this.customers.visibilityWhere(actor);
         const rows = await this.prisma.relationshipOwnership.findMany({
             where: {
                 releasedAt: null,
@@ -54,6 +62,7 @@ let RelationshipService = class RelationshipService {
                     is: {
                         deletedAt: null,
                         ...(query.q ? { fullName: { contains: query.q, mode: 'insensitive' } } : {}),
+                        AND: [customerScope],
                     },
                 },
             },
@@ -82,8 +91,16 @@ let RelationshipService = class RelationshipService {
         }));
         return { items: items.filter((item) => item !== null) };
     }
-    /** Employees eligible to hold RM ownership (ACTIVE MANAGER role), with load. */
-    async holders() {
+    /**
+     * Employees eligible to hold RM ownership (ACTIVE MANAGER role), with load.
+     * AGENT gets an empty list: this is company-wide management workload data and
+     * agents cannot assign or release (relationship.manage is withheld), so the
+     * narrowest safe scope is no holder list at all. The owning RM of a customer
+     * the agent may already see is still returned by list() on that row.
+     */
+    async holders(actor) {
+        if (actor?.roleCode === 'AGENT')
+            return [];
         const managerRole = await this.prisma.role.findUnique({ where: { code: 'MANAGER' } });
         if (!managerRole)
             return [];
@@ -347,6 +364,6 @@ let RelationshipService = class RelationshipService {
 };
 RelationshipService = __decorate([
     Injectable(),
-    __metadata("design:paramtypes", [typeof (_a = typeof PrismaService !== "undefined" && PrismaService) === "function" ? _a : Object, typeof (_b = typeof AuditService !== "undefined" && AuditService) === "function" ? _b : Object, typeof (_c = typeof DomainEventService !== "undefined" && DomainEventService) === "function" ? _c : Object])
+    __metadata("design:paramtypes", [typeof (_a = typeof PrismaService !== "undefined" && PrismaService) === "function" ? _a : Object, typeof (_b = typeof AuditService !== "undefined" && AuditService) === "function" ? _b : Object, typeof (_c = typeof DomainEventService !== "undefined" && DomainEventService) === "function" ? _c : Object, typeof (_d = typeof CustomersService !== "undefined" && CustomersService) === "function" ? _d : Object])
 ], RelationshipService);
 export { RelationshipService };

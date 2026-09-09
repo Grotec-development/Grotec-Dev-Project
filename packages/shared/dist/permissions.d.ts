@@ -22,6 +22,9 @@ export namespace PERMISSIONS {
     let relationshipManage: string;
     let assistantUse: string;
     let assistantManage: string;
+    let referralRead: string;
+    let referralManage: string;
+    let customerImport: string;
     let auditRead: string;
     let hrmsRead: string;
     let attendanceRead: string;

@@ -15,6 +15,7 @@ LeadsModule = __decorate([
         imports: [AuditModule],
         controllers: [LeadsController],
         providers: [LeadsService],
+        exports: [LeadsService],
     })
 ], LeadsModule);
 export { LeadsModule };

@@ -22,6 +22,8 @@ import { LeavePage } from './pages/hrms/LeavePage';
 import { PayrollPage } from './pages/hrms/PayrollPage';
 import { PayslipsPage } from './pages/hrms/PayslipsPage';
 import { KpiPage } from './pages/hrms/KpiPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { ActionCenterPage } from './pages/ActionCenterPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -35,6 +37,7 @@ export const router = createBrowserRouter([
       { path: 'agent', element: <AgentWorkspacePage /> },
       { path: 'calling', element: <AgentWorkspacePage /> },
       { path: 'relationship-manager', element: <RelationshipManagerPage /> },
+      { path: 'action-center', element: <ActionCenterPage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'leads', element: <LeadsPage /> },
@@ -48,10 +51,12 @@ export const router = createBrowserRouter([
       { path: 'hrms/employees/:id', element: <EmployeeProfilePage /> },
       { path: 'hrms/attendance', element: <AttendancePage /> },
       { path: 'hrms/leave', element: <LeavePage /> },
+      { path: 'hrms/action-center', element: <ActionCenterPage /> },
       { path: 'hrms/payroll', element: <PayrollPage /> },
       { path: 'hrms/payslips', element: <PayslipsPage /> },
       { path: 'hrms/payslips/:id', element: <PayslipsPage /> },
       { path: 'hrms/kpi', element: <KpiPage /> },
+      { path: 'reports', element: <ReportsPage /> },
       { path: 'restricted', element: <RestrictedPage /> },
     ],
   },

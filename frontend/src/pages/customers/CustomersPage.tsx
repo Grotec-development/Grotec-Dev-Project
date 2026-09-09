@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw, Upload } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { ApiErrorBody, CustomerSummary, Page } from '../../lib/types';
 import { formatE164 } from '../../lib/format';
 import { useAuth } from '../../auth/AuthContext';
 import { Alert, Button, Card, EmptyState, Input, Select, StatusBadge, Table, TableSkeleton, TD, TH, THead, cx } from '../../components/ui';
 import { NewCustomerModal } from './NewCustomerModal';
+import { ImportCustomersModal } from './ImportCustomersModal';
 
 // Mock auxiliary data for columns in PDF that might be unpopulated in raw dev DB
 const DISTRICT_MAP: Record<string, { district: string; taluk: string; crops: string; rm: string; lastContact: string }> = {
@@ -27,13 +28,14 @@ const DISTRICT_MAP: Record<string, { district: string; taluk: string; crops: str
 };
 
 export function CustomersPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
   const [district, setDistrict] = useState('');
   const [crop, setCrop] = useState('');
   const [status, setStatus] = useState('ACTIVE');
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [page, setPage] = useState(1);
 
   const { data, isFetching, isError, error, refetch } = useQuery({
@@ -47,6 +49,7 @@ export function CustomersPage() {
   });
 
   const canCreate = hasPermission('customer.create');
+  const canImport = (user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || hasPermission('customer.import')) && canCreate;
 
   // Augmented farmer list matching exact PDF columns
   const farmerList = useMemo(() => {
@@ -95,16 +98,28 @@ export function CustomersPage() {
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Farmer Directory</h1>
           <p className="text-xs text-slate-500">Centralized farmer database and relationship profiles.</p>
         </div>
-        {canCreate ? (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setShowCreate(true)}
-            className="px-3.5 py-1.5 text-xs font-semibold shadow-xs"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Farmer
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {canImport ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowImport(true)}
+              className="px-3 py-1.5 text-xs font-semibold shadow-xs gap-1.5"
+            >
+              <Upload className="h-3.5 w-3.5" /> Import CSV
+            </Button>
+          ) : null}
+          {canCreate ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowCreate(true)}
+              className="px-3.5 py-1.5 text-xs font-semibold shadow-xs gap-1"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Farmer
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* Filter and Search Bar matching PDF */}
@@ -319,6 +334,13 @@ export function CustomersPage() {
             void queryClient.invalidateQueries({ queryKey: ['customers'] });
             window.location.assign(`/customers/${id}`);
           }}
+        />
+      ) : null}
+
+      {showImport ? (
+        <ImportCustomersModal
+          open={showImport}
+          onClose={() => setShowImport(false)}
         />
       ) : null}
     </div>

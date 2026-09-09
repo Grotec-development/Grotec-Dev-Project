@@ -3,12 +3,21 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app-setup';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+/**
+ * Every seeded demo account shares one password: prisma/seed.js hashes
+ * `process.env.FOUNDER_PASSWORD ?? 'Founder@123'` for the founder AND for each
+ * SEED_EMPLOYEES entry. The fixture must read the identical source — hardcoding
+ * the literal makes every login 401 whenever backend/.env sets a real value.
+ * global-setup.js loads backend/.env before the workers start, and workers
+ * inherit process.env, so this resolves to the same value the seed used.
+ */
+const SEEDED_PASSWORD = process.env.FOUNDER_PASSWORD ?? 'Founder@123';
 export const USERS = {
-    FOUNDER: { email: 'founder@grotec.local', password: 'Founder@123', roleCode: 'FOUNDER' },
-    MANAGER: { email: 'manager@grotec.local', password: 'Founder@123', roleCode: 'MANAGER' },
-    AGENT: { email: 'agent@grotec.local', password: 'Founder@123', roleCode: 'AGENT' },
-    DELIVERY: { email: 'delivery@grotec.local', password: 'Founder@123', roleCode: 'DELIVERY' },
-    STAFF: { email: 'delivery@grotec.local', password: 'Founder@123', roleCode: 'DELIVERY' },
+    FOUNDER: { email: 'founder@grotec.local', password: SEEDED_PASSWORD, roleCode: 'FOUNDER' },
+    MANAGER: { email: 'manager@grotec.local', password: SEEDED_PASSWORD, roleCode: 'MANAGER' },
+    AGENT: { email: 'agent@grotec.local', password: SEEDED_PASSWORD, roleCode: 'AGENT' },
+    DELIVERY: { email: 'delivery@grotec.local', password: SEEDED_PASSWORD, roleCode: 'DELIVERY' },
+    STAFF: { email: 'delivery@grotec.local', password: SEEDED_PASSWORD, roleCode: 'DELIVERY' },
 };
 /** Compiles and boots the real application against the seeded test database. */
 export async function createTestApp() {
@@ -22,6 +31,9 @@ export async function createTestApp() {
 /** Wipes mutable business data between tests; keeps RBAC + seeded employees/crops. */
 export async function resetData(prisma) {
     await prisma.$transaction([
+        // Referrals hold FK RESTRICT to customers and leads, so they must be
+        // cleared before either of those (Step 3B).
+        prisma.referral.deleteMany(),
         prisma.customerNote.deleteMany(),
         prisma.relationshipOwnership.deleteMany(),
         prisma.outboundMessage.deleteMany(),

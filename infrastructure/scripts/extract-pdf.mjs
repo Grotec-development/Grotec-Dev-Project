@@ -1,5 +1,5 @@
 // One-off helper: extracts text from a PDF into a markdown file.
-// Usage: node infra/extract-pdf.mjs <input.pdf> <output.md>
+// Usage: node infrastructure/scripts/extract-pdf.mjs <input.pdf> <output.md>
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -7,7 +7,7 @@ const pdfParse = require('pdf-parse');
 
 const [input, output] = process.argv.slice(2);
 if (!input || !output) {
-  console.error('usage: node infra/extract-pdf.mjs <input.pdf> <output.md>');
+  console.error('usage: node infrastructure/scripts/extract-pdf.mjs <input.pdf> <output.md>');
   process.exit(1);
 }
 

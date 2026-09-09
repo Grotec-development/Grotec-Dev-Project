@@ -10,6 +10,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
 import { OutboxModule } from './common/outbox/outbox.module';
+import { IdempotencyModule } from './common/idempotency/idempotency.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -23,7 +24,10 @@ import { FollowUpsModule } from './modules/followups/followups.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { RelationshipModule } from './modules/relationship/relationship.module';
+import { ReferralsModule } from './modules/referrals/referrals.module';
+import { ImportModule } from './modules/import/import.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { LeaveModule } from './modules/leave/leave.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
@@ -39,6 +43,7 @@ AppModule = __decorate([
             // Global modules must precede modules that depend on them.
             PrismaModule,
             OutboxModule,
+            IdempotencyModule,
             AuditModule,
             AuthModule,
             EmployeesModule,
@@ -49,7 +54,10 @@ AppModule = __decorate([
             FollowUpsModule,
             MessagingModule,
             RelationshipModule,
+            ReferralsModule,
+            ImportModule,
             DashboardModule,
+            ReportsModule,
             AssistantModule,
             AttendanceModule,
             LeaveModule,

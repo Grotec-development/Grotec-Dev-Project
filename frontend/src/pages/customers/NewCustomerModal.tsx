@@ -26,6 +26,7 @@ export function NewCustomerModal({
   initialPhone?: string;
 }) {
   const [fullName, setFullName] = useState('');
+  const [soilType, setSoilType] = useState('');
   const [phones, setPhones] = useState<PhoneRow[]>([{ key: nextKey++, number: initialPhone ?? '', kind: 'MOBILE', isPrimary: true }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +48,8 @@ export function NewCustomerModal({
     try {
       const res = await api.post<CustomerDetail>('/customers', {
         fullName: fullName.trim(),
+        // Blank is sent as null, matching the backend contract (blank clears / stays unset).
+        soilType: soilType.trim() || null,
         phones: { phones: phones.map((p) => ({ number: p.number.trim(), kind: p.kind, isPrimary: p.isPrimary })) },
       });
       onCreated(res.data.id);
@@ -88,6 +91,15 @@ export function NewCustomerModal({
 
           <Field label="Full name">
             <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Ramesh Patel" autoFocus />
+          </Field>
+
+          <Field label="Soil type" hint="Optional — free text, up to 40 characters.">
+            <Input
+              value={soilType}
+              onChange={(e) => setSoilType(e.target.value)}
+              maxLength={40}
+              placeholder="e.g. Red loam"
+            />
           </Field>
 
           <div className="space-y-2">

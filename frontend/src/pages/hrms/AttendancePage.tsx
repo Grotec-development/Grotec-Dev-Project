@@ -583,6 +583,13 @@ export function AttendancePage() {
                       <TD className="text-xs text-slate-500 max-w-xs truncate">
                         {r.rejectionReason ? (
                           <span className="text-red-500 font-semibold">Rejected: {r.rejectionReason}</span>
+                        ) : r.notes && r.notes.startsWith('[Permission:') ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              {r.notes.split(']')[0].replace('[', '')}
+                            </span>
+                            <span className="truncate">{r.notes.replace(/^\[Permission:.*?\]\s*/, '')}</span>
+                          </div>
                         ) : (
                           r.notes || '—'
                         )}
@@ -733,6 +740,16 @@ export function AttendancePage() {
                         <div className="text-xs text-slate-400">
                           {r.employee?.department} • {r.employee?.employeeCode}
                         </div>
+                        {r.notes && (
+                          <div className="text-[11px] text-slate-500 mt-1 max-w-xs truncate" title={r.notes}>
+                            {r.notes.startsWith('[Permission:') ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 mr-1.5">
+                                {r.notes.split(']')[0].replace('[', '')}
+                              </span>
+                            ) : null}
+                            <span>{r.notes.replace(/^\[Permission:.*?\]\s*/, '')}</span>
+                          </div>
+                        )}
                       </TD>
                       <TD className="text-xs font-mono">
                         {r.punchIn

@@ -5,6 +5,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 import { Module } from '@nestjs/common';
+import { IdempotencyModule } from '../../common/idempotency/idempotency.module';
 import { AuditModule } from '../../common/audit/audit.module';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { CustomersModule } from '../customers/customers.module';
@@ -19,7 +20,7 @@ let CallsModule = class CallsModule {
 };
 CallsModule = __decorate([
     Module({
-        imports: [PrismaModule, AuditModule, CustomersModule, MessagingModule],
+        imports: [PrismaModule, AuditModule, CustomersModule, MessagingModule, IdempotencyModule],
         controllers: [CallsController, CustomerCallsController, DialerWebhookController],
         providers: [DialerRegistry, CallStatusSyncService, CallsService],
     })

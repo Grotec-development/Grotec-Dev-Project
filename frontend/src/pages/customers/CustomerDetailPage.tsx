@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2, Calendar, FileText, ShoppingBag, PhoneCall } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
-import type { Crop, CustomerDetail } from '../../lib/types';
+import type { Crop, CustomerDetail, Lead, Page, Referral } from '../../lib/types';
 import { formatDate, formatE164 } from '../../lib/format';
 import { useAuth } from '../../auth/AuthContext';
-import { Alert, Badge, Button, Card, CardHeader, ConfirmModal, Input, Select, Spinner, StatusBadge, Table, TD, TH, THead, cx } from '../../components/ui';
+import { Alert, Badge, Button, Card, CardHeader, ConfirmModal, Field, Input, Select, Spinner, StatusBadge, Table, TD, TH, THead, cx } from '../../components/ui';
 
 interface PurchaseRecord {
   id: string;
@@ -259,10 +259,7 @@ export function CustomerDetailPage() {
                   <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Land Holding</p>
                   <p className="text-slate-800 font-bold mt-0.5">3.5 Acres</p>
                 </div>
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Soil Profile</p>
-                  <p className="text-slate-800 font-bold mt-0.5">Red soil / Moderate salinity</p>
-                </div>
+                <SoilTypeField customerId={data.id} soilType={data.soilType} canEdit={canEdit} />
                 <div>
                   <p className="text-[11px] font-semibold text-slate-400 uppercase">Irrigation</p>
                   <p className="text-slate-800 font-bold mt-0.5">Drip irrigation (Subsidy)</p>
@@ -349,6 +346,7 @@ export function CustomerDetailPage() {
         <div className="grid gap-5 xl:grid-cols-2">
           <CropsCard customerId={data.id} customer={data} crops={cropsQuery.data ?? []} canEdit={canEdit} />
           <LocationsCard customerId={data.id} customer={data} canEdit={canEdit} />
+          <ReferralsCard customerId={data.id} />
         </div>
       )}
 
@@ -387,6 +385,179 @@ function useCustomerMutation(customerId: string) {
     }
   }
   return { pending, error, setError, run };
+}
+
+/**
+ * Soil Profile cell of the Farm & Agricultural Profile card.
+ * Shows the persisted Customer.soilType (em-dash when unset) and, for users with
+ * customer.update, an inline edit that PATCHes /customers/:id. Saving a blank
+ * value sends null, which the backend treats as "clear". No other customer field
+ * is sent, so nothing else on the record is disturbed.
+ */
+function SoilTypeField({ customerId, soilType, canEdit }: { customerId: string; soilType: string | null; canEdit: boolean }) {
+  const { pending, error, run } = useCustomerMutation(customerId);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(soilType ?? '');
+  const saving = pending === 'soilType';
+
+  async function save() {
+    await run('soilType', () => api.patch(`/customers/${customerId}`, { soilType: value.trim() || null }));
+    setEditing(false);
+  }
+
+  function startEditing() {
+    setValue(soilType ?? '');
+    setEditing(true);
+  }
+
+  function cancel() {
+    setValue(soilType ?? '');
+    setEditing(false);
+  }
+
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-slate-400 uppercase">Soil Profile</p>
+      {editing ? (
+        <>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <Input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              maxLength={40}
+              placeholder="e.g. Red loam"
+              aria-label="Soil type"
+              disabled={saving}
+              autoFocus
+            />
+            <Button size="xs" onClick={() => void save()} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+            <Button size="xs" variant="ghost" onClick={cancel} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+          <p className="mt-1 text-[10px] text-slate-400">Leave empty to clear.</p>
+          {error ? <p className="mt-1 text-[11px] text-red-600">{error}</p> : null}
+        </>
+      ) : (
+        <div className="mt-0.5 flex items-center gap-2">
+          <p className="text-slate-800 font-bold">{soilType || '—'}</p>
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="text-[11px] font-medium text-brand-600 hover:underline"
+            >
+              Edit
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Referrals made BY this customer (Step 3B). Append-only: create and read only,
+ * no edit or delete. Reuses the page's existing query/mutation and permission
+ * patterns. The referred customer shown comes from the lead, never stored twice.
+ */
+function ReferralsCard({ customerId }: { customerId: string }) {
+  const { hasPermission } = useAuth();
+  const canRead = hasPermission('referral.read');
+  const canManage = hasPermission('referral.manage');
+  const { pending, error, run } = useCustomerMutation(customerId);
+  const queryClient = useQueryClient();
+  const [leadId, setLeadId] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const referralsQuery = useQuery({
+    queryKey: ['referrals', customerId],
+    queryFn: async () => (await api.get<Referral[]>(`/referrals/customers/${customerId}`)).data,
+    enabled: canRead,
+  });
+
+  // Open leads the actor may see; the backend scopes this to their own leads.
+  const leadsQuery = useQuery({
+    queryKey: ['leads', 'OPEN'],
+    queryFn: async () =>
+      (await api.get<Page<Lead>>('/leads', { params: { status: 'OPEN', page: 1, pageSize: 50 } })).data,
+    enabled: canManage,
+  });
+
+  if (!canRead) return null;
+
+  // A customer cannot refer their own lead — keep those out of the picker.
+  const selectableLeads = (leadsQuery.data?.items ?? []).filter((l) => l.customer.id !== customerId);
+
+  async function submit() {
+    await run('referral', async () => {
+      await api.post('/referrals', {
+        referrerCustomerId: customerId,
+        leadId,
+        notes: notes.trim() || null,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['referrals', customerId] });
+    });
+    setLeadId('');
+    setNotes('');
+  }
+
+  return (
+    <Card className="p-4 shadow-xs">
+      <CardHeader title="Referrals Made" />
+      {error ? <div className="p-2"><Alert tone="error">{error}</Alert></div> : null}
+
+      <div className="divide-y divide-slate-100 text-xs">
+        {referralsQuery.isLoading ? <div className="py-3"><Spinner label="Loading referrals…" /></div> : null}
+        {referralsQuery.data?.length === 0 ? (
+          <p className="py-3 text-slate-400">No referrals recorded for this farmer yet.</p>
+        ) : null}
+        {referralsQuery.data?.map((r) => (
+          <div key={r.id} className="py-2">
+            <div className="flex items-center gap-2">
+              <Link to={`/customers/${r.referredCustomer.id}`} className="font-semibold text-slate-800 hover:underline">
+                {r.referredCustomer.fullName}
+              </Link>
+              <Badge tone={r.leadStatus === 'OPEN' ? 'green' : 'slate'}>{r.leadStatus}</Badge>
+            </div>
+            {r.notes ? <p className="mt-0.5 text-slate-500">{r.notes}</p> : null}
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              by {r.createdBy.fullName} • {formatDate(r.createdAt)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {canManage ? (
+        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+          <Field label="Refer a lead" hint="Only leads you can access are listed. A farmer cannot refer their own lead.">
+            <Select value={leadId} onChange={(e) => setLeadId(e.target.value)} aria-label="Lead to refer">
+              <option value="">Select a lead…</option>
+              {selectableLeads.map((l) => (
+                <option key={l.id} value={l.id}>{l.customer.fullName}</option>
+              ))}
+            </Select>
+          </Field>
+          <Input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={500}
+            placeholder="Notes (optional)"
+            aria-label="Referral notes"
+          />
+          <Button
+            size="sm"
+            onClick={() => void submit()}
+            disabled={!leadId || pending === 'referral'}
+          >
+            {pending === 'referral' ? 'Saving…' : 'Record referral'}
+          </Button>
+        </div>
+      ) : null}
+    </Card>
+  );
 }
 
 function PhonesCard({ customerId, customer, canEdit }: { customerId: string; customer: CustomerDetail; canEdit: boolean }) {

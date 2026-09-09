@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a, _b, _c;
 import { Type } from 'class-transformer';
-import { IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { CropListInputDto, LocationListInputDto, PhoneListInputDto, } from './customer-input.dto';
 export class CreateCustomerDto {
 }
@@ -19,6 +19,12 @@ __decorate([
     MaxLength(200),
     __metadata("design:type", String)
 ], CreateCustomerDto.prototype, "fullName", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(40),
+    __metadata("design:type", String)
+], CreateCustomerDto.prototype, "soilType", void 0);
 __decorate([
     ValidateNested(),
     Type(() => PhoneListInputDto),

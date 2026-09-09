@@ -172,8 +172,9 @@ repository** and are not tracked by git. Settle scope questions against those do
 this README.
 
 External integrations are architected but not connected: the auto-dialer and the messaging provider both sit
-behind internal abstractions with only mock implementations registered. There is no call-recording capability,
-no CI pipeline, and no deployed environment. **[inspected]**
+behind internal abstractions with only mock implementations registered. There is no call-recording capability
+and no deployed environment. Continuous Integration is configured in `.github/workflows/ci.yml` validating
+builds, typechecks, and database-independent unit test suites across all workspaces. **[inspected]**
 
 ## Known issues
 

@@ -161,6 +161,7 @@ let CustomersService = class CustomersService {
         const phoneInputs = dto.phones.phones;
         const locations = dto.locations?.locations ?? [];
         const cropInputs = dto.crops?.crops ?? [];
+        const soilType = normalizeSoilType(dto.soilType);
         const normalized = this.normalizeAndValidatePhones(phoneInputs);
         const desiredPrimaryIndex = phoneInputs.findIndex((p) => p.isPrimary === true);
         if (phoneInputs.filter((p) => p.isPrimary === true).length > 1) {
@@ -186,6 +187,7 @@ let CustomersService = class CustomersService {
                 data: {
                     farmerCode: await nextFarmerCode(tx),
                     fullName: dto.fullName,
+                    soilType,
                     createdById: actor.id,
                 },
             });
@@ -238,6 +240,7 @@ let CustomersService = class CustomersService {
                 action: 'created',
                 after: {
                     fullName: dto.fullName,
+                    soilType,
                     phones: normalized,
                     locations: locationInputs.length,
                     crops: crops.length,
@@ -280,27 +283,53 @@ let CustomersService = class CustomersService {
         });
         return this.detailOrThrow(created, actor);
     }
-    async update(actor, id, fullName) {
+    /**
+     * Partial update. A field is only touched when the caller actually supplied it:
+     *   - key omitted (undefined)      -> preserved
+     *   - soilType null or blank       -> cleared to NULL
+     *   - non-empty value              -> set
+     * So a fullName-only PATCH never disturbs soilType, and vice versa. Audit
+     * before/after carry exactly the fields that changed.
+     */
+    async update(actor, id, dto) {
         const existing = await this.scopedCustomer(id, actor);
-        if (!fullName || fullName === existing.fullName)
+        const data = {};
+        const before = {};
+        const after = {};
+        // Falsy fullName is ignored, matching the previous behaviour.
+        if (dto.fullName && dto.fullName !== existing.fullName) {
+            data.fullName = dto.fullName;
+            before.fullName = existing.fullName;
+            after.fullName = dto.fullName;
+        }
+        if (dto.soilType !== undefined) {
+            const nextSoilType = normalizeSoilType(dto.soilType);
+            if (nextSoilType !== existing.soilType) {
+                data.soilType = nextSoilType;
+                before.soilType = existing.soilType;
+                after.soilType = nextSoilType;
+            }
+        }
+        // Nothing actually changed — no write, no audit row, no event.
+        if (Object.keys(data).length === 0)
             return this.detailOrThrow(id, actor);
         await this.prisma.$transaction(async (tx) => {
-            await tx.customer.update({ where: { id }, data: { fullName } });
+            const updated = await tx.customer.update({ where: { id }, data });
             await this.audit.record(tx, {
                 actorId: actor.id,
                 entityType: 'CUSTOMER',
                 entityId: id,
-                entityLabel: fullName,
+                entityLabel: updated.fullName,
                 action: 'updated',
-                before: { fullName: existing.fullName },
-                after: { fullName },
+                before,
+                after,
             });
             await this.domainEvents.emit(tx, {
                 eventType: DOMAIN_EVENTS.CUSTOMER_UPDATED,
                 aggregateType: 'customer',
                 aggregateId: id,
                 actorId: actor.id,
-                payload: { fullName },
+                payload: { fullName: updated.fullName, ...after },
             });
         });
         return this.detailOrThrow(id, actor);
@@ -732,6 +761,16 @@ CustomersService = __decorate([
     __metadata("design:paramtypes", [typeof (_a = typeof PrismaService !== "undefined" && PrismaService) === "function" ? _a : Object, typeof (_b = typeof AuditService !== "undefined" && AuditService) === "function" ? _b : Object, typeof (_c = typeof DomainEventService !== "undefined" && DomainEventService) === "function" ? _c : Object])
 ], CustomersService);
 export { CustomersService };
+/**
+ * Optional free-text soil type. undefined, null and blank all normalize to NULL;
+ * anything else is trimmed. No controlled vocabulary is applied — none is approved.
+ */
+function normalizeSoilType(value) {
+    if (value === undefined || value === null)
+        return null;
+    const trimmed = String(value).trim();
+    return trimmed === '' ? null : trimmed;
+}
 function locationLabel(l) {
     return l.village || l.taluk || l.district || l.addressLine || 'location';
 }
@@ -747,6 +786,7 @@ function serializeCustomerDetail(customer) {
         farmerCode: customer.farmerCode,
         fullName: customer.fullName,
         preferredLanguage: customer.preferredLanguage,
+        soilType: customer.soilType,
         status: customer.status,
         createdBy: customer.createdBy ?? null,
         createdAt: customer.createdAt,

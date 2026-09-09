@@ -5,16 +5,6 @@ import { useAuth, authErrorMessage } from '../auth/AuthContext';
 import { Alert, Button, Card, Field, Input, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
 
-const DEMO_PASSWORD = 'Founder@123';
-
-const DEMO_ACCOUNTS = [
-  { label: 'Founder & CEO', role: 'FOUNDER (Rank 0)', email: 'founder@grotec.local' },
-  { label: 'Operations Manager', role: 'MANAGER (Rank 1)', email: 'manager@grotec.local' },
-  { label: 'Senior Telecaller', role: 'AGENT (Rank 2)', email: 'agent@grotec.local' },
-  { label: 'Field Staff Associate', role: 'STAFF (Rank 2)', email: 'staff@grotec.local' },
-  { label: 'Field Delivery Associate', role: 'DELIVERY (Rank 2)', email: 'delivery@grotec.local' },
-];
-
 const LOCAL_BUSINESS_LD = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -52,8 +42,8 @@ export function LoginPage() {
   // Style variant: 'split' (Variant A - default) or 'minimal' (Variant B)
   const isMinimal = searchParams.get('style') === 'minimal';
 
-  const [email, setEmail] = useState('agent@grotec.local');
-  const [password, setPassword] = useState(DEMO_PASSWORD);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -198,7 +188,6 @@ export function LoginPage() {
             {/* Bottom Version Tag */}
             <div className="relative z-10 mt-8 pt-6 border-t border-emerald-800/60 text-xs text-emerald-300/80 flex justify-between items-center font-medium">
               <span>GROTEC FarmerOS v2.4</span>
-              <span>Chennai Head Office</span>
             </div>
           </div>
 
@@ -252,7 +241,7 @@ export function LoginPage() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        alert('Please contact your administrator (founder@grotec.local) to reset your security credentials.');
+                        alert('Please contact your system administrator to reset your password.');
                       }}
                       className="text-xs text-brand-600 hover:text-brand-700 font-medium hover:underline transition-colors"
                     >
@@ -300,28 +289,6 @@ export function LoginPage() {
                   Authorized personnel only. All access, sessions and telephony actions are actively monitored and audited.
                 </p>
               </div>
-
-              {/* Dev credentials quick-click (Development only) */}
-              {import.meta.env.DEV && (
-                <div className="pt-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    Quick Dev Access (Local Database)
-                  </p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {DEMO_ACCOUNTS.map((acc) => (
-                      <button
-                        key={acc.email}
-                        type="button"
-                        onClick={() => signIn(undefined, { email: acc.email, password: DEMO_PASSWORD })}
-                        className="rounded border border-slate-200 bg-slate-50/70 p-2 text-left text-[11px] hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-150"
-                      >
-                        <p className="font-bold text-slate-800 truncate">{acc.label}</p>
-                        <p className="text-slate-400 font-mono text-[9px] truncate">{acc.email}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -378,7 +345,7 @@ export function LoginPage() {
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      alert('Please contact your administrator (founder@grotec.local) to reset your security credentials.');
+                      alert('Please contact your system administrator to reset your password.');
                     }}
                     className="text-xs text-brand-600 hover:underline"
                   >
@@ -409,19 +376,6 @@ export function LoginPage() {
             <p className="text-center text-[10px] text-slate-400 leading-normal">
               Authorized personnel only. Access is monitored and audited.
             </p>
-
-            {/* Dev accounts in minimal view */}
-            {import.meta.env.DEV && (
-              <div className="pt-2 border-t border-slate-100 text-center">
-                <button
-                  type="button"
-                  onClick={() => signIn(undefined, { email: 'agent@grotec.local', password: DEMO_PASSWORD })}
-                  className="text-[11px] font-semibold text-brand-700 hover:underline"
-                >
-                  Quick Sign-in as Agent (agent@grotec.local)
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -49,7 +49,7 @@ let CustomersController = class CustomersController {
         return this.customers.detailOrThrow(id, actor);
     }
     async update(actor, id, dto) {
-        return this.customers.update(actor, id, dto.fullName);
+        return this.customers.update(actor, id, dto);
     }
     async activate(actor, id) {
         await this.customers.setActive(actor, id, true);

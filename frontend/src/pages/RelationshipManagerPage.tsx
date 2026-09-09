@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftRight,
@@ -7,6 +7,7 @@ import {
   History,
   MapPin,
   Phone as PhoneIcon,
+  Phone,
   Search,
   Sprout,
   StickyNote,
@@ -43,7 +44,10 @@ export function RelationshipManagerPage() {
 
   const isFounder = user.roleCode === 'FOUNDER';
   const canManage = hasPermission('relationship.manage');
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('portfolio');
+  const [categoryTab, setCategoryTab] = useState<'ALL' | 'EXISTING' | 'LEADS' | 'NEW'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [q, setQ] = useState('');
   const [rmFilter, setRmFilter] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -75,27 +79,157 @@ export function RelationshipManagerPage() {
     setSelectedId(customerId);
   };
 
-  const rows = data ?? [];
+  const rawRows = data ?? [];
+
+  const rows = useMemo(() => {
+    return rawRows.filter((row) => {
+      // Category filter
+      if (categoryTab === 'EXISTING' && !row.customer.farmerCode) return false;
+      if (categoryTab === 'LEADS' && row.customer.farmerCode) return false;
+      if (categoryTab === 'NEW' && !row.convertedAt && !row.assignedAt) return false;
+
+      // Status filter
+      if (statusFilter === 'ACTIVE' && row.customer.status !== 'ACTIVE') return false;
+      if (statusFilter === 'INTERESTED' && row.lastCall?.outcome !== 'INTERESTED') return false;
+      if (statusFilter === 'FOLLOWUP' && row.pendingFollowUps <= 0) return false;
+      if (statusFilter === 'CONVERTED' && !row.convertedAt) return false;
+      if (statusFilter === 'NOT_ANSWERED' && row.lastCall?.status !== 'NOT_ANSWERED') return false;
+      if (statusFilter === 'NOT_INTERESTED' && row.lastCall?.outcome !== 'NOT_INTERESTED') return false;
+
+      return true;
+    });
+  }, [rawRows, categoryTab, statusFilter]);
+
+  // Summary counts
+  const totalCount = rawRows.length;
+  const interestedCount = useMemo(() => rawRows.filter((r) => r.lastCall?.outcome === 'INTERESTED').length, [rawRows]);
+  const overdueCount = useMemo(() => rawRows.reduce((acc, r) => acc + (r.pendingFollowUps || 0), 0), [rawRows]);
+  const assignedCount = useMemo(() => rawRows.filter((r) => Boolean(r.owner)).length, [rawRows]);
 
   return (
     <div className="flex h-[calc(100vh-0px)] flex-col p-6">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      {/* Top Header: Title, Summary Counters & Primary CTA */}
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/90 pb-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-slate-900">
-            <UserRoundCheck className="h-6 w-6 text-brand-600" />
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              Field &amp; Account Management
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="text-xs text-slate-500 font-medium">Customer Portfolio</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+            <UserRoundCheck className="h-6 w-6 text-emerald-700" />
             Relationship Manager
           </h1>
-          <p className="text-sm text-slate-500">
-            Relationship ownership of converted customers — {isFounder ? 'every RM portfolio' : 'your portfolio'}. Distinct from agent lead ownership.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Relationship ownership of converted farmers — {isFounder ? 'team portfolio' : 'your assigned portfolio'}.
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input className="pl-8" placeholder="Search farmers…" value={q} onChange={(e) => setQ(e.target.value)} />
+
+        <div className="flex items-center gap-3">
+          {/* Summary counters */}
+          <div className="hidden lg:flex items-center gap-2 text-xs">
+            <div className="rounded-lg border border-slate-200/80 bg-white px-3 py-1.5 shadow-2xs">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Total</span>
+              <span className="text-sm font-black text-slate-900">{totalCount}</span>
+            </div>
+            <div className="rounded-lg border border-slate-200/80 bg-white px-3 py-1.5 shadow-2xs">
+              <span className="text-[10px] uppercase font-bold text-emerald-700 block">Interested</span>
+              <span className="text-sm font-black text-emerald-700">{interestedCount}</span>
+            </div>
+            <div className="rounded-lg border border-slate-200/80 bg-white px-3 py-1.5 shadow-2xs">
+              <span className="text-[10px] uppercase font-bold text-amber-700 block">Follow-ups</span>
+              <span className="text-sm font-black text-amber-700">{overdueCount}</span>
+            </div>
           </div>
+
+          {/* Primary CTA: Start Calling */}
+          <Button
+            variant="call"
+            size="sm"
+            onClick={() => navigate('/agent')}
+            className="font-bold shadow-xs px-3.5 py-2 text-xs shrink-0"
+          >
+            <Phone className="h-3.5 w-3.5 fill-current mr-1" />
+            <span>Start Calling</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Category Tab Row & Controls */}
+      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Category Tabs (All, Existing, Prev. Leads, New Data) */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start">
+          {(['ALL', 'EXISTING', 'LEADS', 'NEW'] as const).map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoryTab(cat)}
+              className={cx(
+                'px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer',
+                categoryTab === cat
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900',
+              )}
+            >
+              {cat === 'ALL' ? 'All' : cat === 'EXISTING' ? 'Existing' : cat === 'LEADS' ? 'Prev. Leads' : 'New Data'}
+            </button>
+          ))}
+
+          <span className="text-slate-300 mx-1">|</span>
+
+          {/* Sub-view: Portfolio vs Unassigned */}
+          <button
+            type="button"
+            onClick={() => { setTab('portfolio'); setSelectedId(null); }}
+            className={cx(
+              'px-2.5 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer',
+              tab === 'portfolio' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-500 hover:text-slate-800',
+            )}
+          >
+            Portfolio ({isFounder ? 'All' : 'Mine'})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTab('unassigned'); setSelectedId(null); }}
+            className={cx(
+              'px-2.5 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer',
+              tab === 'unassigned' ? 'bg-amber-50 text-amber-800 font-bold' : 'text-slate-500 hover:text-slate-800',
+            )}
+          >
+            Unassigned
+          </button>
+        </div>
+
+        {/* Search Bar & Status Filter */}
+        <div className="flex items-center gap-2 self-stretch md:self-auto">
+          <div className="relative flex-1 md:w-60">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Input
+              className="pl-8 text-xs py-1.5"
+              placeholder="Search farmers, phones..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-36 text-xs py-1.5"
+          >
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INTERESTED">Interested</option>
+            <option value="FOLLOWUP">Follow-up Due</option>
+            <option value="CONVERTED">Converted</option>
+            <option value="NOT_ANSWERED">No Response</option>
+            <option value="NOT_INTERESTED">Not Interested</option>
+          </Select>
+
           {isFounder && tab === 'portfolio' ? (
-            <Select value={rmFilter} onChange={(e) => setRmFilter(e.target.value)} className="w-48">
+            <Select value={rmFilter} onChange={(e) => setRmFilter(e.target.value)} className="w-40 text-xs py-1.5">
               <option value="">All RM holders</option>
               {(holdersQuery.data ?? []).map((h) => (
                 <option key={h.id} value={h.id}>
@@ -105,23 +239,6 @@ export function RelationshipManagerPage() {
             </Select>
           ) : null}
         </div>
-      </div>
-
-      <div className="mb-3 flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm font-medium w-fit">
-        <button
-          type="button"
-          onClick={() => { setTab('portfolio'); setSelectedId(null); }}
-          className={cx('rounded-md px-3 py-1.5 transition-colors', tab === 'portfolio' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
-        >
-          Portfolio ({isFounder ? 'all' : 'mine'})
-        </button>
-        <button
-          type="button"
-          onClick={() => { setTab('unassigned'); setSelectedId(null); }}
-          className={cx('rounded-md px-3 py-1.5 transition-colors', tab === 'unassigned' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
-        >
-          Unassigned conversions
-        </button>
       </div>
 
       {isError ? (
@@ -137,74 +254,116 @@ export function RelationshipManagerPage() {
             />
             <div className="min-h-0 flex-1 overflow-y-auto">
               {rows.length === 0 ? (
-                <div className="px-4 py-10 text-center text-sm text-slate-400">
+                <div className="px-4 py-12 text-center text-xs text-slate-400">
                   {tab === 'portfolio'
                     ? 'No customers under relationship ownership yet. Record an Interested → Sales outcome in the Agent workspace to convert one.'
-                    : 'Every converted customer has an RM. Release one (Founder) to move it here.'}
+                    : 'Every converted customer has an RM assigned.'}
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-100">
-                  {rows.map((row) => (
-                    <li key={row.customer.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(row.customer.id === selectedId ? null : row.customer.id)}
-                        className={cx('w-full px-4 py-3 text-left transition-colors hover:bg-slate-50', selectedId === row.customer.id ? 'bg-brand-50/60' : '')}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-semibold text-slate-800">{row.customer.fullName}</p>
-                              <span className="text-xs text-slate-400">{row.customer.farmerCode ?? '—'}</span>
-                              <StatusBadge status={row.customer.status} />
-                            </div>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {row.customer.primaryPhone ? formatE164(row.customer.primaryPhone) : 'no phone'}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="py-2.5 px-3">Customer</th>
+                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Phone</th>
+                        <th className="py-2.5 px-3">Location</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-3">Last Contact</th>
+                        <th className="py-2.5 px-3">Follow-up</th>
+                        <th className="py-2.5 px-3">Requirement</th>
+                        <th className="py-2.5 px-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {rows.map((row) => {
+                        const isSelected = selectedId === row.customer.id;
+
+                        return (
+                          <tr
+                            key={row.customer.id}
+                            onClick={() => setSelectedId(isSelected ? null : row.customer.id)}
+                            className={cx(
+                              'cursor-pointer transition-colors',
+                              isSelected ? 'bg-emerald-50/80 font-medium' : 'hover:bg-slate-50/70',
+                            )}
+                          >
+                            <td className="py-2.5 px-3 font-semibold text-slate-900">
+                              <div>{row.customer.fullName}</div>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {row.customer.farmerCode || '—'}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 px-3 text-slate-600">
+                              <span className="text-[11px]">
+                                {row.customer.farmerCode ? 'Farmer' : 'Conversion'}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 px-3 font-mono text-slate-700">
+                              {row.customer.primaryPhone ? formatE164(row.customer.primaryPhone) : '—'}
+                            </td>
+
+                            <td className="py-2.5 px-3 text-slate-500 max-w-[140px] truncate">
                               {row.customer.location
-                                ? ` · ${[row.customer.location.village, row.customer.location.taluk, row.customer.location.district, row.customer.location.state].filter(Boolean).join(', ')}`
-                                : ''}
-                            </p>
-                            {row.customer.crops.length > 0 ? (
-                              <p className="mt-1 flex flex-wrap gap-1">
-                                {row.customer.crops.map((c) => (
-                                  <span key={c.id} className="inline-flex items-center gap-1 rounded bg-green-50 px-1.5 py-0.5 text-[11px] font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                                    <Sprout className="h-3 w-3" />
-                                    {c.name} · {c.acreage} {c.unit}
-                                  </span>
-                                ))}
-                              </p>
-                            ) : null}
-                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                              {row.owner ? (
-                                <span className="inline-flex items-center gap-1 font-medium text-slate-600">
-                                  <UserRoundCheck className="h-3 w-3" /> {row.owner.fullName}
+                                ? [row.customer.location.village, row.customer.location.district].filter(Boolean).join(', ')
+                                : '—'}
+                            </td>
+
+                            <td className="py-2.5 px-3">
+                              <StatusBadge status={row.customer.status} />
+                            </td>
+
+                            <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
+                              {row.lastCall ? formatDate(row.lastCall.startedAt) : '—'}
+                            </td>
+
+                            <td className="py-2.5 px-3">
+                              {row.pendingFollowUps > 0 ? (
+                                <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                                  <CalendarClock className="h-3 w-3" /> {row.pendingFollowUps} due
                                 </span>
                               ) : (
-                                <Badge tone="amber">No RM</Badge>
+                                <span className="text-slate-400 text-[11px]">None</span>
                               )}
-                              {row.convertedAt ? <span>converted {formatDate(row.convertedAt)}</span> : row.assignedAt ? <span>since {formatDate(row.assignedAt)}</span> : null}
-                              {row.pendingFollowUps > 0 ? (
-                                <span className="inline-flex items-center gap-1 text-amber-600">
-                                  <CalendarClock className="h-3 w-3" /> {row.pendingFollowUps} pending follow-up{row.pendingFollowUps > 1 ? 's' : ''}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 flex-col items-end gap-1.5">
-                            {row.lastCall ? (
-                              <>
-                                <Badge tone={callTone(row.lastCall.status)}>{row.lastCall.status.replace('_', ' ')}</Badge>
-                                {row.lastCall.outcome ? (
-                                  <Badge tone={OUTCOME_LABEL[row.lastCall.outcome]?.tone ?? 'slate'}>{OUTCOME_LABEL[row.lastCall.outcome]?.label ?? row.lastCall.outcome}</Badge>
-                                ) : null}
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                            </td>
+
+                            <td className="py-2.5 px-3 text-slate-600 max-w-[150px] truncate">
+                              {row.customer.crops.length > 0 ? (
+                                row.customer.crops.map((c) => `${c.name} (${c.acreage}${c.unit})`).join(', ')
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                {row.customer.primaryPhone && (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/agent?phone=${encodeURIComponent(row.customer.primaryPhone!)}&name=${encodeURIComponent(row.customer.fullName)}`)}
+                                    title="Call farmer"
+                                    className="p-1.5 rounded text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition"
+                                  >
+                                    <Phone className="h-3.5 w-3.5 fill-current" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedId(isSelected ? null : row.customer.id)}
+                                  className="text-[11px] font-bold text-slate-600 hover:text-slate-900 px-2 py-1 rounded hover:bg-slate-100"
+                                >
+                                  {isSelected ? 'Close' : 'View'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </Card>

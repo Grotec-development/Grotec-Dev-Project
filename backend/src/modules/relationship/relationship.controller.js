@@ -24,8 +24,8 @@ let RelationshipController = class RelationshipController {
     async list(actor, rmId, q, unassigned) {
         return this.relationship.list(actor, { rmId, q, unassigned });
     }
-    async holders() {
-        return this.relationship.holders();
+    async holders(actor) {
+        return this.relationship.holders(actor);
     }
     async assign(actor, customerId, dto) {
         return this.relationship.assign(actor, customerId, dto);
@@ -48,8 +48,9 @@ __decorate([
 __decorate([
     Get('holders'),
     RequirePermission(PERMISSIONS.relationshipRead),
+    __param(0, CurrentEmployee()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], RelationshipController.prototype, "holders", null);
 __decorate([

@@ -91,6 +91,7 @@ export namespace AuditEntityType {
     let RELATIONSHIP_OWNERSHIP: string;
     let OUTBOUND_MESSAGE: string;
     let CUSTOMER_NOTE: string;
+    let REFERRAL: string;
 }
 export namespace AuditAction {
     export let LOGIN_SUCCESS: string;
@@ -143,6 +144,7 @@ export namespace AuditAction {
     export let PAYROLL_GENERATED: string;
     export let PAYROLL_APPROVED: string;
     export let PAYROLL_PUBLISHED: string;
+    export let REFERRAL_CREATED: string;
 }
 export namespace PAGINATION {
     let DEFAULT_PAGE: number;

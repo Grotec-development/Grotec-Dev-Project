@@ -5,7 +5,7 @@ import { api, errorMessage } from '../lib/api';
 import type { Employee, Page } from '../lib/types';
 import { ROLE_CODES, ROLE_LABELS } from '@grotec/shared';
 import { useAuth } from '../auth/AuthContext';
-import { Alert, Badge, Button, Card, Field, Input, Select, Spinner, Table, TD, TH, THead } from '../components/ui';
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, Select, Spinner, Table, TD, TH, THead } from '../components/ui';
 import { formatDate } from '../lib/format';
 
 export function TeamPage() {
@@ -72,6 +72,8 @@ export function TeamPage() {
         )}
       </Card>
 
+      <RolesPermissionsCard />
+
       {showCreate ? <CreateEmployeeModal onClose={() => setShowCreate(false)} /> : null}
     </div>
   );
@@ -81,6 +83,86 @@ interface RoleOption {
   id: string;
   code: string;
   name: string;
+  permissions?: { code: string; module: string; description: string }[];
+}
+
+/**
+ * Read-only reference panel: which permissions each role currently carries.
+ * Consumes the existing GET /roles endpoint (already returns nested
+ * role -> permissions) — no backend change required.
+ */
+function RolesPermissionsCard() {
+  const { data, isError, error } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => (await api.get<RoleOption[]>('/roles')).data,
+  });
+
+  return (
+    <Card className="mt-6">
+      <CardHeader title="Roles & Permissions" />
+      {isError ? (
+        <div className="px-5 py-4">
+          <Alert tone="error">{errorMessage(error)}</Alert>
+        </div>
+      ) : !data ? (
+        <div className="px-5 py-4">
+          <Spinner label="Loading roles…" />
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {data.map((role) => {
+            const grouped = new Map<string, { code: string; description: string }[]>();
+            for (const perm of role.permissions ?? []) {
+              const list = grouped.get(perm.module) ?? [];
+              list.push({ code: perm.code, description: perm.description });
+              grouped.set(perm.module, list);
+            }
+            const total = role.permissions?.length ?? 0;
+            return (
+              <div key={role.id} className="px-5 py-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Badge tone={role.code === 'FOUNDER' ? 'amber' : role.code === 'AGENT' ? 'green' : 'slate'}>
+                    {ROLE_LABELS[role.code as keyof typeof ROLE_LABELS] ?? role.name}
+                  </Badge>
+                  <span className="text-xs text-slate-400">
+                    {total} permission{total === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {grouped.size === 0 ? (
+                  <p className="text-xs text-slate-400">No permissions granted.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {[...grouped.entries()]
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([module, perms]) => (
+                        <div key={module} className="flex flex-wrap items-baseline gap-1.5">
+                          <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                            {module}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {perms
+                              .sort((a, b) => a.code.localeCompare(b.code))
+                              .map((perm) => (
+                                <span
+                                  key={perm.code}
+                                  title={perm.description}
+                                  className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600"
+                                >
+                                  {perm.code}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function CreateEmployeeModal({ onClose }: { onClose: () => void }) {

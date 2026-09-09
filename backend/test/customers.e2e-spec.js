@@ -209,4 +209,193 @@ describe('customers', () => {
             .set('Authorization', `Bearer ${agentToken}`)
             .expect(403);
     });
+
+    // ----------------------------------------------------------------- soilType
+    // Free-text farm soil description (Customer.soilType, VARCHAR(40)). Contract:
+    //   key omitted -> preserved · null or blank -> cleared · otherwise trimmed and set.
+    describe('soilType', () => {
+        /** Reads soilType back through the real detail endpoint. */
+        async function soilOf(id, token = agentToken) {
+            const res = await request(app.getHttpServer())
+                .get(`/api/v1/customers/${id}`)
+                .set('Authorization', `Bearer ${token}`)
+                .expect(200);
+            return res.body.soilType;
+        }
+        async function patch(id, body, expected = 200) {
+            return request(app.getHttpServer())
+                .patch(`/api/v1/customers/${id}`)
+                .set('Authorization', `Bearer ${agentToken}`)
+                .send(body)
+                .expect(expected);
+        }
+
+        it('creates a customer with a soilType and persists it', async () => {
+            const res = await request(app.getHttpServer())
+                .post('/api/v1/customers')
+                .set('Authorization', `Bearer ${agentToken}`)
+                .send({
+                fullName: 'Soil Farmer',
+                soilType: 'Red loam',
+                phones: { phones: [{ number: '9876543230', isPrimary: true }] },
+            })
+                .expect(201);
+            expect(res.body.soilType).toBe('Red loam');
+            // Straight from the database, not just the response envelope.
+            const row = await prisma.customer.findUnique({ where: { id: res.body.id } });
+            expect(row?.soilType).toBe('Red loam');
+            // And back through the detail endpoint.
+            expect(await soilOf(res.body.id)).toBe('Red loam');
+        });
+
+        it('creates a customer without a soilType and stores null', async () => {
+            const id = await createCustomerAs(app, agentToken, 'No Soil Farmer', '9876543231');
+            expect(await soilOf(id)).toBeNull();
+            const row = await prisma.customer.findUnique({ where: { id } });
+            expect(row?.soilType).toBeNull();
+        });
+
+        it('trims surrounding whitespace on create', async () => {
+            const res = await request(app.getHttpServer())
+                .post('/api/v1/customers')
+                .set('Authorization', `Bearer ${agentToken}`)
+                .send({
+                fullName: 'Padded Soil Farmer',
+                soilType: '   Black cotton   ',
+                phones: { phones: [{ number: '9876543232', isPrimary: true }] },
+            })
+                .expect(201);
+            expect(res.body.soilType).toBe('Black cotton');
+        });
+
+        it('treats a blank soilType on create as null', async () => {
+            const res = await request(app.getHttpServer())
+                .post('/api/v1/customers')
+                .set('Authorization', `Bearer ${agentToken}`)
+                .send({
+                fullName: 'Blank Soil Farmer',
+                soilType: '   ',
+                phones: { phones: [{ number: '9876543233', isPrimary: true }] },
+            })
+                .expect(201);
+            expect(res.body.soilType).toBeNull();
+        });
+
+        it('updates soilType through PATCH', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Patch Soil Farmer', '9876543234');
+            const res = await patch(id, { soilType: 'Alluvial' });
+            expect(res.body.soilType).toBe('Alluvial');
+            expect(await soilOf(id)).toBe('Alluvial');
+        });
+
+        it('trims surrounding whitespace on PATCH', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Patch Trim Farmer', '9876543235');
+            const res = await patch(id, { soilType: '  Sandy loam  ' });
+            expect(res.body.soilType).toBe('Sandy loam');
+        });
+
+        it('leaves soilType untouched when PATCH carries only fullName', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Keep Soil Farmer', '9876543236', { soilType: 'Laterite' });
+            expect(await soilOf(id)).toBe('Laterite');
+            const res = await patch(id, { fullName: 'Renamed Farmer' });
+            expect(res.body.fullName).toBe('Renamed Farmer');
+            expect(res.body.soilType).toBe('Laterite');
+            expect(await soilOf(id)).toBe('Laterite');
+        });
+
+        it('clears soilType when PATCH sends null', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Null Soil Farmer', '9876543237', { soilType: 'Red loam' });
+            const res = await patch(id, { soilType: null });
+            expect(res.body.soilType).toBeNull();
+            expect(await soilOf(id)).toBeNull();
+        });
+
+        it('clears soilType when PATCH sends an empty string', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Empty Soil Farmer', '9876543238', { soilType: 'Red loam' });
+            const res = await patch(id, { soilType: '' });
+            expect(res.body.soilType).toBeNull();
+            expect(await soilOf(id)).toBeNull();
+        });
+
+        it('accepts a soilType of exactly 40 characters', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Boundary Soil Farmer', '9876543239');
+            const atLimit = 'S'.repeat(40);
+            const res = await patch(id, { soilType: atLimit });
+            expect(res.body.soilType).toBe(atLimit);
+        });
+
+        it('rejects a soilType longer than 40 characters and does not persist it', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Long Soil Farmer', '9876543240', { soilType: 'Red loam' });
+            const tooLong = 'S'.repeat(41);
+            const res = await patch(id, { soilType: tooLong }, 400);
+            expect(res.body.error.code).toBe('VALIDATION_ERROR');
+            // The prior value must survive a rejected request.
+            expect(await soilOf(id)).toBe('Red loam');
+            const row = await prisma.customer.findUnique({ where: { id } });
+            expect(row?.soilType).toBe('Red loam');
+        });
+
+        it('rejects a soilType longer than 40 characters on create', async () => {
+            const res = await request(app.getHttpServer())
+                .post('/api/v1/customers')
+                .set('Authorization', `Bearer ${agentToken}`)
+                .send({
+                fullName: 'Long Soil Create',
+                soilType: 'S'.repeat(41),
+                phones: { phones: [{ number: '9876543241', isPrimary: true }] },
+            })
+                .expect(400);
+            expect(res.body.error.code).toBe('VALIDATION_ERROR');
+            expect(await prisma.customer.count({ where: { fullName: 'Long Soil Create' } })).toBe(0);
+        });
+
+        it('returns soilType on the customer detail endpoint', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Detail Soil Farmer', '9876543242', { soilType: 'Clay' });
+            const res = await request(app.getHttpServer())
+                .get(`/api/v1/customers/${id}`)
+                .set('Authorization', `Bearer ${agentToken}`)
+                .expect(200);
+            expect(res.body).toHaveProperty('soilType');
+            expect(res.body.soilType).toBe('Clay');
+        });
+
+        it('records the soilType change in audit before/after, without a fabricated fullName change', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Audit Soil Farmer', '9876543243', { soilType: 'Red loam' });
+            await patch(id, { soilType: 'Black cotton' });
+            const audit = await prisma.auditEvent.findFirst({
+                where: { entityType: 'CUSTOMER', entityId: id, action: 'updated' },
+                orderBy: { createdAt: 'desc' },
+            });
+            expect(audit).toBeTruthy();
+            expect(audit?.before).toMatchObject({ soilType: 'Red loam' });
+            expect(audit?.after).toMatchObject({ soilType: 'Black cotton' });
+            // A soil-only edit must not claim the name changed.
+            expect(Object.keys(audit?.after ?? {})).not.toContain('fullName');
+            expect(Object.keys(audit?.before ?? {})).not.toContain('fullName');
+        });
+
+        it('records clearing soilType in audit as a transition to null', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Audit Clear Farmer', '9876543244', { soilType: 'Laterite' });
+            await patch(id, { soilType: null });
+            const audit = await prisma.auditEvent.findFirst({
+                where: { entityType: 'CUSTOMER', entityId: id, action: 'updated' },
+                orderBy: { createdAt: 'desc' },
+            });
+            expect(audit?.before).toMatchObject({ soilType: 'Laterite' });
+            expect(audit?.after).toMatchObject({ soilType: null });
+        });
+
+        it('does not write an audit event when the submitted soilType is unchanged', async () => {
+            const id = await createCustomerAs(app, agentToken, 'Noop Soil Farmer', '9876543245', { soilType: 'Red loam' });
+            const before = await prisma.auditEvent.count({
+                where: { entityType: 'CUSTOMER', entityId: id, action: 'updated' },
+            });
+            const res = await patch(id, { soilType: 'Red loam' });
+            expect(res.body.soilType).toBe('Red loam');
+            const after = await prisma.auditEvent.count({
+                where: { entityType: 'CUSTOMER', entityId: id, action: 'updated' },
+            });
+            expect(after).toBe(before);
+        });
+    });
 });

@@ -117,6 +117,7 @@ export const AuditEntityType = {
   RELATIONSHIP_OWNERSHIP: 'RELATIONSHIP_OWNERSHIP',
   OUTBOUND_MESSAGE: 'OUTBOUND_MESSAGE',
   CUSTOMER_NOTE: 'CUSTOMER_NOTE',
+  REFERRAL: 'REFERRAL',
 };
 
 export const AuditAction = {
@@ -176,6 +177,8 @@ export const AuditAction = {
   PAYROLL_GENERATED: 'payroll.generated',
   PAYROLL_APPROVED: 'payroll.approved',
   PAYROLL_PUBLISHED: 'payroll.published',
+  // Referrals (Step 3B)
+  REFERRAL_CREATED: 'referral.created',
 };
 
 export const PAGINATION = {

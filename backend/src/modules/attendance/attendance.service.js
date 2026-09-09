@@ -288,7 +288,52 @@ let AttendanceService = class AttendanceService {
             },
         });
         if (existing) {
-            throw ApiError.conflict('ATTENDANCE_ALREADY_EXISTS', 'Attendance record already exists for this date');
+            // When an attendance record already exists for that date (e.g. from prior punch,
+            // check-in, or biometric device), and notes are provided (such as a shift
+            // permission / regularization request), update the existing record with the
+            // regularization notes and submit for manager approval (PENDING).
+            // Do NOT overwrite punchIn, punchOut, existing status, or biometric source.
+            if (dto.notes && dto.notes.trim().length > 0) {
+                const requestedNote = dto.notes.trim();
+                const combinedNotes = existing.notes
+                    ? (existing.notes.includes(requestedNote) ? existing.notes : `${existing.notes} | ${requestedNote}`)
+                    : requestedNote;
+                const canApprove = actor.permissions.includes(PERMISSIONS.attendanceApprove) && !isSelf;
+                const nextApprovalStatus = canApprove ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING;
+                return await this.prisma.$transaction(async (tx) => {
+                    const updated = await tx.attendanceRecord.update({
+                        where: { id: existing.id },
+                        data: {
+                            notes: combinedNotes,
+                            approvalStatus: nextApprovalStatus,
+                            approverId: canApprove ? actor.id : null,
+                            approvedAt: canApprove ? new Date() : null,
+                            rejectionReason: null,
+                        },
+                    });
+                    await tx.attendanceApprovalHistory.create({
+                        data: {
+                            attendanceRecordId: existing.id,
+                            actorId: actor.id,
+                            action: 'REGULARIZATION_REQUESTED',
+                            fromStatus: existing.approvalStatus,
+                            toStatus: nextApprovalStatus,
+                            reason: requestedNote,
+                        },
+                    });
+                    await this.audit.record(tx, {
+                        actorId: actor.id,
+                        entityType: AuditEntityType.EMPLOYEE,
+                        entityId: existing.id,
+                        entityLabel: `${employee.fullName} (${dto.date})`,
+                        action: AuditAction.ATTENDANCE_CORRECTED,
+                        before: existing,
+                        after: updated,
+                    });
+                    return updated;
+                });
+            }
+            throw ApiError.conflict('ATTENDANCE_ALREADY_EXISTS', 'Attendance record already exists for this date. Provide a reason to request regularization.');
         }
         const canApprove = actor.permissions.includes(PERMISSIONS.attendanceApprove) && !isSelf;
         const initialApprovalStatus = canApprove
