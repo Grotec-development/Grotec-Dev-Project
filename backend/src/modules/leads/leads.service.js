@@ -9,8 +9,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a, _b, _c;
 import { Injectable } from '@nestjs/common';
-import { EmployeeStatus, LeadStatus, Prisma } from '@prisma/client';
-import { AuditAction, AuditEntityType, DOMAIN_EVENTS } from '@grotec/shared';
+import { Prisma } from '@prisma/client';
+import { AuditAction, AuditEntityType, DOMAIN_EVENTS, EmployeeStatus, LeadStatus } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
