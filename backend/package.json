@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "node -r @swc-node/register src/main.js",
-    "start:dev": "node --watch -r @swc-node/register src/main.js",
+    "start:dev": "node --watch-path=src -r @swc-node/register src/main.js",
     "dev": "npm run start:dev",
     "prestart:dev": "npm run build --workspace @grotec/shared",
     "test": "npm run build --workspace @grotec/shared && vitest run",

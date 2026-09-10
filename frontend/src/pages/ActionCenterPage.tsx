@@ -345,7 +345,6 @@ export function ActionCenterPage() {
           <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-4 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 text-slate-600">
               <span className="font-bold text-slate-800">Need immediate shift assistance?</span>
-              <span>Contact Chennai HQ desk at internal ext: 104</span>
             </div>
             <Link
               to="/hrms/leave"
@@ -513,7 +512,10 @@ function QuickActionModal({
         const start = new Date(startDate);
         const end = new Date(endDate);
         const diffDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-        await api.post('/leave/applications', {
+        // Self-service create route (POST /api/v1/leave/my/apply). The server
+        // forces employeeId to the authenticated actor; `/leave/applications`
+        // is a GET-only listing route and does not accept POST.
+        await api.post('/leave/my/apply', {
           leaveTypeId: leaveTypeId || leaveTypes[0]?.id,
           startDate,
           endDate,

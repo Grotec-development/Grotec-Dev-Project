@@ -7,18 +7,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a;
-import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
-import { PhoneKind } from '@grotec/shared';
-export class UpdatePhoneDto {
+import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
+export class RebalanceLeadsDto {
 }
-__decorate([
-    IsOptional(),
-    IsEnum(PhoneKind),
-    __metadata("design:type", typeof (_a = typeof PhoneKind !== "undefined" && PhoneKind) === "function" ? _a : Object)
-], UpdatePhoneDto.prototype, "kind", void 0);
 __decorate([
     IsOptional(),
     IsBoolean(),
     __metadata("design:type", Boolean)
-], UpdatePhoneDto.prototype, "isPrimary", void 0);
+], RebalanceLeadsDto.prototype, "dryRun", void 0);
+__decorate([
+    IsOptional(),
+    IsInt(),
+    Min(1),
+    Max(5000),
+    __metadata("design:type", Number)
+], RebalanceLeadsDto.prototype, "limit", void 0);

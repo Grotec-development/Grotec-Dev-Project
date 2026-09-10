@@ -16,6 +16,7 @@ import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { toPage } from '../../common/utils/pagination';
+import { computeLeadWorkloadPlan } from './lead-balancer.util';
 const LEAD_DETAIL_INCLUDE = {
     customer: {
         select: {
@@ -233,6 +234,93 @@ let LeadsService = class LeadsService {
             releasedAt: row.releasedAt,
             isCurrent: row.releasedAt === null,
         }));
+    }
+    async rebalanceWorkload(actor, options = {}) {
+        const dryRun = options.dryRun !== false;
+        const limit = options.limit ?? 1000;
+        const eligibleAgents = await this.prisma.employee.findMany({
+            where: {
+                status: EmployeeStatus.ACTIVE,
+                deletedAt: null,
+                role: { code: 'AGENT' },
+            },
+            select: { id: true, fullName: true, status: true },
+            orderBy: { id: 'asc' },
+        });
+        const leads = await this.prisma.lead.findMany({
+            where: {
+                status: LeadStatus.OPEN,
+                deletedAt: null,
+            },
+            include: {
+                customer: { select: { id: true, fullName: true } },
+                ownerships: {
+                    where: { releasedAt: null },
+                    include: { employee: { select: { id: true, fullName: true, status: true } } },
+                },
+                callSessions: {
+                    select: { id: true, scheduledAt: true, status: true },
+                    where: { status: 'SCHEDULED' },
+                },
+            },
+            take: limit,
+            orderBy: { createdAt: 'asc' },
+        });
+        const normalizedLeads = leads.map((l) => ({
+            id: l.id,
+            customerId: l.customerId,
+            currentOwnerId: l.ownerships[0]?.employeeId ?? null,
+            hasPendingFollowUp: (l.callSessions?.length ?? 0) > 0,
+        }));
+        const callHistory = await this.prisma.callSession.findMany({
+            where: {
+                status: 'ENDED',
+                connectedAt: { not: null },
+            },
+            select: {
+                customerId: true,
+                employeeId: true,
+                endedAt: true,
+                connectedAt: true,
+            },
+            orderBy: { endedAt: 'desc' },
+            take: 5000,
+        });
+        const plan = computeLeadWorkloadPlan({
+            agents: eligibleAgents,
+            leads: normalizedLeads,
+            callHistory,
+            options,
+        });
+        if (!dryRun && plan.deltaAssignments.length > 0) {
+            await this.prisma.$transaction(async (tx) => {
+                for (const delta of plan.deltaAssignments) {
+                    await tx.leadOwnership.updateMany({
+                        where: { leadId: delta.leadId, releasedAt: null },
+                        data: { releasedAt: new Date() },
+                    });
+                    await tx.leadOwnership.create({
+                        data: {
+                            leadId: delta.leadId,
+                            employeeId: delta.targetAgentId,
+                            assignedById: actor.id,
+                            reason: `Workload rebalancing (${delta.reason})`,
+                        },
+                    });
+                    await this.audit.record(tx, {
+                        actorId: actor.id,
+                        entityType: AuditEntityType.LEAD,
+                        entityId: delta.leadId,
+                        action: AuditAction.OWNERSHIP_ASSIGNED,
+                        after: { ownerId: delta.targetAgentId, reason: delta.reason },
+                    });
+                }
+            });
+        }
+        return {
+            dryRun,
+            plan,
+        };
     }
     /** Agents see only leads they currently own. (STAFF/MANAGER/FOUNDER: all.) */
     scopeWhere(actor) {

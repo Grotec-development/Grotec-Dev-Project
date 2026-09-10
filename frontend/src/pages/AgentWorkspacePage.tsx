@@ -28,10 +28,17 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
-import type { Call, CallContext, QueueItem, KnowledgeGuidance } from '../lib/types';
+import type { Call, CallContext, CustomerDetail, QueueItem, KnowledgeGuidance } from '../lib/types';
+import { useAuth } from '../auth/AuthContext';
 import { formatDate, formatE164 } from '../lib/format';
 import { Alert, Badge, Button, Card, Input, Spinner, cx } from '../components/ui';
 import { NewCustomerModal } from './customers/NewCustomerModal';
+import {
+  SOIL_TYPE_MAX_LENGTH,
+  buildFarmerUpdatePayload,
+  canEditFarmerRecord,
+} from './customers/customer-edit.util';
+import { FarmerQuickEdit } from './customers/FarmerQuickEdit';
 import { useAssistantContext } from '../assistant/AssistantContext';
 
 const ACTIVE_STATUSES = ['DIALING', 'RINGING', 'CONNECTED'];
@@ -120,6 +127,7 @@ export function AgentWorkspacePage() {
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(204); // Default elapsed timer for mock realism
   const { setContext: setAssistantContext } = useAssistantContext();
+  const { hasPermission } = useAuth();
 
   // Knowledge Base in-call state
   const [kbQuery, setKbQuery] = useState('');
@@ -747,6 +755,80 @@ export function AgentWorkspacePage() {
   const lastContactCall = context?.history?.[0] ?? null;
   const pendingFollowUp = context?.followUps?.find((f) => f.status === 'PENDING') ?? null;
 
+  // ---------------------------------------------------------------- farmer edit
+  // Agent Mode reads the farmer through detailForCallContext(), which deliberately
+  // skips agent visibility scoping so any dialled number can show its match. That
+  // means holding customer.update is NOT sufficient to edit THIS farmer.
+  // GET /customers/:id runs the same CustomersService.scopedCustomer() check that
+  // PATCH /customers/:id runs, so a successful read is an exact probe for
+  // "this agent may mutate this record" — without weakening the server scope.
+  const canUpdateCustomers = hasPermission('customer.update');
+  const editableCustomerId = context?.customer?.id ?? null;
+  const [scopedReadOk, setScopedReadOk] = useState(false);
+  const customerEditable = canEditFarmerRecord(canUpdateCustomers, scopedReadOk);
+  const [farmerEditing, setFarmerEditing] = useState(false);
+  const [farmerNameDraft, setFarmerNameDraft] = useState('');
+  const [farmerSoilDraft, setFarmerSoilDraft] = useState('');
+  const [farmerSaving, setFarmerSaving] = useState(false);
+  const [farmerEditError, setFarmerEditError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFarmerEditing(false);
+    setFarmerEditError(null);
+    if (!editableCustomerId || !canUpdateCustomers) {
+      setScopedReadOk(false);
+      return;
+    }
+    let cancelled = false;
+    api
+      .get(`/customers/${editableCustomerId}`)
+      .then(() => {
+        if (!cancelled) setScopedReadOk(true);
+      })
+      .catch(() => {
+        if (!cancelled) setScopedReadOk(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editableCustomerId, canUpdateCustomers]);
+
+  function startFarmerEdit() {
+    setFarmerNameDraft(context?.customer?.fullName ?? '');
+    setFarmerSoilDraft(context?.customer?.soilType ?? '');
+    setFarmerEditError(null);
+    setFarmerEditing(true);
+  }
+
+  // Cancel restores the persisted values and issues no request.
+  function cancelFarmerEdit() {
+    setFarmerNameDraft(context?.customer?.fullName ?? '');
+    setFarmerSoilDraft(context?.customer?.soilType ?? '');
+    setFarmerEditError(null);
+    setFarmerEditing(false);
+  }
+
+  async function saveFarmerEdit() {
+    if (!editableCustomerId) return;
+    setFarmerSaving(true);
+    setFarmerEditError(null);
+    try {
+      // Same endpoint and contract the Farmers page uses. A blank soil type sends
+      // null, which the backend treats as "clear"; no other field is sent, and the
+      // response is the freshly scoped record, so the panel updates from the server.
+      const res = await api.patch<CustomerDetail>(
+        `/customers/${editableCustomerId}`,
+        buildFarmerUpdatePayload(farmerNameDraft, farmerSoilDraft),
+      );
+      setContext((prev) => (prev ? { ...prev, customer: res.data } : prev));
+      setFarmerEditing(false);
+    } catch (err) {
+      setFarmerEditError(errorMessage(err));
+    } finally {
+      setFarmerSaving(false);
+    }
+  }
+
   return (
     <div className="p-6 space-y-4 max-w-7xl mx-auto">
       {/* Top Header: Breadcrumb, Agent Mode Status, Category Directory */}
@@ -984,15 +1066,45 @@ export function AgentWorkspacePage() {
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                       Farmer &amp; Agricultural Record
                     </h2>
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {context?.customer?.farmerCode || matchedQueueItem?.customer?.farmerCode || 'FARM-REF'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {context?.customer?.farmerCode || matchedQueueItem?.customer?.farmerCode || 'FARM-REF'}
+                      </span>
+                      {customerEditable && !farmerEditing ? (
+                        <button
+                          type="button"
+                          onClick={startFarmerEdit}
+                          className="text-[11px] font-semibold text-brand-600 hover:underline"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {editableCustomerId ? (
+                        <Link
+                          to={`/customers/${editableCustomerId}`}
+                          className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 hover:underline"
+                          title="Phones, locations and crops are managed on the full farmer profile"
+                        >
+                          Profile
+                        </Link>
+                      ) : null}
+                    </div>
                   </div>
 
                   {/* Farmer Details */}
                   <div className="space-y-2.5 text-xs">
                     <div>
                       <p className="text-[10px] font-bold uppercase text-slate-400">Farmer Name</p>
+                      {farmerEditing ? (
+                        <Input
+                          value={farmerNameDraft}
+                          onChange={(e) => setFarmerNameDraft(e.target.value)}
+                          aria-label="Farmer name"
+                          disabled={farmerSaving}
+                          className="mt-0.5"
+                          autoFocus
+                        />
+                      ) : (
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="font-bold text-slate-900 text-sm">{farmerDisplayName}</p>
                         {context?.customer ? (
@@ -1008,6 +1120,7 @@ export function AgentWorkspacePage() {
                           </span>
                         ) : null}
                       </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -1047,14 +1160,57 @@ export function AgentWorkspacePage() {
                       </p>
                     </div>
 
-                    {context?.customer?.soilType && (
+                    {farmerEditing ? (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Soil Classification</p>
+                        <Input
+                          value={farmerSoilDraft}
+                          onChange={(e) => setFarmerSoilDraft(e.target.value)}
+                          maxLength={SOIL_TYPE_MAX_LENGTH}
+                          placeholder="e.g. Red loam"
+                          aria-label="Soil type"
+                          disabled={farmerSaving}
+                          className="mt-0.5"
+                        />
+                        <p className="mt-1 text-[10px] text-slate-400">Leave empty to clear.</p>
+                      </div>
+                    ) : context?.customer?.soilType ? (
                       <div>
                         <p className="text-[10px] font-bold uppercase text-slate-400">Soil Classification</p>
                         <span className="inline-flex items-center rounded bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200 mt-0.5">
                           {context.customer.soilType}
                         </span>
                       </div>
-                    )}
+                    ) : null}
+
+                    {farmerEditing ? (
+                      <div className="border-t border-slate-100 pt-2.5">
+                        {farmerEditError ? (
+                          <p className="mb-1.5 text-[11px] text-red-600">{farmerEditError}</p>
+                        ) : null}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="xs"
+                            onClick={() => void saveFarmerEdit()}
+                            disabled={farmerSaving || farmerNameDraft.trim().length < 2}
+                          >
+                            {farmerSaving ? 'Saving…' : 'Save'}
+                          </Button>
+                          <Button size="xs" variant="ghost" onClick={cancelFarmerEdit} disabled={farmerSaving}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {farmerEditing && context?.customer ? (
+                      <FarmerQuickEdit
+                        customer={context.customer}
+                        onSaved={(updated) =>
+                          setContext((prev) => (prev ? { ...prev, customer: updated } : prev))
+                        }
+                      />
+                    ) : null}
 
                     {farmerRequirement ? (
                       <div>

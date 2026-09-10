@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c, _d;
+var _a, _b, _c, _d, _e;
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { PERMISSIONS } from '@grotec/shared';
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
@@ -19,6 +19,7 @@ import { parsePagination } from '../../common/utils/pagination';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { AssignLeadDto } from './dto/assign-lead.dto';
+import { RebalanceLeadsDto } from './dto/rebalance-leads.dto';
 import { LeadsService } from './leads.service';
 let LeadsController = class LeadsController {
     constructor(leads) {
@@ -45,6 +46,9 @@ let LeadsController = class LeadsController {
     }
     async assign(actor, id, dto) {
         return this.leads.assign(actor, id, dto);
+    }
+    async rebalance(actor, dto) {
+        return this.leads.rebalanceWorkload(actor, dto);
     }
 };
 __decorate([
@@ -107,6 +111,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, typeof (_d = typeof AssignLeadDto !== "undefined" && AssignLeadDto) === "function" ? _d : Object]),
     __metadata("design:returntype", Promise)
 ], LeadsController.prototype, "assign", null);
+__decorate([
+    Post('rebalance'),
+    RequirePermission(PERMISSIONS.leadAssign),
+    __param(0, CurrentEmployee()),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_e = typeof RebalanceLeadsDto !== "undefined" && RebalanceLeadsDto) === "function" ? _e : Object]),
+    __metadata("design:returntype", Promise)
+], LeadsController.prototype, "rebalance", null);
 LeadsController = __decorate([
     Controller('leads'),
     __metadata("design:paramtypes", [typeof (_a = typeof LeadsService !== "undefined" && LeadsService) === "function" ? _a : Object])

@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a;
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { EmployeeHistoryType } from '@prisma/client';
+import { EmployeeHistoryType } from '@grotec/shared';
 export class CreateEmployeeHistoryDto {
 }
 __decorate([

@@ -213,4 +213,103 @@ describe('HRMS Shift Permission Mapping & Status Harmonization', () => {
   });
 });
 
+describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
+  const CRM_NAV_ITEMS = [
+    { to: '/dashboard', label: 'Dashboard', permission: 'customer.read' },
+    { to: '/agent', label: 'Agent Mode', permission: 'call.read' },
+    { to: '/relationship-manager', label: 'Relationship Mgr', permission: 'relationship.read' },
+    { to: '/action-center', label: 'Action Center', permission: 'call.read' },
+    { to: '/customers', label: 'Farmers', permission: 'customer.read' },
+    { to: '/leads', label: 'Leads Pipeline', permission: 'lead.read' },
+    { to: '/knowledge-base', label: 'Knowledge Base', permission: 'assistant.use' },
+    { to: '/crops', label: 'Crop Catalog', permission: 'crop.read' },
+    { to: '/reports', label: 'Reports & Rankings', permission: 'call.read' },
+  ];
+
+  const AGENT_PRIMARY_NAV = new Set([
+    '/dashboard',
+    '/agent',
+    '/action-center',
+    '/customers',
+    '/relationship-manager',
+  ]);
+
+  const FOUNDER_HIDDEN_NAV = new Set([
+    '/action-center',
+    '/leads',
+    '/knowledge-base',
+    '/crops',
+    '/reports',
+  ]);
+
+  const MANAGER_HIDDEN_NAV = new Set([
+    '/leads',
+    '/knowledge-base',
+    '/crops',
+    '/reports',
+  ]);
+
+  const filterNav = (roleCode: string, perms: string[] = []) => {
+    const hasPerm = (p?: string) => !p || perms.includes(p);
+    const isAgent = roleCode === 'AGENT';
+    const isFounder = roleCode === 'FOUNDER';
+    const isManager = roleCode === 'MANAGER';
+    return CRM_NAV_ITEMS.filter(
+      (i) =>
+        (!isAgent || AGENT_PRIMARY_NAV.has(i.to)) &&
+        (!isFounder || !FOUNDER_HIDDEN_NAV.has(i.to)) &&
+        (!isManager || !MANAGER_HIDDEN_NAV.has(i.to)) &&
+        hasPerm(i.permission)
+    );
+  };
+
+  it('hides exactly the 4 designated items from MANAGER visible navigation while preserving others', () => {
+    // Manager holds all CRM operational permissions
+    const managerPerms = ['customer.read', 'call.read', 'relationship.read', 'lead.read', 'assistant.use', 'crop.read'];
+    const visible = filterNav('MANAGER', managerPerms);
+    const labels = visible.map((i) => i.label);
+
+    // 4 Hidden items
+    expect(labels).not.toContain('Leads Pipeline');
+    expect(labels).not.toContain('Knowledge Base');
+    expect(labels).not.toContain('Crop Catalog');
+    expect(labels).not.toContain('Reports & Rankings');
+
+    // Remaining visible items
+    expect(labels).toEqual([
+      'Dashboard',
+      'Agent Mode',
+      'Relationship Mgr',
+      'Action Center',
+      'Farmers',
+    ]);
+  });
+
+  it('preserves FOUNDER navigation unchanged', () => {
+    const allPerms = ['customer.read', 'call.read', 'relationship.read', 'lead.read', 'assistant.use', 'crop.read'];
+    const visible = filterNav('FOUNDER', allPerms);
+    const labels = visible.map((i) => i.label);
+
+    expect(labels).toEqual([
+      'Dashboard',
+      'Agent Mode',
+      'Relationship Mgr',
+      'Farmers',
+    ]);
+  });
+
+  it('preserves AGENT navigation unchanged', () => {
+    const agentPerms = ['customer.read', 'call.read'];
+    const visible = filterNav('AGENT', agentPerms);
+    const labels = visible.map((i) => i.label);
+
+    expect(labels).toEqual([
+      'Dashboard',
+      'Agent Mode',
+      'Action Center',
+      'Farmers',
+    ]);
+  });
+});
+
 

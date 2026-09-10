@@ -17,6 +17,7 @@ export default defineConfig({
       'src/modules/calls/**/*.spec.js',
       'src/modules/attendance/**/*.spec.js',
       'src/modules/relationship/**/*.spec.js',
+      'src/modules/leads/**/*.spec.js',
     ],
     testTimeout: 30_000,
     fileParallelism: false,

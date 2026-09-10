@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var _a;
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsLatitude, IsLongitude, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested, } from 'class-validator';
-import { PhoneKind } from '@prisma/client';
+import { PhoneKind } from '@grotec/shared';
 export class PhoneInputDto {
 }
 __decorate([

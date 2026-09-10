@@ -88,6 +88,19 @@ const FOUNDER_HIDDEN_NAV = new Set([
   '/reports',
 ]);
 
+/**
+ * MANAGER-only: these five destinations are hidden from the manager's primary
+ * navigation. Same rule as above — VISIBILITY for one role only. Routes, pages,
+ * APIs and permissions are untouched, and the manager keeps direct-URL access.
+ */
+const MANAGER_HIDDEN_NAV = new Set([
+  '/action-center',
+  '/leads',
+  '/knowledge-base',
+  '/crops',
+  '/reports',
+]);
+
 // Administration & Settings (Founder & Manager only)
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/team', label: 'Settings & Team', icon: Settings, permission: 'employee.read' },
@@ -289,10 +302,11 @@ function NavGroup({
             className={({ isActive }) =>
               cx(
                 'flex items-center rounded-md text-xs font-semibold transition-all cursor-pointer group',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
                 isExpanded ? 'gap-3 px-3 py-2' : 'justify-center p-2.5',
                 isActive
-                  ? 'bg-emerald-50 text-emerald-800 font-bold border-l-2 border-emerald-600 shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900',
+                  ? 'bg-emerald-50 text-emerald-800 font-bold border-l-2 border-emerald-600 shadow-2xs ring-1 ring-inset ring-emerald-200/60'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
               )
             }
           >
@@ -368,6 +382,7 @@ export function Shell() {
     (i) =>
       (!isAgent || AGENT_PRIMARY_NAV.has(i.to)) &&
       (!isFounder || !FOUNDER_HIDDEN_NAV.has(i.to)) &&
+      (!isManager || !MANAGER_HIDDEN_NAV.has(i.to)) &&
       (!i.permission || hasPermission(i.permission)),
   );
   const hrmsVisible = isAgent ? [] : getHrmsNavItems(user.roleCode, hasPermission);
@@ -425,7 +440,10 @@ export function Shell() {
               to="/dashboard"
               size="sm"
               variant={isNavExpanded ? 'full' : 'mark-only'}
-              subtitle={isNavExpanded ? 'FarmerOS v2.4' : undefined}
+              // AGENT workspace hides the version line; '' overrides GrotecLogo's
+              // default (undefined would fall back to it). Other roles and the
+              // login screen are untouched.
+              subtitle={isAgent ? '' : isNavExpanded ? 'FarmerOS v2.4' : undefined}
             />
           </div>
           <div className="flex items-center gap-1">
@@ -567,7 +585,7 @@ export function Shell() {
         </div>
 
         {/* Bottom Session Footer */}
-        <div className={cx('border-t border-slate-200/90 bg-slate-50/50 transition-all', isNavExpanded ? 'p-3.5' : 'p-2 flex flex-col items-center')}>
+        <div className={cx('border-t border-slate-200/90 bg-slate-50/80 transition-all', isNavExpanded ? 'p-3.5' : 'p-2 flex flex-col items-center')}>
           <div className={cx('flex items-center', isNavExpanded ? 'gap-2.5' : 'justify-center')}>
             <div
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-slate-700 border border-slate-200 shadow-xs relative"
@@ -582,7 +600,6 @@ export function Shell() {
             {isNavExpanded && (
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-bold text-slate-900 leading-tight">{user.fullName || 'Priya S.'}</p>
-                <p className="truncate text-[10px] text-slate-400 font-medium">Chennai Head Office</p>
                 <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 mt-0.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   Connected
@@ -595,7 +612,7 @@ export function Shell() {
                 onClick={() => void logout()}
                 title="Sign out"
                 aria-label="Sign out"
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 transition cursor-pointer"
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>
