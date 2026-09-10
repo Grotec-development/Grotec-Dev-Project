@@ -6,6 +6,7 @@
   "description": "GROTEC FarmerOS CRM — React SPA",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm --prefix .. run build:shared",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
