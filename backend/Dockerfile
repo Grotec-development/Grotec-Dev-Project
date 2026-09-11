@@ -57,4 +57,6 @@ WORKDIR /app/backend
 
 EXPOSE 3000
 
-CMD ["node", "dist/main.js"]
+# Apply committed migrations using runtime DATABASE_URL/DIRECT_URL before listening.
+# A migration failure exits the container; exec gives Node normal shutdown signals.
+CMD ["sh", "-c", "npm run prisma:migrate-deploy && exec node dist/main.js"]

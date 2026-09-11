@@ -78,12 +78,6 @@ function playAudioCue(muted: boolean) {
   }
 }
 
-const BIO_INPUT_RECOMMENDATIONS = [
-  { id: '1', name: 'Phos (Liquid)', category: 'Phosphate Solubilizer', price: '₹450/L' },
-  { id: '2', name: 'Micromix', category: 'Micronutrients', price: '₹650/kg' },
-  { id: '3', name: 'Sanjeevini Gel', category: 'Plant Vitality', price: '₹800/bag' },
-];
-
 export interface PendingWrapUpItem {
   callId: string;
   customerId?: string | null;
@@ -98,7 +92,6 @@ export interface PendingWrapUpItem {
   followUpDate: string;
   followUpTime: string;
   followUpNote: string;
-  suggestedProducts: string[];
 }
 
 export function AgentWorkspacePage() {
@@ -120,12 +113,11 @@ export function AgentWorkspacePage() {
   const [followUpDate, setFollowUpDate] = useState('2026-03-12');
   const [followUpTime, setFollowUpTime] = useState('10:00');
   const [followUpNote, setFollowUpNote] = useState('');
-  const [suggestedProducts, setSuggestedProducts] = useState<string[]>([]);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(204); // Default elapsed timer for mock realism
+  const [elapsed, setElapsed] = useState(0);
   const { setContext: setAssistantContext } = useAssistantContext();
   const { hasPermission } = useAuth();
 
@@ -351,19 +343,6 @@ export function AgentWorkspacePage() {
     setSuccessNotice(`Inserted advisory for ${item.crop.name} into call notes.`);
   }
 
-  function suggestGuidanceProducts(item: KnowledgeGuidance) {
-    // If any item recommended matches BIO_INPUT_RECOMMENDATIONS, toggle it
-    item.recommendedProducts.forEach((prodName) => {
-      const match = BIO_INPUT_RECOMMENDATIONS.find((b) =>
-        b.name.toLowerCase().includes(prodName.toLowerCase()) || prodName.toLowerCase().includes(b.name.toLowerCase()),
-      );
-      if (match && !suggestedProducts.includes(match.id)) {
-        setSuggestedProducts((prev) => [...prev, match.id]);
-      }
-    });
-    setSuccessNotice(`Added ${item.recommendedProducts.join(', ')} to recommended bio-inputs.`);
-  }
-
   async function dial(phoneNumber: string, customerId?: string, leadId?: string) {
     if (busy) return;
     setBusy(true);
@@ -409,43 +388,6 @@ export function AgentWorkspacePage() {
     }
   }
 
-  // Quick simulated start for testing the active call screen from mock
-  function startMockActiveCall(name: string, phone: string) {
-    setActiveCall({
-      id: 'mock-call-1',
-      customerId: null,
-      leadId: null,
-      agentId: 'agent-1',
-      startedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      connectedAt: new Date().toISOString(),
-      endedAt: null,
-      outcome: null,
-      nextAction: null,
-      disconnectReason: null,
-      phoneNumber: phone,
-      direction: 'OUTBOUND',
-      provider: 'MOCK_DIALER',
-      providerCallId: 'sim-call-98421',
-      status: 'CONNECTED',
-      notes: [],
-    });
-    setIsMuted(false);
-    setIsWrapUp(false);
-    setElapsed(204); // 03:24 timer matching PDF mockup
-    setNoteDraft(
-      'Farmer reports slight leaf curl on paddy. Advised check on water stagnation. Interested in Phos bio-fertilizer for upcoming phosphate solubilization trial.',
-    );
-    setDisposition('INTERESTED');
-    setNextAction('CALLBACK');
-    setFollowUpDate('2026-03-12');
-    setFollowUpTime('10:00');
-    setFollowUpNote('Check phosphate solubilization trial results');
-    setError(null);
-    setSuccessNotice(null);
-  }
-
   // Hang up call without leaving screen -> transition into wrap-up
   async function endCall() {
     if (!activeCall || busy) return;
@@ -457,11 +399,6 @@ export function AgentWorkspacePage() {
       mediaStreamRef.current = null;
     }
     try {
-      if (activeCall.id === 'mock-call-1') {
-        setActiveCall({ ...activeCall, status: 'ENDED', endedAt: new Date().toISOString() });
-        setIsWrapUp(true);
-        return;
-      }
       const res = await api.post<Call>(`/calls/${activeCall.id}/end`);
       setActiveCall(res.data);
       setIsWrapUp(true);
@@ -480,34 +417,30 @@ export function AgentWorkspacePage() {
     setBusy(true);
     setError(null);
     try {
-      const isMock = activeCall.id === 'mock-call-1';
-
-      if (!isMock) {
-        // Ensure call status is ENDED before recording outcome
-        if (isActive(activeCall.status)) {
-          await api.post(`/calls/${activeCall.id}/end`).catch(() => undefined);
-        }
-
-        // Save note if drafted
-        if (noteDraft.trim()) {
-          await api.post(`/calls/${activeCall.id}/notes`, { body: noteDraft.trim() }).catch(() => undefined);
-        }
-
-        // Record outcome
-        const outcomePayload: any = {
-          outcome: disposition,
-        };
-        if (disposition === 'INTERESTED') {
-          outcomePayload.nextAction = nextAction;
-          if (nextAction === 'CALLBACK') {
-            outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
-            outcomePayload.followUpTime = followUpTime || '10:00';
-            outcomePayload.followUpNote =
-              followUpNote.trim() || noteDraft.trim() || 'Telecaller follow-up callback';
-          }
-        }
-        await api.post(`/calls/${activeCall.id}/outcome`, outcomePayload);
+      // Ensure call status is ENDED before recording outcome
+      if (isActive(activeCall.status)) {
+        await api.post(`/calls/${activeCall.id}/end`).catch(() => undefined);
       }
+
+      // Save note if drafted
+      if (noteDraft.trim()) {
+        await api.post(`/calls/${activeCall.id}/notes`, { body: noteDraft.trim() }).catch(() => undefined);
+      }
+
+      // Record outcome
+      const outcomePayload: any = {
+        outcome: disposition,
+      };
+      if (disposition === 'INTERESTED') {
+        outcomePayload.nextAction = nextAction;
+        if (nextAction === 'CALLBACK') {
+          outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
+          outcomePayload.followUpTime = followUpTime || '10:00';
+          outcomePayload.followUpNote =
+            followUpNote.trim() || noteDraft.trim() || 'Telecaller follow-up callback';
+        }
+      }
+      await api.post(`/calls/${activeCall.id}/outcome`, outcomePayload);
 
       const farmerName = farmerDisplayName;
       const outcomeText =
@@ -530,7 +463,6 @@ export function AgentWorkspacePage() {
         if (activeCall?.id) localStorage.removeItem(`grotec_draft_note_${activeCall.id}`);
         localStorage.removeItem('grotec_draft_note_active');
       } catch {}
-      setSuggestedProducts([]);
       setSuccessNotice(`Call session completed for ${farmerName}. Disposition saved: ${outcomeText}.`);
       void loadQueue();
     } catch (err) {
@@ -557,7 +489,6 @@ export function AgentWorkspacePage() {
       followUpDate,
       followUpTime,
       followUpNote,
-      suggestedProducts,
     };
     setPendingWrapUp(item);
     setActiveCall(null);
@@ -575,7 +506,6 @@ export function AgentWorkspacePage() {
     setFollowUpDate(item.followUpDate);
     setFollowUpTime(item.followUpTime);
     setFollowUpNote(item.followUpNote);
-    setSuggestedProducts(item.suggestedProducts);
     setElapsed(item.durationSeconds);
     setActiveCall({
       id: item.callId,
@@ -601,9 +531,7 @@ export function AgentWorkspacePage() {
     setPendingWrapUp(null);
     setError(null);
     setSuccessNotice(null);
-    if (item.callId !== 'mock-call-1') {
-      void loadContext(item.callId);
-    }
+    void loadContext(item.callId);
   }
 
   // Quick submit directly from outside card
@@ -612,24 +540,22 @@ export function AgentWorkspacePage() {
     setBusy(true);
     setError(null);
     try {
-      if (item.callId !== 'mock-call-1') {
-        if (item.notes.trim()) {
-          await api.post(`/calls/${item.callId}/notes`, { body: item.notes.trim() }).catch(() => undefined);
-        }
-        const outcomePayload: any = {
-          outcome: item.disposition,
-        };
-        if (item.disposition === 'INTERESTED') {
-          outcomePayload.nextAction = item.nextAction;
-          if (item.nextAction === 'CALLBACK') {
-            outcomePayload.followUpDate = item.followUpDate || new Date().toISOString().slice(0, 10);
-            outcomePayload.followUpTime = item.followUpTime || '10:00';
-            outcomePayload.followUpNote =
-              item.followUpNote.trim() || item.notes.trim() || 'Follow-up callback';
-          }
-        }
-        await api.post(`/calls/${item.callId}/outcome`, outcomePayload);
+      if (item.notes.trim()) {
+        await api.post(`/calls/${item.callId}/notes`, { body: item.notes.trim() }).catch(() => undefined);
       }
+      const outcomePayload: any = {
+        outcome: item.disposition,
+      };
+      if (item.disposition === 'INTERESTED') {
+        outcomePayload.nextAction = item.nextAction;
+        if (item.nextAction === 'CALLBACK') {
+          outcomePayload.followUpDate = item.followUpDate || new Date().toISOString().slice(0, 10);
+          outcomePayload.followUpTime = item.followUpTime || '10:00';
+          outcomePayload.followUpNote =
+            item.followUpNote.trim() || item.notes.trim() || 'Follow-up callback';
+        }
+      }
+      await api.post(`/calls/${item.callId}/outcome`, outcomePayload);
       setPendingWrapUp(null);
       setSuccessNotice(
         `Follow-up recorded for ${item.farmerName}: ${item.disposition === 'INTERESTED' ? `Interested (Follow-up: ${item.followUpDate})` : item.disposition}.`,
@@ -1418,13 +1344,6 @@ export function AgentWorkspacePage() {
                         <div className="flex items-center justify-end gap-1.5 pt-1">
                           <button
                             type="button"
-                            onClick={() => suggestGuidanceProducts(item)}
-                            className="rounded px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
-                          >
-                            + Suggest
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => insertGuidanceIntoNotes(item)}
                             className="rounded px-2.5 py-1 text-[10px] font-bold bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-xs flex items-center gap-1"
                           >
@@ -1588,56 +1507,6 @@ export function AgentWorkspacePage() {
                   )}
                 </div>
               )}
-
-              {/* Contextual Bio-Input Recommendations */}
-              <div className="pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                    Recommended Bio-Inputs for this Call
-                  </p>
-                  <span className="text-[10px] text-slate-400 font-medium">Grotec Advisory Formulations</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {BIO_INPUT_RECOMMENDATIONS.map((prod) => {
-                    const isSuggested = suggestedProducts.includes(prod.id);
-                    return (
-                      <div
-                        key={prod.id}
-                        className={cx(
-                          "rounded-md border p-2.5 flex flex-col justify-between transition-colors",
-                          isSuggested ? "border-emerald-300 bg-emerald-50/40" : "border-slate-200/80 bg-slate-50/50"
-                        )}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-bold text-xs text-slate-900">{prod.name}</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSuggestedProducts((prev) =>
-                                  isSuggested ? prev.filter((x) => x !== prod.id) : [...prev, prod.id],
-                                )
-                              }
-                              className={cx(
-                                'rounded px-2 py-0.5 text-[10px] font-bold transition shrink-0',
-                                isSuggested
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-white border border-slate-200 text-emerald-700 hover:bg-emerald-50',
-                              )}
-                            >
-                              {isSuggested ? 'Suggested ✓' : 'Suggest'}
-                            </button>
-                          </div>
-                          <p className="text-[10px] text-slate-500 mt-1">{prod.category}</p>
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-2">
-                          Advisory ref &bull; <span className="font-mono text-slate-600 font-medium">{prod.price}</span>
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Previous Remarks & Call History Section */}
               <div className="pt-3 border-t border-slate-100">
@@ -1980,13 +1849,6 @@ export function AgentWorkspacePage() {
                 ) : queue.length === 0 ? (
                   <div className="p-6 space-y-3 text-center text-xs text-slate-500">
                     <p>Queue empty or all completed for today.</p>
-                    <Button
-                      size="sm"
-                      variant="call"
-                      onClick={() => startMockActiveCall('Murugan V.', '+91 98421 88321')}
-                    >
-                      Simulate Active Call with Murugan V. (PDF Screen 4)
-                    </Button>
                   </div>
                 ) : (
                   queue.map((item) => {
@@ -2061,14 +1923,6 @@ export function AgentWorkspacePage() {
                     onClick={() => void dial(manualNumber.trim())}
                   >
                     <PhoneCall className="h-4 w-4" /> Dial Farmer
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="md"
-                    onClick={() => startMockActiveCall('Murugan V.', '+91 98421 88321')}
-                    title="Simulate active call from mockup"
-                  >
-                    Demo Live Call
                   </Button>
                 </div>
               </div>

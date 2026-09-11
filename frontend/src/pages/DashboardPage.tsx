@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   CalendarClock,
   CheckCircle2,
@@ -28,27 +28,8 @@ import { formatDate, formatE164 } from '../lib/format';
 import { useAuth } from '../auth/AuthContext';
 import { Alert, Badge, Button, Spinner, StatusBadge, cx } from '../components/ui';
 
-interface ScheduledCall {
-  id: string;
-  name: string;
-  phone: string;
-  crops: string;
-  district: string;
-  scheduledTime: string;
-  priority: 'High Priority' | 'Follow up' | 'Routine' | 'Overdue';
-}
-
-const UP_NEXT_QUEUE: ScheduledCall[] = [
-  { id: '1', name: 'Rajendran K.', phone: '+91 94432 12091', crops: 'Tomato, Brinjal', district: 'Dharmapuri', scheduledTime: '10:30 AM', priority: 'High Priority' },
-  { id: '2', name: 'Murugan V.', phone: '+91 98421 88321', crops: 'Paddy, Sugarcane', district: 'Trichy', scheduledTime: '11:15 AM', priority: 'Follow up' },
-  { id: '3', name: 'Chinnasamy A.', phone: '+91 94451 22931', crops: 'Turmeric, Banana', district: 'Erode', scheduledTime: '12:00 PM', priority: 'Routine' },
-  { id: '4', name: 'Palani Kumar', phone: '+91 94431 82190', crops: 'Coconut, Cocoa', district: 'Tanjore', scheduledTime: '02:30 PM', priority: 'Routine' },
-  { id: '5', name: 'Subramanian P.', phone: '+91 95001 44321', crops: 'Paddy, Cotton', district: 'Salem', scheduledTime: '03:15 PM', priority: 'Overdue' },
-];
-
 export function DashboardPage() {
   const { user, hasPermission } = useAuth();
-  const navigate = useNavigate();
 
   if (user?.roleCode === 'DELIVERY') {
     return <Navigate to="/hrms/attendance" replace />;
@@ -141,10 +122,6 @@ export function DashboardPage() {
       year: 'numeric',
     });
   }, []);
-
-  const handleDial = (phone: string, name: string) => {
-    navigate(`/agent?phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}`);
-  };
 
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
@@ -525,9 +502,6 @@ export function DashboardPage() {
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                   Up Next in Queue
                 </h2>
-                <span className="rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-bold text-slate-600">
-                  {UP_NEXT_QUEUE.length} queued
-                </span>
               </div>
               <Link
                 to="/agent"
@@ -537,27 +511,7 @@ export function DashboardPage() {
               </Link>
             </div>
 
-            <div className="divide-y divide-slate-100">
-              {UP_NEXT_QUEUE.slice(0, 3).map((item) => (
-                <div key={item.id} className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {item.crops} • <span className="text-slate-600">{item.district}</span>
-                    </p>
-                  </div>
-                  <Button
-                    variant="call"
-                    size="xs"
-                    onClick={() => handleDial(item.phone, item.name)}
-                    className="shrink-0 font-bold"
-                  >
-                    <Phone className="h-3 w-3 fill-current" />
-                    <span>Call</span>
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-slate-500">Open the calling workspace to view your assigned queue.</p>
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100">
