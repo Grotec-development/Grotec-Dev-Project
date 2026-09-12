@@ -88,8 +88,50 @@ export function EmployeeProfilePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/employees/${id}/profile`);
-      setProfile(res.data);
+      const base = await api.get(`/employees/${id}/profile`);
+      const baseData = base.data;
+      const canSeePerformance = !!baseData.permissions?.canSeePerformance;
+      const canSeeFinancials = !!baseData.permissions?.canSeeFinancials;
+
+      // Base profile only returns overview + capability flags; each tab's data lives
+      // behind its own lazy-load section endpoint. Fetch all of them in parallel and
+      // merge, skipping (rather than requesting) sections the actor isn't permitted
+      // to see so we don't trigger avoidable 403s.
+      const sectionFetchers: Record<string, () => Promise<any> | null> = {
+        performance: () => (canSeePerformance ? api.get(`/employees/${id}/profile/performance`) : null),
+        attendance: () => api.get(`/employees/${id}/profile/attendance`),
+        leave: () => api.get(`/employees/${id}/profile/leave`),
+        salary: () => (canSeeFinancials ? api.get(`/employees/${id}/profile/salary`) : null),
+        advances: () => (canSeeFinancials ? api.get(`/employees/${id}/profile/advances`) : null),
+        history: () => api.get(`/employees/${id}/profile/history`),
+        documents: () => api.get(`/employees/${id}/profile/documents`),
+      };
+
+      const defaults: Record<string, any> = {
+        performance: {},
+        attendance: { stats: { present: 0, absent: 0, halfDay: 0, late: 0, leave: 0 }, records: [] },
+        leave: { balances: [], applications: [] },
+        salary: { revisions: [], payslips: [] },
+        advances: { runningBalanceTotal: 0, records: [] },
+        history: [],
+        documents: [],
+      };
+
+      const keys = Object.keys(sectionFetchers);
+      const results = await Promise.allSettled(
+        keys.map((key) => {
+          const req = sectionFetchers[key]();
+          return req ?? Promise.resolve(null);
+        })
+      );
+
+      const merged: Record<string, any> = { ...baseData };
+      keys.forEach((key, i) => {
+        const result = results[i];
+        merged[key] = result.status === 'fulfilled' && result.value ? result.value.data : defaults[key];
+      });
+
+      setProfile(merged);
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Failed to load employee profile');
     } finally {
