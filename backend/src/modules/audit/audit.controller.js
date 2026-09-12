@@ -12,7 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 var _a;
 import { Controller, Get, Query } from '@nestjs/common';
-import { PERMISSIONS } from '@grotec/shared';
+import { isTopTier, PERMISSIONS } from '@grotec/shared';
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { ApiError } from '../../common/errors/api-error';
@@ -23,7 +23,7 @@ let AuditController = class AuditController {
         this.prisma = prisma;
     }
     async list(actor, entityType, entityId, actorId, action, from, to, page, pageSize) {
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             throw ApiError.forbidden('FOUNDER_ONLY', 'Only Founder can access audit logs (PRD §5.1.2)');
         }
         const where = {};

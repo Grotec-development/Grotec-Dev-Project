@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { setLogoutReason } from './idleReason';
 
 const ACCESS_KEY = 'grotec_access';
 
@@ -72,7 +73,10 @@ api.interceptors.response.use(
         original._retried = true;
         original.headers.Authorization = `Bearer ${token}`;
         return api(original);
-      } catch {
+      } catch (refreshError) {
+        if (axios.isAxiosError(refreshError) && refreshError.response?.data?.error?.code === 'SESSION_IDLE_TIMEOUT') {
+          setLogoutReason('idle');
+        }
         redirectToLogin();
       }
     }

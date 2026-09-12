@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var PayrollService_1;
 var _a, _b, _c;
 import { Injectable, Logger } from '@nestjs/common';
-import { ApprovalStatus, AuditAction, AuditEntityType, DOMAIN_EVENTS, outranks, PayrollStatus, } from '@grotec/shared';
+import { ApprovalStatus, AuditAction, AuditEntityType, DOMAIN_EVENTS, isTopTier, outranks, PayrollStatus, } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
@@ -26,7 +26,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         this.logger = new Logger(PayrollService_1.name);
     }
     async listRuns(actor) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can view company payroll runs');
         }
         return this.prisma.payrollRun.findMany({
@@ -37,7 +37,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         });
     }
     async getRun(actor, id) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can view company payroll runs');
         }
         const run = await this.prisma.payrollRun.findFirst({
@@ -65,7 +65,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         return run;
     }
     async createRun(actor, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can create payroll runs');
         }
         const existing = await this.prisma.payrollRun.findUnique({ where: { month: dto.month } });
@@ -80,7 +80,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         });
     }
     async generate(actor, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can generate payroll');
         }
         const [yearStr, monthStr] = dto.month.split('-');
@@ -246,7 +246,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         return run;
     }
     async approve(actor, id, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can approve payroll');
         }
         const run = await this.prisma.payrollRun.findFirst({
@@ -292,7 +292,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         return updated;
     }
     async publish(actor, id) {
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             throw ApiError.forbidden('FOUNDER_ONLY', 'Only the Founder can publish payroll (PRD §5.1.2)');
         }
         const run = await this.prisma.payrollRun.findFirst({
@@ -350,7 +350,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         const conditions = [
             { payrollRun: { status: PayrollStatus.PUBLISHED } },
         ];
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             if (employeeId)
                 conditions.push({ employeeId });
         }
@@ -424,7 +424,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
             throw ApiError.forbidden('PAYSLIP_NOT_PUBLISHED', 'Payslip is not published yet');
         }
         const isSelf = actor.id === item.employeeId;
-        if (!isSelf && actor.roleCode !== 'FOUNDER') {
+        if (!isSelf && !isTopTier(actor.roleCode)) {
             if (actor.roleCode !== 'MANAGER' || !outranks(actor.roleCode, item.employee.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'Access to payslip is forbidden');
             }
@@ -512,7 +512,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         return html;
     }
     async getReports(actor, month, format) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can view payroll cost reports');
         }
         const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -572,7 +572,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         if (!emp)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Employee not found');
         const isSelf = actor.id === employeeId;
-        if (!isSelf && actor.roleCode !== 'FOUNDER') {
+        if (!isSelf && !isTopTier(actor.roleCode)) {
             if (actor.roleCode !== 'MANAGER' || !outranks(actor.roleCode, emp.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'Access to salary revisions is forbidden');
             }
@@ -584,7 +584,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         });
     }
     async createSalaryRevision(actor, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can create salary revisions');
         }
         const emp = await this.prisma.employee.findUnique({
@@ -593,7 +593,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         });
         if (!emp)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Employee not found');
-        if (actor.roleCode !== 'FOUNDER' && !outranks(actor.roleCode, emp.role.code)) {
+        if (!isTopTier(actor.roleCode) && !outranks(actor.roleCode, emp.role.code)) {
             throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'Cannot create revision for this role');
         }
         const latest = await this.prisma.salaryRevision.findFirst({
@@ -647,7 +647,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
     }
     async listAdvances(actor, filters) {
         const conditions = [];
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             if (filters.employeeId)
                 conditions.push({ employeeId: filters.employeeId });
         }
@@ -699,7 +699,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         });
     }
     async createAdvance(actor, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can issue salary advances');
         }
         const emp = await this.prisma.employee.findUnique({
@@ -708,7 +708,7 @@ let PayrollService = PayrollService_1 = class PayrollService {
         });
         if (!emp)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Employee not found');
-        if (actor.roleCode !== 'FOUNDER' && !outranks(actor.roleCode, emp.role.code)) {
+        if (!isTopTier(actor.roleCode) && !outranks(actor.roleCode, emp.role.code)) {
             throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'Cannot issue advance to this role');
         }
         return this.prisma.advanceLedger.create({

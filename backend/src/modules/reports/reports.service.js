@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a;
 import { Injectable } from '@nestjs/common';
+import { isTopTier } from '@grotec/shared';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { parsePagination } from '../../common/utils/pagination';
@@ -567,7 +568,7 @@ let ReportsService = class ReportsService {
     }
 
     async exportLeaderboardCsv(actor, query = {}) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('LEADERBOARD_EXPORT_FORBIDDEN', 'Leaderboard export is restricted to management personnel');
         }
 

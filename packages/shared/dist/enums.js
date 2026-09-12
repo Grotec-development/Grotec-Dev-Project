@@ -113,6 +113,7 @@ exports.AuditAction = {
     LOGOUT: 'logout',
     PASSWORD_CHANGED: 'password.changed',
     REFRESH_REUSED: 'auth.refresh_reused',
+    SESSION_IDLE_TIMEOUT: 'auth.session_idle_timeout',
     // CRUD
     CREATED: 'created',
     UPDATED: 'updated',

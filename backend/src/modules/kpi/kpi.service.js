@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a, _b;
 import { Injectable } from '@nestjs/common';
-import { AuditAction, AuditEntityType, outranks, } from '@grotec/shared';
+import { AuditAction, AuditEntityType, isTopTier, outranks, } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -24,7 +24,7 @@ let KpiService = class KpiService {
             conditions.push({ period: query.period });
         if (query.teamId)
             conditions.push({ OR: [{ teamId: query.teamId }, { team: query.teamId }] });
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             if (query.employeeId)
                 conditions.push({ employeeId: query.employeeId });
             if (query.roleCode)
@@ -71,7 +71,7 @@ let KpiService = class KpiService {
         });
     }
     async upsertTarget(actor, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can configure KPI targets');
         }
         const hasEmployee = Boolean(dto.employeeId);
@@ -86,7 +86,7 @@ let KpiService = class KpiService {
             });
             if (!target)
                 throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Target employee not found');
-            if (actor.roleCode !== 'FOUNDER') {
+            if (!isTopTier(actor.roleCode)) {
                 if (!outranks(actor.roleCode, target.role.code)) {
                     throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only configure KPI targets for roles strictly below your rank (PRD §5.1.2)');
                 }
@@ -133,7 +133,7 @@ let KpiService = class KpiService {
         });
         if (!targetEmp)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Target employee not found');
-        if (!isSelf && actor.roleCode !== 'FOUNDER') {
+        if (!isSelf && !isTopTier(actor.roleCode)) {
             if (!outranks(actor.roleCode, targetEmp.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only view KPI scores for roles strictly below your rank (PRD §5.1.2)');
             }
@@ -250,7 +250,7 @@ let KpiService = class KpiService {
         };
     }
     async compute(actor, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can compute KPI scores');
         }
         const period = dto.period;
@@ -298,7 +298,7 @@ let KpiService = class KpiService {
         return { period, computedCount: results.length, scores: results };
     }
     async addReviewEntry(actor, dto) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only management can add review entries');
         }
         let scoreId = dto.periodScoreId;
@@ -337,7 +337,7 @@ let KpiService = class KpiService {
         if (actor.id === employeeId) {
             throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You cannot freeze your own KPI score');
         }
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             if (!outranks(actor.roleCode, targetEmp.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only freeze KPI scores for roles strictly below your rank (PRD §5.1.2)');
             }

@@ -82,7 +82,7 @@ let AuthService = class AuthService {
             return { refreshToken, sessionId: created.id };
         });
         return {
-            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions),
+            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions, session.sessionId),
             accessTokenExpiresInSeconds: this.accessTtlSeconds(),
             newRefreshToken: session.refreshToken,
             employee: {
@@ -129,13 +129,30 @@ let AuthService = class AuthService {
         // rows, so a follow-up findFirst is safe (the row is now revoked, the
         // state we want).
         const claimed = await this.prisma.authSession.findFirstOrThrow({ where: { tokenHash } });
+        // Idle-suspend check: the row is already revoked above (the claim step),
+        // so an idle session simply never gets a replacement issued. lastUsedAt
+        // is touched on every authenticated request the access token this
+        // session minted is used on (see AuthGuard), throttled to roughly once
+        // a minute, so this reflects real activity rather than just the
+        // ~15-minute cadence a continuously-active session naturally refreshes at.
+        const idleMs = Date.now() - claimed.lastUsedAt.getTime();
+        if (idleMs > this.idleTimeoutSeconds() * 1000) {
+            await this.audit.recordDirect({
+                actorId: claimed.employeeId,
+                entityType: AuditEntityType.AUTH,
+                action: AuditAction.SESSION_IDLE_TIMEOUT,
+                entityId: claimed.id,
+                meta: { idleMs },
+            });
+            throw ApiError.unauthorized('SESSION_IDLE_TIMEOUT', 'Your session was signed out due to inactivity. Please sign in again.');
+        }
         const employee = await this.prisma.employee.findUnique({ where: { id: claimed.employeeId } });
         if (!employee || employee.deletedAt !== null || employee.status !== EmployeeStatus.ACTIVE) {
             throw ApiError.unauthorized('ACCOUNT_INACTIVE', 'This account is inactive');
         }
         const { permissions, role } = await this.permissionsFor(employee.roleId);
         const nextRefreshToken = generateRefreshToken();
-        await this.prisma.authSession.create({
+        const nextSession = await this.prisma.authSession.create({
             data: {
                 employeeId: employee.id,
                 tokenHash: hashRefreshToken(nextRefreshToken),
@@ -145,7 +162,7 @@ let AuthService = class AuthService {
             },
         });
         return {
-            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions),
+            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions, nextSession.id),
             accessTokenExpiresInSeconds: this.accessTtlSeconds(),
             employee: {
                 id: employee.id,
@@ -228,17 +245,21 @@ let AuthService = class AuthService {
             permissions: role.rolePermissions.map((rp) => rp.permission.code),
         };
     }
-    signAccessToken(employeeId, email, fullName, roleCode, permissions) {
+    signAccessToken(employeeId, email, fullName, roleCode, permissions, sessionId) {
         return this.jwt.sign({
             sub: employeeId,
             email,
             fullName,
             role: roleCode,
             permissions,
+            sid: sessionId,
         });
     }
     accessTtlSeconds() {
         return Number(this.config.get('ACCESS_TOKEN_TTL_SECONDS') ?? 900);
+    }
+    idleTimeoutSeconds() {
+        return Number(this.config.get('SESSION_IDLE_TIMEOUT_SECONDS') ?? 900);
     }
     refreshExpiry() {
         const days = Number(this.config.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);

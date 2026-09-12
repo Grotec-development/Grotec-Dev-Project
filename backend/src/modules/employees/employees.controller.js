@@ -42,6 +42,9 @@ let EmployeesController = class EmployeesController {
     async create(actor, dto) {
         return this.employees.create(actor, dto);
     }
+    async listRoles(actor) {
+        return this.employees.listRoles(actor);
+    }
     async get(actor, id) {
         return this.employees.get(actor, id);
     }
@@ -132,6 +135,19 @@ __decorate([
     __metadata("design:paramtypes", [Object, typeof (_b = typeof CreateEmployeeDto !== "undefined" && CreateEmployeeDto) === "function" ? _b : Object]),
     __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "create", null);
+__decorate([
+    Get('roles'),
+    // Gated on employeeCreate rather than roleRead: this endpoint exists to
+    // populate the role dropdown on employee create/update, and MANAGER (who
+    // creates employees) doesn't hold roleRead in the matrix — it previously
+    // got a role list "for free" as a side effect of deriving it from the
+    // employee list it already had, which employeeCreate-gating preserves.
+    RequirePermission(PERMISSIONS.employeeCreate),
+    __param(0, CurrentEmployee()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "listRoles", null);
 __decorate([
     Get(':id'),
     RequirePermission(PERMISSIONS.employeeRead),

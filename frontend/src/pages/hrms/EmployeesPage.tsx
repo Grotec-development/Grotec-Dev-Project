@@ -75,15 +75,13 @@ export function EmployeesPage() {
             pageSize: 100,
           },
         }),
-        api.get('/auth/me').catch(() => null),
+        // Every role that exists, not just ones an employee already has —
+        // otherwise a freshly-added role (e.g. Super Admin) can never be
+        // assigned to a first employee from this dropdown.
+        api.get('/employees/roles').catch(() => null),
       ]);
       setEmployees(empRes.data.items || []);
-
-      // If we don't have roles yet, fetch them from employee list roles
-      const uniqueRoles = Array.from(
-        new Map((empRes.data.items || []).map((e: any) => [e.role?.id, e.role])).values(),
-      ).filter(Boolean);
-      setRoles(uniqueRoles);
+      setRoles(roleRes?.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Failed to load employees');
     } finally {

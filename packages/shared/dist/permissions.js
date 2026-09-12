@@ -89,6 +89,12 @@ exports.PERMISSION_CODES = Object.values(exports.PERMISSIONS);
  *   - Staff: HRMS employee management, attendance & leave processing, payroll preparation
  */
 exports.PROPOSED_ROLE_PERMISSIONS = {
+    // Break-glass role: every permission the system defines, unconditionally.
+    // Kept as PERMISSION_CODES itself (not a hand-copied list) so it can never
+    // silently drift behind newly added permissions the way FOUNDER's hand-
+    // maintained list below has drifted before (see the kpi.read gap fixed
+    // 2026-09-12).
+    SUPER_ADMIN: [...exports.PERMISSION_CODES],
     FOUNDER: [
         exports.PERMISSIONS.employeeRead,
         exports.PERMISSIONS.employeeCreate,

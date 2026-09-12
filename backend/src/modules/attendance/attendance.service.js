@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a, _b;
 import { Injectable } from '@nestjs/common';
-import { ApprovalStatus, AttendanceSource, AttendanceStatus, AuditAction, AuditEntityType, NotificationType, outranks, PERMISSIONS, } from '@grotec/shared';
+import { ApprovalStatus, AttendanceSource, AttendanceStatus, AuditAction, AuditEntityType, isTopTier, NotificationType, outranks, PERMISSIONS, } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -28,7 +28,7 @@ let AttendanceService = class AttendanceService {
     }
     async list(actor, pagination, filters) {
         const conditions = [];
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             if (filters.employeeId)
                 conditions.push({ employeeId: filters.employeeId });
         }
@@ -85,8 +85,8 @@ let AttendanceService = class AttendanceService {
             }
             conditions.push({ employeeId: actor.id });
         }
-        // Founder / CEO is not tracked for attendance
-        conditions.push({ employee: { role: { code: { not: 'FOUNDER' } } } });
+        // Founder / CEO (and Super Admin) is not tracked for attendance
+        conditions.push({ employee: { role: { code: { notIn: ['FOUNDER', 'SUPER_ADMIN'] } } } });
         if (filters.status)
             conditions.push({ status: filters.status });
         if (filters.approvalStatus)
@@ -197,14 +197,14 @@ let AttendanceService = class AttendanceService {
         return this.getSummary(actor, { month: query.month, employeeId: actor.id });
     }
     async markMy(actor, dto) {
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             throw ApiError.badRequest('FOUNDER_ATTENDANCE_NOT_APPLICABLE', 'Founder / CEO is the business owner and is not tracked for attendance');
         }
         return this.mark(actor, { ...dto, employeeId: actor.id });
     }
     async getSummary(actor, query) {
         const conditions = [];
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             if (query.employeeId)
                 conditions.push({ employeeId: query.employeeId });
         }
@@ -270,7 +270,7 @@ let AttendanceService = class AttendanceService {
         });
         if (!employee)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Target employee not found');
-        if (employee.role.code === 'FOUNDER' || actor.roleCode === 'FOUNDER') {
+        if (isTopTier(employee.role.code) || isTopTier(actor.roleCode)) {
             throw ApiError.badRequest('FOUNDER_ATTENDANCE_NOT_APPLICABLE', 'Founder / CEO is the business owner and is not tracked for attendance');
         }
         if (!isSelf) {
@@ -385,7 +385,7 @@ let AttendanceService = class AttendanceService {
         }
         const canApprove = actor.permissions.includes(PERMISSIONS.attendanceApprove);
         const date = parseDateOnly(dto.date);
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             const empIds = dto.records.map((r) => r.employeeId);
             const employees = await this.prisma.employee.findMany({
                 where: { id: { in: empIds } },
@@ -471,7 +471,7 @@ let AttendanceService = class AttendanceService {
         });
         if (!existing)
             throw ApiError.notFound('ATTENDANCE_NOT_FOUND', 'Attendance record not found');
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             if (!outranks(actor.roleCode, existing.employee.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only correct attendance for roles strictly below your rank (PRD §5.1.2)');
             }
@@ -528,7 +528,7 @@ let AttendanceService = class AttendanceService {
         if (actor.id === existing.employeeId) {
             throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You cannot approve your own attendance');
         }
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             if (!outranks(actor.roleCode, existing.employee.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only approve attendance for roles strictly below your rank (PRD §5.1.2)');
             }
@@ -591,7 +591,7 @@ let AttendanceService = class AttendanceService {
         if (actor.id === existing.employeeId) {
             throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You cannot reject your own attendance');
         }
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             if (!outranks(actor.roleCode, existing.employee.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only reject attendance for roles strictly below your rank (PRD §5.1.2)');
             }
@@ -640,7 +640,7 @@ let AttendanceService = class AttendanceService {
     }
     async getRoster(actor) {
         const employees = await this.prisma.employee.findMany({
-            where: { status: 'ACTIVE', role: { code: { not: 'FOUNDER' } } },
+            where: { status: 'ACTIVE', role: { code: { notIn: ['FOUNDER', 'SUPER_ADMIN'] } } },
             select: {
                 id: true,
                 fullName: true,

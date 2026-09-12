@@ -1,9 +1,10 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ShieldCheck, Lock, CheckCircle2, Loader2, ArrowRight, Sprout, Sparkles } from 'lucide-react';
 import { useAuth, authErrorMessage } from '../auth/AuthContext';
 import { Alert, Button, Card, Field, Input, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
+import { clearLogoutReason, peekLogoutReason } from '../lib/idleReason';
 
 const LOCAL_BUSINESS_LD = {
   '@context': 'https://schema.org',
@@ -48,6 +49,12 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [notice] = useState<string | null>(() =>
+    peekLogoutReason() === 'idle' ? 'You were signed out after 15 minutes of inactivity. Please sign in again.' : null,
+  );
+  useEffect(() => {
+    clearLogoutReason();
+  }, []);
 
   if (status === 'authed') return <Navigate to={location.state?.from ?? '/'} replace />;
 
@@ -203,6 +210,7 @@ export function LoginPage() {
                 </p>
               </div>
 
+              {notice ? <Alert tone="info">{notice}</Alert> : null}
               {error ? <Alert tone="error">{error}</Alert> : null}
 
               <form onSubmit={(e) => signIn(e)} className="space-y-4.5" aria-label="Sign in form">
@@ -318,6 +326,7 @@ export function LoginPage() {
               <p className="text-xs text-slate-500 mt-0.5">Science for Crops · Operations Portal</p>
             </div>
 
+            {notice ? <Alert tone="info">{notice}</Alert> : null}
             {error ? <Alert tone="error">{error}</Alert> : null}
 
             <form onSubmit={(e) => signIn(e)} className="space-y-4">

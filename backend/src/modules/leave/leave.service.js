@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a, _b;
 import { Injectable } from '@nestjs/common';
-import { ApprovalStatus, AttendanceSource, AttendanceStatus, AuditAction, AuditEntityType, LeaveStatus, NotificationType, outranks, } from '@grotec/shared';
+import { ApprovalStatus, AttendanceSource, AttendanceStatus, AuditAction, AuditEntityType, isTopTier, LeaveStatus, NotificationType, outranks, } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -53,7 +53,7 @@ let LeaveService = class LeaveService {
         const conditions = [];
         const year = query.year ? parseInt(query.year, 10) : new Date().getFullYear();
         conditions.push({ year });
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             if (query.employeeId)
                 conditions.push({ employeeId: query.employeeId });
         }
@@ -85,8 +85,8 @@ let LeaveService = class LeaveService {
             }
             conditions.push({ employeeId: actor.id });
         }
-        // Founder / CEO is not tracked for leave balances
-        conditions.push({ employee: { role: { code: { not: 'FOUNDER' } } } });
+        // Founder / CEO (and the equally business-owner-tier Super Admin) are not tracked for leave balances
+        conditions.push({ employee: { role: { code: { notIn: ['FOUNDER', 'SUPER_ADMIN'] } } } });
         return this.prisma.leaveBalance.findMany({
             where: { AND: conditions },
             include: {
@@ -114,14 +114,14 @@ let LeaveService = class LeaveService {
         });
     }
     async applyMy(actor, dto) {
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             throw ApiError.badRequest('FOUNDER_LEAVE_NOT_APPLICABLE', 'Founder / CEO is the business owner and does not apply for leave');
         }
         return this.apply(actor, { ...dto, employeeId: actor.id });
     }
     async getApplications(actor, pagination, filters) {
         const conditions = [];
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             if (filters.employeeId)
                 conditions.push({ employeeId: filters.employeeId });
         }
@@ -157,8 +157,8 @@ let LeaveService = class LeaveService {
             conditions.push({ status: filters.status });
         if (filters.leaveTypeId)
             conditions.push({ leaveTypeId: filters.leaveTypeId });
-        // Founder / CEO never has leave applications
-        conditions.push({ employee: { role: { code: { not: 'FOUNDER' } } } });
+        // Founder / CEO (and Super Admin) never has leave applications
+        conditions.push({ employee: { role: { code: { notIn: ['FOUNDER', 'SUPER_ADMIN'] } } } });
         if (filters.year) {
             const y = parseInt(filters.year, 10);
             const start = new Date(Date.UTC(y, 0, 1));
@@ -226,7 +226,7 @@ let LeaveService = class LeaveService {
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Target employee not found');
         if (!leaveType)
             throw ApiError.notFound('LEAVE_TYPE_NOT_FOUND', 'Leave type not found');
-        if (employee.role.code === 'FOUNDER' || actor.roleCode === 'FOUNDER') {
+        if (isTopTier(employee.role.code) || isTopTier(actor.roleCode)) {
             throw ApiError.badRequest('FOUNDER_LEAVE_NOT_APPLICABLE', 'Founder / CEO is the business owner and does not apply for leave');
         }
         if (!isSelf) {
@@ -320,7 +320,7 @@ let LeaveService = class LeaveService {
         if (actor.id === existing.employeeId) {
             throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You cannot approve your own leave');
         }
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             if (!outranks(actor.roleCode, existing.employee.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only approve leaves for roles strictly below your rank (PRD §5.1.2)');
             }
@@ -429,7 +429,7 @@ let LeaveService = class LeaveService {
         if (actor.id === existing.employeeId) {
             throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You cannot reject your own leave');
         }
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             if (!outranks(actor.roleCode, existing.employee.role.code)) {
                 throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only reject leaves for roles strictly below your rank (PRD §5.1.2)');
             }

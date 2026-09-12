@@ -211,6 +211,11 @@ model AuthSession {
   userAgent  String?  @map("user_agent")
   revokedAt  DateTime? @map("revoked_at")
   createdAt  DateTime @default(now()) @map("created_at")
+  // Updated (throttled, see AuthGuard) on every authenticated request the
+  // access token minted for this session is used on, and read at refresh time
+  // to enforce idle-timeout suspension independent of the client's own JS
+  // timers — see auth.service.js#rotateSession.
+  lastUsedAt DateTime @default(now()) @map("last_used_at")
 
   @@index([employeeId])
   @@index([expiresAt])

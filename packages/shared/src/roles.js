@@ -1,12 +1,16 @@
 /**
- * Phase 1 login roles per the PRD. Relationship Manager is an ownership concept,
+ * Login roles per the PRD, plus SUPER_ADMIN: a break-glass role added on top of
+ * the PRD's Phase 1 hierarchy that outranks even Founder and holds every
+ * permission in the system, including ones normally hardcoded to "Founder
+ * only" (see isTopTier below). Relationship Manager is an ownership concept,
  * NOT a login role (see docs/architecture.md).
  *
- * @typedef {'FOUNDER'|'MANAGER'|'AGENT'|'STAFF'|'DELIVERY'} RoleCode
+ * @typedef {'SUPER_ADMIN'|'FOUNDER'|'MANAGER'|'AGENT'|'STAFF'|'DELIVERY'} RoleCode
  */
-export const ROLE_CODES = ['FOUNDER', 'MANAGER', 'AGENT', 'STAFF', 'DELIVERY'];
+export const ROLE_CODES = ['SUPER_ADMIN', 'FOUNDER', 'MANAGER', 'AGENT', 'STAFF', 'DELIVERY'];
 
 export const ROLE_LABELS = {
+  SUPER_ADMIN: 'Super Admin',
   FOUNDER: 'Founder',
   MANAGER: 'Admin/Manager',
   AGENT: 'Telecaller/Agent',
@@ -15,11 +19,12 @@ export const ROLE_LABELS = {
 };
 
 /**
- * Hierarchy rank per Master Build Prompt:
- * FOUNDER (0) > MANAGER (1) > AGENT (2) = STAFF (2) = DELIVERY (2).
+ * Hierarchy rank per Master Build Prompt, extended with SUPER_ADMIN above Founder:
+ * SUPER_ADMIN (-1) > FOUNDER (0) > MANAGER (1) > AGENT (2) = STAFF (2) = DELIVERY (2).
  * Lower number = higher authority.
  */
 export const ROLE_RANK = {
+  SUPER_ADMIN: -1,
   FOUNDER: 0,
   MANAGER: 1,
   AGENT: 2,
@@ -33,4 +38,18 @@ export const ROLE_RANK = {
  */
 export function outranks(actorRole, targetRole) {
   return ROLE_RANK[actorRole] < ROLE_RANK[targetRole];
+}
+
+/**
+ * Many service methods hardcode `actor.roleCode === 'FOUNDER'` as a stricter,
+ * business-rule-level gate on top of the permission-guard layer (e.g. "only the
+ * Founder can reset a password" per PRD §5.1.2), rather than deriving it from
+ * ROLE_RANK. SUPER_ADMIN is meant to have full access everywhere Founder does
+ * plus the ability to override Founder specifically, so every one of those
+ * hardcoded checks needs to also recognize SUPER_ADMIN. Centralizing the check
+ * here keeps that "Founder-tier" concept in one place instead of duplicating
+ * `=== 'FOUNDER' || === 'SUPER_ADMIN'` at every call site.
+ */
+export function isTopTier(roleCode) {
+  return roleCode === 'FOUNDER' || roleCode === 'SUPER_ADMIN';
 }

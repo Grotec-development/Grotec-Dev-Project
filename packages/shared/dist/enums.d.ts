@@ -99,6 +99,7 @@ export namespace AuditAction {
     export let LOGOUT: string;
     export let PASSWORD_CHANGED: string;
     export let REFRESH_REUSED: string;
+    export let SESSION_IDLE_TIMEOUT: string;
     export let CREATED: string;
     export let UPDATED: string;
     export let DELETED: string;

@@ -56,6 +56,7 @@ export namespace PERMISSIONS {
 /** @type {PermissionCode[]} */
 export const PERMISSION_CODES: PermissionCode[];
 export namespace PROPOSED_ROLE_PERMISSIONS {
+    let SUPER_ADMIN: string[];
     let FOUNDER: string[];
     let MANAGER: string[];
     let AGENT: string[];

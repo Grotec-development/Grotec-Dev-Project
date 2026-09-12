@@ -14,7 +14,7 @@ import { randomBytes } from 'node:crypto';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { AuditAction, AuditEntityType, outranks } from '@grotec/shared';
+import { AuditAction, AuditEntityType, isTopTier, outranks } from '@grotec/shared';
 import { toPage } from '../../common/utils/pagination';
 import { hashPassword } from '../auth/password.util';
 const ALLOWED_DOCUMENT_MIMES = new Set([
@@ -52,7 +52,7 @@ let EmployeesService = class EmployeesService {
     }
     async list(actor, pagination, filters) {
         const conditions = [{ deletedAt: null }];
-        if (actor.roleCode === 'FOUNDER') {
+        if (isTopTier(actor.roleCode)) {
             // Full visibility
         }
         else if (actor.roleCode === 'MANAGER') {
@@ -113,6 +113,18 @@ let EmployeesService = class EmployeesService {
             this.prisma.employee.count({ where }),
         ]);
         return toPage(items, total, pagination);
+    }
+    // All roles in the system (including ones no employee currently holds,
+    // like a freshly-added SUPER_ADMIN) — the source for the role-assignment
+    // dropdown on create/update. What an actor may actually ASSIGN is a
+    // separate, narrower check (assertRoleAssignmentAllowed) enforced at
+    // create/update time; this listing is deliberately unfiltered so the
+    // dropdown always reflects every role that exists.
+    async listRoles(actor) {
+        return this.prisma.role.findMany({
+            select: { id: true, code: true, name: true },
+            orderBy: { name: 'asc' },
+        });
     }
     async get(actor, id) {
         const employee = await this.prisma.employee.findFirst({
@@ -542,7 +554,7 @@ let EmployeesService = class EmployeesService {
         });
         if (!doc)
             throw ApiError.notFound('DOCUMENT_NOT_FOUND', 'Document not found');
-        if (actor.roleCode !== 'FOUNDER' && doc.uploadedById !== actor.id) {
+        if (!isTopTier(actor.roleCode) && doc.uploadedById !== actor.id) {
             throw ApiError.forbidden('DOCUMENT_DELETE_FORBIDDEN', 'Only the uploader or Founder may delete this document');
         }
         const updated = await this.prisma.employeeDocument.update({
@@ -626,7 +638,7 @@ let EmployeesService = class EmployeesService {
         return record;
     }
     async assignStaff(actor, employeeId, staffEmployeeId) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only Founder and Manager can assign staff');
         }
         const [target, staff] = await Promise.all([
@@ -658,7 +670,7 @@ let EmployeesService = class EmployeesService {
         });
     }
     async unassignStaff(actor, employeeId, staffEmployeeId) {
-        if (actor.roleCode !== 'FOUNDER' && actor.roleCode !== 'MANAGER') {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
             throw ApiError.forbidden('FORBIDDEN', 'Only Founder and Manager can unassign staff');
         }
         await this.prisma.employeeAssignment.deleteMany({
@@ -677,7 +689,7 @@ let EmployeesService = class EmployeesService {
         });
     }
     async setActive(actor, id, active) {
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             throw ApiError.forbidden('FOUNDER_ONLY', 'Only the founder can activate or deactivate employees (PRD §5.1.2)');
         }
         const existing = await this.prisma.employee.findFirst({
@@ -686,8 +698,11 @@ let EmployeesService = class EmployeesService {
         });
         if (!existing)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Employee not found');
-        if (existing.role?.code === 'FOUNDER' && !active) {
+        if (existing.role?.code === 'FOUNDER' && !active && actor.roleCode !== 'SUPER_ADMIN') {
             throw ApiError.forbidden('FOUNDER_PROTECTED', 'Cannot deactivate the Founder account');
+        }
+        if (existing.role?.code === 'SUPER_ADMIN' && !active && actor.roleCode !== 'SUPER_ADMIN') {
+            throw ApiError.forbidden('SUPER_ADMIN_PROTECTED', 'Only a Super Admin can deactivate a Super Admin account');
         }
         if (!active && existing.id === actor.id) {
             throw ApiError.badRequest('SELF_DEACTIVATION', 'You cannot deactivate your own account');
@@ -714,7 +729,7 @@ let EmployeesService = class EmployeesService {
         return employee;
     }
     async resetPassword(actor, id, dto) {
-        if (actor.roleCode !== 'FOUNDER') {
+        if (!isTopTier(actor.roleCode)) {
             throw ApiError.forbidden('FOUNDER_ONLY', 'Only the founder can reset employee passwords (PRD §5.1.2)');
         }
         const existing = await this.prisma.employee.findFirst({
@@ -723,8 +738,14 @@ let EmployeesService = class EmployeesService {
         });
         if (!existing)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Employee not found');
-        if (existing.role?.code === 'FOUNDER') {
+        // Founder's password is protected from everyone except Super Admin, the
+        // one role meant to have no dead-ends. Super Admin's own password gets
+        // the same symmetric protection from everyone but another Super Admin.
+        if (existing.role?.code === 'FOUNDER' && actor.roleCode !== 'SUPER_ADMIN') {
             throw ApiError.forbidden('FOUNDER_PROTECTED', 'Cannot reset Founder password');
+        }
+        if (existing.role?.code === 'SUPER_ADMIN' && actor.roleCode !== 'SUPER_ADMIN') {
+            throw ApiError.forbidden('SUPER_ADMIN_PROTECTED', 'Only a Super Admin can reset a Super Admin password');
         }
         const generated = dto.newPassword ? undefined : generateTemporaryPassword();
         const passwordHash = await hashPassword(dto.newPassword ?? generated);
@@ -745,7 +766,7 @@ let EmployeesService = class EmployeesService {
     async assertCanAccessEmployee(actor, targetId, targetRoleCode) {
         if (actor.id === targetId)
             return;
-        if (actor.roleCode === 'FOUNDER')
+        if (isTopTier(actor.roleCode))
             return;
         if (actor.roleCode === 'MANAGER') {
             if (!outranks(actor.roleCode, targetRoleCode)) {
@@ -772,7 +793,7 @@ let EmployeesService = class EmployeesService {
     canAccessFinancials(actor, targetId, targetRoleCode) {
         if (actor.id === targetId)
             return true;
-        if (actor.roleCode === 'FOUNDER')
+        if (isTopTier(actor.roleCode))
             return true;
         if (actor.roleCode === 'MANAGER' && outranks(actor.roleCode, targetRoleCode))
             return true;
@@ -781,7 +802,7 @@ let EmployeesService = class EmployeesService {
     canAccessPerformance(actor, targetId, targetRoleCode) {
         if (actor.id === targetId)
             return true;
-        if (actor.roleCode === 'FOUNDER')
+        if (isTopTier(actor.roleCode))
             return true;
         if (actor.roleCode === 'MANAGER' && outranks(actor.roleCode, targetRoleCode))
             return true;
@@ -799,6 +820,11 @@ let EmployeesService = class EmployeesService {
         return role;
     }
     assertRoleAssignmentAllowed(actor, targetRoleCode) {
+        if (actor.roleCode === 'SUPER_ADMIN')
+            return;
+        if (targetRoleCode === 'SUPER_ADMIN') {
+            throw ApiError.forbidden('ROLE_ASSIGNMENT_FORBIDDEN', 'Only a Super Admin may assign the Super Admin role');
+        }
         if (actor.roleCode === 'FOUNDER')
             return;
         if (targetRoleCode === 'FOUNDER') {
