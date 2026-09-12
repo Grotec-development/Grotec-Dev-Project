@@ -127,6 +127,7 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.payrollRead,
         exports.PERMISSIONS.payrollManage,
         exports.PERMISSIONS.payrollApprove,
+        exports.PERMISSIONS.kpiRead,
         exports.PERMISSIONS.kpiManage,
         exports.PERMISSIONS.hrmsEmployeeManage,
         exports.PERMISSIONS.hrmsEmployeeRead,

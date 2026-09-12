@@ -127,6 +127,7 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.payrollRead,
     PERMISSIONS.payrollManage,
     PERMISSIONS.payrollApprove,
+    PERMISSIONS.kpiRead,
     PERMISSIONS.kpiManage,
     PERMISSIONS.hrmsEmployeeManage,
     PERMISSIONS.hrmsEmployeeRead,

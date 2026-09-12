@@ -361,7 +361,7 @@ export function EmployeeProfilePage() {
               <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
                 <span className="text-xs text-slate-500 uppercase font-semibold">Calls Dialed</span>
                 <p className="mt-1 text-2xl font-bold text-slate-900">
-                  {performance.crmMetrics.callsDialed}
+                  {performance.crmMetrics?.callsDialed ?? 0}
                 </p>
                 <span className="text-xs text-slate-400">Outbound calls placed</span>
               </div>
@@ -369,7 +369,7 @@ export function EmployeeProfilePage() {
               <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
                 <span className="text-xs text-slate-500 uppercase font-semibold">Calls Connected</span>
                 <p className="mt-1 text-2xl font-bold text-brand-600">
-                  {performance.crmMetrics.callsConnected}
+                  {performance.crmMetrics?.callsConnected ?? 0}
                 </p>
                 <span className="text-xs text-slate-400">Ended or connected</span>
               </div>
@@ -377,7 +377,7 @@ export function EmployeeProfilePage() {
               <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
                 <span className="text-xs text-slate-500 uppercase font-semibold">Leads Converted</span>
                 <p className="mt-1 text-2xl font-bold text-emerald-600">
-                  {performance.crmMetrics.leadsConverted}
+                  {performance.crmMetrics?.leadsConverted ?? 0}
                 </p>
                 <span className="text-xs text-slate-400">Sales conversions</span>
               </div>
@@ -385,7 +385,7 @@ export function EmployeeProfilePage() {
               <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
                 <span className="text-xs text-slate-500 uppercase font-semibold">Conversion Rate</span>
                 <p className="mt-1 text-2xl font-bold text-purple-600">
-                  {performance.crmMetrics.conversionRate}%
+                  {performance.crmMetrics?.conversionRate ?? 0}%
                 </p>
                 <span className="text-xs text-slate-400">Lead to conversion</span>
               </div>
@@ -413,7 +413,7 @@ export function EmployeeProfilePage() {
                 )
               }
             />
-            {performance.kpiTargets.length === 0 ? (
+            {(performance.kpiTargets ?? []).length === 0 ? (
               <div className="py-8 text-center text-sm text-slate-500">
                 No individual KPI targets configured for this employee yet.
               </div>
