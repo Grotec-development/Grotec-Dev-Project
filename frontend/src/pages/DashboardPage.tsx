@@ -590,13 +590,13 @@ export function DashboardPage() {
           {/* Card 4: Converted */}
           <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Converted to RM
+              Converted Farmers
             </p>
             <p className="text-2xl font-black text-emerald-800 mt-1">
               {s?.customers?.converted ?? 0}
             </p>
             <p className="text-[10px] text-emerald-600 font-semibold mt-1">
-              Relationship ownership
+              Active Client Accounts
             </p>
           </div>
 

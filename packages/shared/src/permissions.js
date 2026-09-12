@@ -72,6 +72,9 @@ export const PERMISSIONS = {
   hrmsKpiConfigure: 'hrms.kpi.configure',
   hrmsKpiRead: 'hrms.kpi.read',
   hrmsAuditRead: 'hrms.audit.read',
+  // Multi-Tenancy
+  tenantRead: 'tenant.read',
+  tenantManage: 'tenant.manage',
 };
 
 /** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
@@ -142,6 +145,8 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.hrmsPayrollRead,
     PERMISSIONS.hrmsKpiConfigure,
     PERMISSIONS.hrmsAuditRead,
+    PERMISSIONS.tenantRead,
+    PERMISSIONS.tenantManage,
   ],
   MANAGER: [
     PERMISSIONS.employeeRead,
@@ -166,6 +171,7 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.referralRead,
     PERMISSIONS.referralManage,
     PERMISSIONS.customerImport,
+    PERMISSIONS.tenantRead,
     PERMISSIONS.hrmsRead,
     // Self-service
     PERMISSIONS.attendanceRead,
@@ -222,6 +228,7 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.payrollRead,
     PERMISSIONS.kpiRead,
     PERMISSIONS.hrmsKpiRead,
+    PERMISSIONS.tenantRead,
   ],
   STAFF: [
     PERMISSIONS.hrmsEmployeeRead,
@@ -238,6 +245,7 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.hrmsLeaveApply,
     PERMISSIONS.kpiRead,
     PERMISSIONS.hrmsKpiRead,
+    PERMISSIONS.tenantRead,
   ],
   DELIVERY: [
     PERMISSIONS.hrmsRead,
@@ -252,5 +260,6 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.payrollRead,
     PERMISSIONS.kpiRead,
     PERMISSIONS.hrmsKpiRead,
+    PERMISSIONS.tenantRead,
   ],
 };

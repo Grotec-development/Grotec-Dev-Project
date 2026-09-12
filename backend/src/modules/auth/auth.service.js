@@ -82,7 +82,7 @@ let AuthService = class AuthService {
             return { refreshToken, sessionId: created.id };
         });
         return {
-            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions, session.sessionId),
+            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions, session.sessionId, employee.tenantId),
             accessTokenExpiresInSeconds: this.accessTtlSeconds(),
             newRefreshToken: session.refreshToken,
             employee: {
@@ -91,6 +91,7 @@ let AuthService = class AuthService {
                 fullName: employee.fullName,
                 roleCode: role.code,
                 permissions,
+                tenantId: employee.tenantId,
             },
         };
     }
@@ -162,7 +163,7 @@ let AuthService = class AuthService {
             },
         });
         return {
-            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions, nextSession.id),
+            accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions, nextSession.id, employee.tenantId),
             accessTokenExpiresInSeconds: this.accessTtlSeconds(),
             employee: {
                 id: employee.id,
@@ -245,7 +246,7 @@ let AuthService = class AuthService {
             permissions: role.rolePermissions.map((rp) => rp.permission.code),
         };
     }
-    signAccessToken(employeeId, email, fullName, roleCode, permissions, sessionId) {
+    signAccessToken(employeeId, email, fullName, roleCode, permissions, sessionId, tenantId) {
         return this.jwt.sign({
             sub: employeeId,
             email,
@@ -253,6 +254,7 @@ let AuthService = class AuthService {
             role: roleCode,
             permissions,
             sid: sessionId,
+            tenantId: tenantId ?? null,
         });
     }
     accessTtlSeconds() {

@@ -47,7 +47,7 @@ interface NavItem {
 // Core CRM daily operations items
 const CRM_NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'customer.read' },
-  { to: '/agent', label: 'Agent Mode', icon: Phone, permission: 'call.read' },
+  { to: '/agent', label: 'Agent Calling', icon: Phone, permission: 'call.read' },
   { to: '/action-center', label: 'Action Center', icon: Briefcase, permission: 'call.read' },
   { to: '/customers', label: 'Farmers', icon: Users, permission: 'customer.read' },
   { to: '/leads', label: 'Leads Pipeline', icon: Contact, permission: 'lead.read' },
@@ -235,8 +235,8 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
   const map: Record<string, PageMeta> = {
     '/': { title: 'Telecaller Workstation', description: 'Call queue, follow-ups, and farmer engagements.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Telecaller Workstation' }] },
     '/dashboard': { title: 'Telecaller Workstation', description: 'Call queue, follow-ups, and farmer engagements.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Telecaller Workstation' }] },
-    '/agent': { title: 'Telecaller Workstation', description: 'Telecaller calling workspace — dial queue and log outcomes.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Calls', href: '/agent' }] },
-    '/calling': { title: 'Active Outbound Call', description: 'Live outbound call session in progress.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Calls', href: '/agent' }, { label: 'Active Call' }] },
+    '/agent': { title: 'Agent Calling Workspace', description: 'Telecaller agent calling workspace — dial queue, Exotel IVRS cum Agent, dynamic farmer linking, and live outcomes.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }] },
+    '/calling': { title: 'Active Outbound Call', description: 'Live Exotel IVRS cum Agent outbound calling session in progress.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }, { label: 'Active Call' }] },
     '/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Action Center' }] },
     '/hrms/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations', href: '/hrms' }, { label: 'Action Center' }] },
     '/customers': { title: 'Farmer Directory', description: 'Farmer master — search by name, phone, district, or crop.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Farmer Directory' }] },
@@ -637,14 +637,20 @@ export function Shell() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Multi-Tenancy Organization Badge */}
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200/80 text-[11px] font-semibold shadow-2xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              <span>Tenant: GROTEC Agrotech</span>
+            </div>
+
             <div className="relative hidden md:block w-72">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search farmers, crops, RMs..."
+                placeholder="Search farmers, crops, advisories..."
                 className="w-full rounded-md border border-slate-200 bg-slate-50/70 pl-8 pr-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
-                aria-label="Search farmers, crops, RMs"
+                aria-label="Search farmers, crops, advisories"
               />
             </div>
             <div className="flex items-center gap-2">

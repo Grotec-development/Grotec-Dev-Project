@@ -45,12 +45,15 @@ let AuthGuard = class AuthGuard {
             const claims = await this.jwtService.verifyAsync(token, {
                 secret: this.config.get('JWT_ACCESS_SECRET'),
             });
+            const tenantId = claims.tenantId || request.headers['x-tenant-id'] || null;
+            request.tenantId = tenantId;
             request.employee = {
                 id: claims.sub,
                 email: claims.email,
                 fullName: claims.fullName,
                 roleCode: claims.role,
                 permissions: claims.permissions,
+                tenantId,
             };
             if (claims.sid)
                 this.touchSession(claims.sid);

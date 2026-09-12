@@ -41,7 +41,7 @@ const MOCK_TIMELINE: TimelineEvent[] = [
   {
     id: '2',
     actor: 'Suresh M.',
-    role: 'Relationship Manager',
+    role: 'Agronomy Specialist',
     timestamp: '12 Feb 2026, 04:15 PM',
     note: 'On-field inspection completed. Soil moisture found low. Recommended drip calibration.',
   },
@@ -60,7 +60,7 @@ export function CustomerDetailPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const canEdit = hasPermission('customer.update');
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'land_crops' | 'rm_notes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'land_crops' | 'advisory_notes'>('overview');
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
 
   const { data, isError, error } = useQuery({
@@ -227,15 +227,15 @@ export function CustomerDetailPage() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('rm_notes')}
+            onClick={() => setActiveTab('advisory_notes')}
             className={cx(
               'border-b-2 py-3 px-1 transition-colors',
-              activeTab === 'rm_notes'
+              activeTab === 'advisory_notes'
                 ? 'border-brand-600 text-brand-700 font-bold'
                 : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
             )}
           >
-            RM Notes
+            Advisory Notes
           </button>
         </nav>
       </div>
@@ -350,11 +350,11 @@ export function CustomerDetailPage() {
         </div>
       )}
 
-      {/* Tab Content: RM Notes */}
-      {activeTab === 'rm_notes' && (
+      {/* Tab Content: Advisory Notes */}
+      {activeTab === 'advisory_notes' && (
         <div className="grid gap-5 xl:grid-cols-2">
           <Card className="p-4 shadow-xs">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Relationship Manager Notes</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Agronomy &amp; Advisory Notes</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               Farmer is keen on organic nutrient alternatives for next planting cycle. Recommended drip emitter cleaning due to high mineral content in bore water.
             </p>

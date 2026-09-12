@@ -305,7 +305,7 @@ let DashboardService = class DashboardService {
             });
             return customerIds.length;
         }
-        return this.prisma.relationshipOwnership.count({ where: { releasedAt: null } });
+        return this.prisma.lead.count({ where: { deletedAt: null, status: 'CLOSED' } });
     }
     /** Distinct customers with at least one Interested call outcome. */
     async countInterestedCustomers(actor) {

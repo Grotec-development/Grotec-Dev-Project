@@ -55,7 +55,7 @@ Advisory Rules for Telecallers:
 - Use the relevant guidance records from <guidance> and synthesize with the authentic Grotec product knowledge above.
 - Always name the exact Grotec product(s), application method (Seed treatment, Soil with manure, Drip, or Foliar spray), and recommended dosage.
 - Crucial precaution: Never mix biological inoculants (Bio Jeevan PF, TV, Azos, Azotob, Phos, Rhizob, Micromix) with chemical fungicides or chemical fertilizers for at least 4 to 5 days.
-- Always conclude with a reminder to follow the product container label and consult their Relationship Manager. Keep responses concise (3-6 sentences), practical, respectful, and encouraging.`;
+- Always conclude with a reminder to follow the product container label and consult their assigned Grotec Agronomist. Keep responses concise (3-6 sentences), practical, respectful, and encouraging.`;
 function tokenize(message) {
     return message
         .toLowerCase()

@@ -2,6 +2,7 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { setLogoutReason } from './idleReason';
 
 const ACCESS_KEY = 'grotec_access';
+const TENANT_KEY = 'grotec_tenant_id';
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY);
@@ -11,6 +12,16 @@ export function setAccessToken(token: string): void {
 }
 export function clearAccessToken(): void {
   localStorage.removeItem(ACCESS_KEY);
+}
+
+export function getTenantId(): string | null {
+  return localStorage.getItem(TENANT_KEY);
+}
+export function setTenantId(tenantId: string): void {
+  localStorage.setItem(TENANT_KEY, tenantId);
+}
+export function clearTenantId(): void {
+  localStorage.removeItem(TENANT_KEY);
 }
 
 export const API_BASE_URL: string =
@@ -24,6 +35,8 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const tenantId = getTenantId();
+  if (tenantId) config.headers['x-tenant-id'] = tenantId;
   return config;
 });
 
@@ -155,5 +168,27 @@ export const messagingApi = {
     email: { provider: string; configured: boolean; isLive: boolean };
   }>('/messages/status'),
   resend: (id: string) => api.post<{ success: boolean; message: MessageOutboxItem }>(`/messages/resend/${id}`),
+};
+
+export interface TenantInfo {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  status: string;
+  settings?: Record<string, unknown>;
+  _count?: {
+    employees?: number;
+    customers?: number;
+    leads?: number;
+    calls?: number;
+  };
+}
+
+export const tenantsApi = {
+  getCurrentTenant: () => api.get<TenantInfo>('/tenants/current'),
+  listTenants: () => api.get<TenantInfo[]>('/tenants'),
+  createTenant: (data: { name: string; slug: string; plan?: string; settings?: Record<string, unknown> }) =>
+    api.post<TenantInfo>('/tenants', data),
 };
 

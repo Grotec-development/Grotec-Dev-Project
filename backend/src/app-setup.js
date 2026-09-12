@@ -40,6 +40,8 @@ export async function configureApp(app, options = {}) {
             'x-delivery-id',
             'x-dialer-secret',
             'x-essl-secret',
+            'x-tenant-id',
+            'x-tenant-slug',
         ],
         exposedHeaders: ['Set-Cookie'],
     });

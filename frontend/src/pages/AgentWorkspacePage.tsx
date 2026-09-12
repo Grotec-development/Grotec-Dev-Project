@@ -939,6 +939,14 @@ export function AgentWorkspacePage() {
             Dashboard
           </Link>
           <span className="text-slate-300">/</span>
+          <span className="font-extrabold text-slate-900 uppercase tracking-wider text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+            Agent Calling
+          </span>
+          <div className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            <span>GROTEC Agrotech</span>
+          </div>
+          <span className="text-slate-300 hidden sm:inline">|</span>
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-slate-800">Calling Mode:</span>
             <div className="relative inline-flex items-center">

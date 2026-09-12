@@ -96,6 +96,30 @@ enum MessageType {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-Tenancy Architecture
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(200)
+  slug        String    @unique @db.VarChar(100)
+  plan        String    @default("ENTERPRISE") @db.VarChar(50)
+  status      String    @default("ACTIVE") @db.VarChar(30)
+  settings    Json?     @db.JsonB
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  employees   Employee[]
+  customers   Customer[]
+  leads       Lead[]
+  calls       Call[]
+  crops       Crop[]
+
+  @@map("tenants")
+}
+
+// ---------------------------------------------------------------------------
 // Identity & RBAC
 // ---------------------------------------------------------------------------
 
@@ -103,6 +127,8 @@ enum MessageType {
 // duplicated into a CRM-only user table). Emails are stored lowercase.
 model Employee {
   id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String?  @map("tenant_id") @db.Uuid
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   email        String   @unique @db.VarChar(255)
   fullName     String   @map("full_name")
   phone        String?  @db.VarChar(20)
@@ -233,6 +259,8 @@ model AuthSession {
 
 model Customer {
   id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String?        @map("tenant_id") @db.Uuid
+  tenant     Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   // Unique Farmer ID (developer brief farmer-master list) — e.g. GF00000042,
   // generated from farmer_code_seq. Nullable only for pre-alignment rows.
   farmerCode String?        @unique @map("farmer_code") @db.VarChar(20)
@@ -306,6 +334,8 @@ model CustomerLocation {
 
 model Crop {
   id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @map("tenant_id") @db.Uuid
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   code        String   @unique @db.VarChar(40)
   name        String   @db.VarChar(120)
   localName   String?  @map("local_name")
@@ -372,6 +402,8 @@ model CustomerCrop {
 
 model Lead {
   id         String     @id @default(uuid()) @db.Uuid
+  tenantId   String?    @map("tenant_id") @db.Uuid
+  tenant     Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   customerId String     @map("customer_id") @db.Uuid
   customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
   source     String?    // taxonomy provisional (open-item #5)
@@ -421,6 +453,8 @@ model LeadOwnership {
 // outcome/nextAction arrive in Month 3 and are deliberately absent here.
 model Call {
   id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String?       @map("tenant_id") @db.Uuid
+  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   customerId    String?       @map("customer_id") @db.Uuid
   customer      Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   leadId        String?       @map("lead_id") @db.Uuid

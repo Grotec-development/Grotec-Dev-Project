@@ -152,7 +152,7 @@ export function EmployeesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Employee Management</h1>
           <p className="text-sm text-slate-500">
-            Unified directory for CRM telecallers, field relationship managers, agronomists, and staff.
+            Unified directory for CRM telecallers, agronomists, field executives, and operations staff.
           </p>
         </div>
         {hasPermission('employee.create') && (

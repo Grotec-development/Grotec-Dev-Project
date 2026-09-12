@@ -51,6 +51,8 @@ export namespace PERMISSIONS {
     let hrmsKpiConfigure: string;
     let hrmsKpiRead: string;
     let hrmsAuditRead: string;
+    let tenantRead: string;
+    let tenantManage: string;
 }
 /** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
 /** @type {PermissionCode[]} */

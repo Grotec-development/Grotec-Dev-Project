@@ -18,6 +18,8 @@ export default defineConfig({
       'src/common/idempotency/**/*.spec.js',
       'src/common/outbox/**/*.spec.js',
       'src/modules/calls/**/*.spec.js',
+      'src/modules/messaging/**/*.spec.js',
+      'src/modules/tenant/**/*.spec.js',
       'src/modules/attendance/**/*.spec.js',
       'src/modules/relationship/**/*.spec.js',
       'src/modules/leads/**/*.spec.js',
