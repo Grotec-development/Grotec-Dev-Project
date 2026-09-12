@@ -17,7 +17,7 @@ export const USERS = {
     MANAGER: { email: 'manager@grotec.local', password: SEEDED_PASSWORD, roleCode: 'MANAGER' },
     AGENT: { email: 'agent@grotec.local', password: SEEDED_PASSWORD, roleCode: 'AGENT' },
     DELIVERY: { email: 'delivery@grotec.local', password: SEEDED_PASSWORD, roleCode: 'DELIVERY' },
-    STAFF: { email: 'delivery@grotec.local', password: SEEDED_PASSWORD, roleCode: 'DELIVERY' },
+    STAFF: { email: 'staff@grotec.local', password: SEEDED_PASSWORD, roleCode: 'STAFF' },
 };
 /** Compiles and boots the real application against the seeded test database. */
 export async function createTestApp() {

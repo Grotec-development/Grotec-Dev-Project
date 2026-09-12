@@ -92,9 +92,27 @@ let LeadsService = class LeadsService {
         return serializeLead(lead);
     }
     async create(actor, input) {
-        const customer = await this.prisma.customer.findFirst({ where: { id: input.customerId, deletedAt: null } });
+        const customer = await this.prisma.customer.findFirst({
+            where: {
+                id: input.customerId,
+                deletedAt: null,
+                ...(actor.roleCode === 'AGENT' ? {
+                    OR: [
+                        { createdById: actor.id },
+                        {
+                            leads: {
+                                some: {
+                                    deletedAt: null,
+                                    ownerships: { some: { employeeId: actor.id, releasedAt: null } },
+                                },
+                            },
+                        },
+                    ],
+                } : {}),
+            },
+        });
         if (!customer)
-            throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+            throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found or not accessible to you');
         if (customer.status === 'INACTIVE') {
             throw ApiError.badRequest('CUSTOMER_INACTIVE', 'A lead cannot be opened for an inactive customer');
         }

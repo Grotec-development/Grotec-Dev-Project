@@ -5,7 +5,6 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { RouteErrorBoundary } from './components/RouteErrorBoundary';
 import { DashboardPage } from './pages/DashboardPage';
 import { AgentWorkspacePage } from './pages/AgentWorkspacePage';
-import { RelationshipManagerPage } from './pages/RelationshipManagerPage';
 import { CustomersPage } from './pages/customers/CustomersPage';
 import { CustomerDetailPage } from './pages/customers/CustomerDetailPage';
 import { LeadsPage } from './pages/leads/LeadsPage';
@@ -36,7 +35,6 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'agent', element: <AgentWorkspacePage /> },
       { path: 'calling', element: <AgentWorkspacePage /> },
-      { path: 'relationship-manager', element: <RelationshipManagerPage /> },
       { path: 'action-center', element: <ActionCenterPage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },

@@ -13,8 +13,11 @@ export function clearAccessToken(): void {
   localStorage.removeItem(ACCESS_KEY);
 }
 
+export const API_BASE_URL: string =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') || '/api/v1';
+
 export const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_BASE_URL,
   withCredentials: true, // refresh token lives in the httpOnly cookie
 });
 
@@ -34,7 +37,7 @@ let refreshInFlight: Promise<string> | null = null;
 async function refreshAccessToken(): Promise<string> {
   if (!refreshInFlight) {
     refreshInFlight = axios
-      .post<RefreshResponse>('/api/v1/auth/refresh', undefined, { withCredentials: true })
+      .post<RefreshResponse>(`${API_BASE_URL}/auth/refresh`, undefined, { withCredentials: true })
       .then((res) => {
         const token = res.data.accessToken;
         setAccessToken(token);
@@ -95,3 +98,62 @@ export function errorMessage(error: unknown): string {
   }
   return error instanceof Error ? error.message : 'Something went wrong';
 }
+
+export interface SendSmsPayload {
+  to: string;
+  body: string;
+  customerId?: string;
+  entityType?: string;
+  entityId?: string;
+}
+
+export interface SendWhatsAppPayload {
+  to: string;
+  body?: string;
+  templateName?: string;
+  templateParams?: Record<string, unknown>[];
+  customerId?: string;
+  entityType?: string;
+  entityId?: string;
+}
+
+export interface SendEmailPayload {
+  to: string;
+  subject: string;
+  body?: string;
+  html?: string;
+  customerId?: string;
+  entityType?: string;
+  entityId?: string;
+}
+
+export interface MessageOutboxItem {
+  id: string;
+  channel: 'SMS' | 'WHATSAPP' | 'EMAIL';
+  direction: 'OUTBOUND' | 'INBOUND';
+  to: string;
+  from?: string;
+  subject?: string;
+  body: string;
+  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
+  provider: string;
+  providerMessageId?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const messagingApi = {
+  sendSms: (payload: SendSmsPayload) => api.post<{ success: boolean; message: MessageOutboxItem }>('/messages/sms', payload),
+  sendWhatsApp: (payload: SendWhatsAppPayload) => api.post<{ success: boolean; message: MessageOutboxItem }>('/messages/whatsapp', payload),
+  sendEmail: (payload: SendEmailPayload) => api.post<{ success: boolean; message: MessageOutboxItem }>('/messages/email', payload),
+  getOutbox: (params?: { channel?: string; status?: string; page?: number; limit?: number }) =>
+    api.get<{ items: MessageOutboxItem[]; total: number; page: number; limit: number }>('/messages/outbox', { params }),
+  getStatus: () => api.get<{
+    sms: { provider: string; configured: boolean; isLive: boolean };
+    whatsapp: { provider: string; configured: boolean; isLive: boolean; phoneNumberId: string };
+    email: { provider: string; configured: boolean; isLive: boolean };
+  }>('/messages/status'),
+  resend: (id: string) => api.post<{ success: boolean; message: MessageOutboxItem }>(`/messages/resend/${id}`),
+};
+

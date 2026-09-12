@@ -29,4 +29,7 @@ export class ApiError extends Error {
     static tooManyRequests(code = 'TOO_MANY_ATTEMPTS', message = 'Too many attempts, try again later') {
         return new ApiError(429, code, message);
     }
+    static serviceUnavailable(code = 'SERVICE_UNAVAILABLE', message = 'Service unavailable') {
+        return new ApiError(503, code, message);
+    }
 }

@@ -32,6 +32,11 @@ let CallStatusSyncService = CallStatusSyncService_1 = class CallStatusSyncServic
         this.timer = null;
     }
     onModuleInit() {
+        const dbUrl = this.config.get('DATABASE_URL') || '';
+        if (dbUrl.includes('<') || dbUrl.includes('>')) {
+            this.logger.warn('DATABASE_URL is not configured (contains placeholder text). CallStatusSyncService is suspended.');
+            return;
+        }
         const raw = this.config.get('DIALER_SYNC_MS');
         const intervalMs = raw === undefined ? Number.NaN : Number(raw);
         if (!Number.isFinite(intervalMs) || intervalMs <= 0)

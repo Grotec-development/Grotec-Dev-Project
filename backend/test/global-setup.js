@@ -32,6 +32,14 @@ export default async function globalSetup() {
     process.env.DIALER_SYNC_MS = '0';
     const apiDir = path.resolve(__dirname, '..');
     const env = { ...process.env, DATABASE_URL: testUrl };
+    const probeClient = new Client({ connectionString: testUrl, connectionTimeoutMillis: 2000 });
+    try {
+        await probeClient.connect();
+        await probeClient.end();
+    } catch (err) {
+        console.warn(`[global-setup] Test database at ${testUrl} is not reachable (${err.message}). Skipping db push and seed.`);
+        return;
+    }
     console.log('[global-setup] updating test database schema…');
     execSync('npx prisma db push --force-reset --skip-generate', { cwd: apiDir, env, stdio: 'inherit' });
     console.log('[global-setup] ensuring migration-only partial unique indexes…');

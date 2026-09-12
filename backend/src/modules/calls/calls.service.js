@@ -44,9 +44,32 @@ let CallsService = class CallsService {
         // resolve the number to the existing customer master.
         let customerId = null;
         if (dto.customerId) {
-            const customer = await this.prisma.customer.findFirst({ where: { id: dto.customerId, deletedAt: null } });
+            const customer = await this.prisma.customer.findFirst({
+                where: {
+                    id: dto.customerId,
+                    deletedAt: null,
+                    ...(actor.roleCode === 'AGENT' ? {
+                        OR: [
+                            { createdById: actor.id },
+                            {
+                                leads: {
+                                    some: {
+                                        deletedAt: null,
+                                        ownerships: { some: { employeeId: actor.id, releasedAt: null } },
+                                    },
+                                },
+                            },
+                        ],
+                    } : {}),
+                },
+                include: { phones: { where: { deletedAt: null } } },
+            });
             if (!customer)
-                throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+                throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found or not assigned to you');
+            const hasPhone = customer.phones.some((p) => p.phoneE164 === e164);
+            if (!hasPhone) {
+                throw ApiError.badRequest('PHONE_NOT_ON_CUSTOMER', 'The dialed phone number does not belong to this customer');
+            }
             customerId = dto.customerId;
         }
         else {
@@ -74,13 +97,21 @@ let CallsService = class CallsService {
         }
         else if (customerId) {
             const current = await this.prisma.lead.findFirst({
-                where: { customerId, deletedAt: null, status: 'OPEN' },
+                where: {
+                    customerId,
+                    deletedAt: null,
+                    status: 'OPEN',
+                    ...(actor.roleCode === 'AGENT' ? {
+                        ownerships: { some: { employeeId: actor.id, releasedAt: null } },
+                    } : {}),
+                },
                 orderBy: { createdAt: 'desc' },
             });
             leadId = current?.id ?? null;
         }
-        const dialer = this.dialers.get();
-        const placed = await dialer.placeCall({ phoneE164: e164 });
+        const providerId = (dto.mode === 'EXOTEL_IVR_AGENT' || dto.provider === 'exotel') && this.dialers.has('exotel') ? 'exotel' : undefined;
+        const dialer = this.dialers.get(providerId);
+        const placed = await dialer.placeCall({ phoneE164: e164, customerPhone: e164, mode: dto.mode });
         const call = await this.prisma.$transaction(async (tx) => {
             const row = await tx.call.create({
                 data: {
@@ -137,6 +168,37 @@ let CallsService = class CallsService {
         await this.syncFromProvider(call);
         const fresh = await this.requireCall(id, actor);
         return this.serialize(fresh);
+    }
+    async linkCustomer(actor, id, customerId) {
+        const call = await this.requireCall(id, actor);
+        const customer = await this.prisma.customer.findFirst({
+            where: {
+                id: customerId,
+                deletedAt: null,
+            },
+        });
+        if (!customer) {
+            throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found or not accessible');
+        }
+        const openLead = await this.prisma.lead.findFirst({
+            where: {
+                customerId,
+                deletedAt: null,
+                status: 'OPEN',
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        const updated = await this.prisma.call.update({
+            where: { id: call.id },
+            data: {
+                customerId,
+                leadId: call.leadId ?? openLead?.id ?? null,
+            },
+            include: {
+                notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
+            },
+        });
+        return this.serialize(updated);
     }
     async endCall(id, actor) {
         const call = await this.prisma.call.findUnique({ where: { id } });
@@ -323,9 +385,15 @@ let CallsService = class CallsService {
             throw ApiError.conflict('CALL_OUTCOME_EXISTS', 'This call already has an outcome recorded');
         }
         const result = await this.prisma.$transaction(async (tx) => {
-            const update = await tx.call.update({
-                where: { id: call.id },
+            const updateCount = await tx.call.updateMany({
+                where: { id: call.id, outcome: null },
                 data: { outcome: dto.outcome, nextAction: dto.nextAction ?? null },
+            });
+            if (updateCount.count === 0) {
+                throw ApiError.conflict('CALL_OUTCOME_EXISTS', 'This call already has an outcome recorded');
+            }
+            const update = await tx.call.findUniqueOrThrow({
+                where: { id: call.id },
                 select: { id: true, outcome: true, nextAction: true },
             });
             await this.audit.record(tx, {
@@ -452,11 +520,19 @@ let CallsService = class CallsService {
         if (!call.customerId) {
             throw ApiError.conflict('CUSTOMER_REQUIRED', 'Create or link the customer before recording this outcome');
         }
+        // If the customer already has an active RM, retain that assignment
+        const existingOwner = await tx.relationshipOwnership.findFirst({
+            where: { customerId: call.customerId, releasedAt: null },
+            include: { employee: { select: { id: true, fullName: true, status: true, deletedAt: true } } },
+        });
+        if (existingOwner && existingOwner.employee?.status === 'ACTIVE' && existingOwner.employee?.deletedAt === null) {
+            return existingOwner;
+        }
         const rmEmail = (this.config.get('RELATIONSHIP_MANAGER_EMAIL') ?? 'manager@grotec.local').toLowerCase();
         const rm = await tx.employee.findUnique({ where: { email: rmEmail } });
-        if (!rm) {
-            this.logger.error(`default RM not found for email ${rmEmail} — set RELATIONSHIP_MANAGER_EMAIL`);
-            throw ApiError.conflict('RM_NOT_CONFIGURED', 'No relationship manager is configured for conversion (RELATIONSHIP_MANAGER_EMAIL)');
+        if (!rm || rm.status !== 'ACTIVE' || rm.deletedAt !== null) {
+            this.logger.error(`default RM not found or inactive for email ${rmEmail} — set RELATIONSHIP_MANAGER_EMAIL`);
+            throw ApiError.conflict('RM_NOT_CONFIGURED', 'No active relationship manager is configured for conversion (RELATIONSHIP_MANAGER_EMAIL)');
         }
         // Reassigning an existing active RM is an authorised Founder/Manager workflow (Month 4).
         await tx.relationshipOwnership.updateMany({ where: { customerId: call.customerId, releasedAt: null }, data: { releasedAt: new Date() } });

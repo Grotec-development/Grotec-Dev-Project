@@ -8,7 +8,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 let PrismaService = class PrismaService extends PrismaClient {
     async onModuleInit() {
-        await this.$connect();
+        try {
+            await this.$connect();
+        } catch (err) {
+            console.warn(`[PrismaService] Database connection could not be established on boot: ${err.message}. Ensure DATABASE_URL in backend/.env is properly configured.`);
+        }
     }
     async onModuleDestroy() {
         await this.$disconnect();

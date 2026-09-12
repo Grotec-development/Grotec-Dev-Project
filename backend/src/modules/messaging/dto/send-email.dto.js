@@ -7,41 +7,32 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, MaxLength, Min } from 'class-validator';
-export class CreateEmployeeDocumentDto {
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+
+export class SendEmailDto {
 }
 __decorate([
+    IsEmail(),
+    IsNotEmpty(),
+    __metadata("design:type", String)
+], SendEmailDto.prototype, "to", void 0);
+
+__decorate([
     IsString(),
     IsNotEmpty(),
+    MinLength(1),
     MaxLength(255),
     __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "fileName", void 0);
-__decorate([
-    IsString(),
-    IsNotEmpty(),
-    MaxLength(50),
-    __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "fileType", void 0);
+], SendEmailDto.prototype, "subject", void 0);
+
 __decorate([
     IsOptional(),
     IsString(),
-    MaxLength(100),
     __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "mimeType", void 0);
-__decorate([
-    IsNumber(),
-    Min(1),
-    __metadata("design:type", Number)
-], CreateEmployeeDocumentDto.prototype, "fileSize", void 0);
+], SendEmailDto.prototype, "body", void 0);
+
 __decorate([
     IsOptional(),
-    IsNumber(),
-    Min(1),
-    __metadata("design:type", Number)
-], CreateEmployeeDocumentDto.prototype, "fileSizeBytes", void 0);
-__decorate([
     IsString(),
-    IsNotEmpty(),
-    IsUrl({ protocols: ['http', 'https'], require_protocol: true }),
     __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "fileUrl", void 0);
+], SendEmailDto.prototype, "html", void 0);

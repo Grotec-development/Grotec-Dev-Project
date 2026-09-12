@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsBoolean, IsNumber, IsOptional, IsString, IsUUID, } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 export class ApplyLeaveDto {
 }
 __decorate([
@@ -29,6 +29,7 @@ __decorate([
 ], ApplyLeaveDto.prototype, "endDate", void 0);
 __decorate([
     IsNumber(),
+    Min(0.5),
     __metadata("design:type", Number)
 ], ApplyLeaveDto.prototype, "daysCount", void 0);
 __decorate([

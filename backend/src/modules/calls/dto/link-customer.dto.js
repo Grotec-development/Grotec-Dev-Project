@@ -7,27 +7,11 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
-export class PlaceCallDto {
+import { IsNotEmpty, IsUUID } from 'class-validator';
+export class LinkCustomerDto {
 }
 __decorate([
-    IsString(),
-    MinLength(5),
-    MaxLength(20),
-    __metadata("design:type", String)
-], PlaceCallDto.prototype, "phoneNumber", void 0);
-__decorate([
-    IsOptional(),
     IsUUID(),
+    IsNotEmpty(),
     __metadata("design:type", String)
-], PlaceCallDto.prototype, "customerId", void 0);
-__decorate([
-    IsOptional(),
-    IsUUID(),
-    __metadata("design:type", String)
-], PlaceCallDto.prototype, "leadId", void 0);
-__decorate([
-    IsOptional(),
-    IsString(),
-    __metadata("design:type", String)
-], PlaceCallDto.prototype, "mode", void 0);
+], LinkCustomerDto.prototype, "customerId", void 0);

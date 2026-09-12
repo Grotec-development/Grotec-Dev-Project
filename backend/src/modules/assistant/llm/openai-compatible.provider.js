@@ -24,11 +24,11 @@ let OpenAiCompatibleLlmProvider = class OpenAiCompatibleLlmProvider {
         this.model = config.get('LLM_MODEL') || 'gpt-4o-mini';
     }
     get available() {
-        return Boolean(this.key);
+        return Boolean(this.key && !this.key.includes('your_free_') && !this.key.includes('change_me') && !this.key.includes('<YOUR'));
     }
     async complete(messages) {
-        if (!this.key)
-            throw new LlmUnavailableError('LLM_API_KEY is not configured');
+        if (!this.available)
+            throw new LlmUnavailableError('LLM_API_KEY is not configured or contains placeholder text');
         for (let attempt = 0; attempt < 2; attempt++) {
             let response;
             try {

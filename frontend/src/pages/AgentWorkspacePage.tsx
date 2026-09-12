@@ -26,9 +26,12 @@ import {
   Info,
   Volume2,
   VolumeX,
+  Users,
+  MessageSquare,
+  Smartphone,
 } from 'lucide-react';
-import { api, errorMessage } from '../lib/api';
-import type { Call, CallContext, CustomerDetail, QueueItem, KnowledgeGuidance } from '../lib/types';
+import { api, errorMessage, messagingApi } from '../lib/api';
+import type { Call, CallContext, CustomerDetail, CustomerSummary, Page, QueueItem, KnowledgeGuidance } from '../lib/types';
 import { useAuth } from '../auth/AuthContext';
 import { formatDate, formatE164 } from '../lib/format';
 import { Alert, Badge, Button, Card, Input, Spinner, cx } from '../components/ui';
@@ -78,6 +81,57 @@ function playAudioCue(muted: boolean) {
   }
 }
 
+export type AgentCallingMode =
+  | 'EXOTEL_IVR_AGENT'
+  | 'ACTIVE_TELECALLER'
+  | 'PREVIEW_DIALER'
+  | 'PROGRESSIVE_DIALER'
+  | 'INBOUND_IVR';
+
+export const CALLING_MODES: {
+  id: AgentCallingMode;
+  label: string;
+  badge: string;
+  color: string;
+  desc: string;
+}[] = [
+  {
+    id: 'EXOTEL_IVR_AGENT',
+    label: 'Exotel IVRS cum Agent',
+    badge: 'Exotel IVR Agent',
+    color: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    desc: 'Exotel cloud telephony with automated IVR prompt bridging to agent',
+  },
+  {
+    id: 'ACTIVE_TELECALLER',
+    label: 'Active Telecaller',
+    badge: 'Active Telecaller',
+    color: 'bg-blue-50 text-blue-800 border-blue-200',
+    desc: 'Direct agent browser-based calling',
+  },
+  {
+    id: 'PREVIEW_DIALER',
+    label: 'Preview Dialer',
+    badge: 'Preview Dialer',
+    color: 'bg-purple-50 text-purple-800 border-purple-200',
+    desc: 'Presents farmer and agricultural history before triggering dial',
+  },
+  {
+    id: 'PROGRESSIVE_DIALER',
+    label: 'Progressive Auto-Dialer',
+    badge: 'Auto-Dialer',
+    color: 'bg-amber-50 text-amber-800 border-amber-200',
+    desc: 'Automatically triggers next call in queue upon wrap-up',
+  },
+  {
+    id: 'INBOUND_IVR',
+    label: 'Inbound IVRS Ready',
+    badge: 'Inbound IVR',
+    color: 'bg-teal-50 text-teal-800 border-teal-200',
+    desc: 'Agent stationed to receive incoming farmer IVRS transfers',
+  },
+];
+
 export interface PendingWrapUpItem {
   callId: string;
   customerId?: string | null;
@@ -88,7 +142,7 @@ export interface PendingWrapUpItem {
   durationSeconds: number;
   notes: string;
   disposition: 'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED';
-  nextAction: 'CALLBACK' | 'SALES';
+  nextAction: 'CALLBACK';
   followUpDate: string;
   followUpTime: string;
   followUpNote: string;
@@ -109,7 +163,7 @@ export function AgentWorkspacePage() {
   const [context, setContext] = useState<CallContext | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [disposition, setDisposition] = useState<'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED'>('INTERESTED');
-  const [nextAction, setNextAction] = useState<'CALLBACK' | 'SALES'>('CALLBACK');
+  const [nextAction, setNextAction] = useState<'CALLBACK'>('CALLBACK');
   const [followUpDate, setFollowUpDate] = useState('2026-03-12');
   const [followUpTime, setFollowUpTime] = useState('10:00');
   const [followUpNote, setFollowUpNote] = useState('');
@@ -121,6 +175,87 @@ export function AgentWorkspacePage() {
   const { setContext: setAssistantContext } = useAssistantContext();
   const { hasPermission } = useAuth();
 
+  // Agent Calling Mode state (persisted to localStorage)
+  const [callingMode, setCallingModeState] = useState<AgentCallingMode>(() => {
+    try {
+      const saved = localStorage.getItem('grotec_calling_mode');
+      if (saved && CALLING_MODES.some((m) => m.id === saved)) {
+        return saved as AgentCallingMode;
+      }
+    } catch {}
+    return 'EXOTEL_IVR_AGENT';
+  });
+
+  const setAgentCallingMode = (mode: AgentCallingMode) => {
+    setCallingModeState(mode);
+    try {
+      localStorage.setItem('grotec_calling_mode', mode);
+    } catch {}
+    const config = CALLING_MODES.find((m) => m.id === mode);
+    setSuccessNotice(`Calling mode switched to: ${config?.label || mode}`);
+  };
+
+  // Farmer Add & Link states
+  const [showAddFarmerModal, setShowAddFarmerModal] = useState(false);
+  const [showExistingFarmerModal, setShowExistingFarmerModal] = useState(false);
+  const [existingFarmerSearch, setExistingFarmerSearch] = useState('');
+  const [existingFarmersList, setExistingFarmersList] = useState<CustomerSummary[]>([]);
+  const [existingFarmerSearching, setExistingFarmerSearching] = useState(false);
+  const [existingFarmerLinkBusy, setExistingFarmerLinkBusy] = useState(false);
+  const [existingFarmerLinkError, setExistingFarmerLinkError] = useState<string | null>(null);
+
+  const searchExistingFarmers = async (query: string) => {
+    setExistingFarmerSearching(true);
+    setExistingFarmerLinkError(null);
+    try {
+      const res = await api.get<Page<CustomerSummary>>('/customers', {
+        params: { q: query.trim() || undefined, pageSize: 25 },
+      });
+      setExistingFarmersList(res.data.items);
+    } catch (err) {
+      setExistingFarmerLinkError(errorMessage(err));
+    } finally {
+      setExistingFarmerSearching(false);
+    }
+  };
+
+  const linkFarmerToCall = async (customerId: string) => {
+    if (!activeCall) return;
+    setExistingFarmerLinkBusy(true);
+    setExistingFarmerLinkError(null);
+    try {
+      await api.post(`/calls/${activeCall.id}/customer`, { customerId });
+      await loadContext(activeCall.id);
+      setShowExistingFarmerModal(false);
+      setSuccessNotice('Farmer record successfully linked to this active call.');
+    } catch (err) {
+      setExistingFarmerLinkError(errorMessage(err));
+    } finally {
+      setExistingFarmerLinkBusy(false);
+    }
+  };
+
+  const handleNewFarmerCreated = async (newCustomerId: string) => {
+    setShowAddFarmerModal(false);
+    if (activeCall) {
+      try {
+        await api.post(`/calls/${activeCall.id}/customer`, { customerId: newCustomerId });
+        await loadContext(activeCall.id);
+        setSuccessNotice('New farmer profile registered and linked to this call!');
+      } catch (err) {
+        setError(`Farmer created, but failed to link to active call: ${errorMessage(err)}`);
+      }
+    }
+  };
+
+  const openExistingFarmerModal = () => {
+    setShowExistingFarmerModal(true);
+    setExistingFarmerLinkError(null);
+    const initialQuery = farmerDisplayPhone ? farmerDisplayPhone.replace(/\D/g, '').slice(-10) : '';
+    setExistingFarmerSearch(initialQuery);
+    void searchExistingFarmers(initialQuery);
+  };
+
   // Knowledge Base in-call state
   const [kbQuery, setKbQuery] = useState('');
   const [kbFilterCrop, setKbFilterCrop] = useState<string>('ALL');
@@ -129,6 +264,9 @@ export function AgentWorkspacePage() {
   const [leftColumnTab, setLeftColumnTab] = useState<'profile' | 'kb'>('profile');
   const [queueCategory, setQueueCategory] = useState<'ALL' | 'EXISTING' | 'LEADS' | 'NEW'>('ALL');
   const [queueIndex, setQueueIndex] = useState(0);
+
+  // Instant messaging state for WhatsApp & SMS advisories
+  const [sendingMessage, setSendingMessage] = useState<'whatsapp' | 'sms' | null>(null);
 
   // Active call microphone mute state & hardware track reference
   const [isMuted, setIsMuted] = useState(false);
@@ -349,7 +487,7 @@ export function AgentWorkspacePage() {
     setError(null);
     setSuccessNotice(null);
     try {
-      const res = await api.post<Call>('/calls', { phoneNumber, customerId, leadId });
+      const res = await api.post<Call>('/calls', { phoneNumber, customerId, leadId, mode: callingMode });
       setActiveCall(res.data);
       setIsMuted(false);
       setIsWrapUp(false);
@@ -427,25 +565,23 @@ export function AgentWorkspacePage() {
         await api.post(`/calls/${activeCall.id}/notes`, { body: noteDraft.trim() }).catch(() => undefined);
       }
 
-      // Record outcome
+      // Record outcome (sales handover removed, direct callback)
       const outcomePayload: any = {
         outcome: disposition,
       };
       if (disposition === 'INTERESTED') {
-        outcomePayload.nextAction = nextAction;
-        if (nextAction === 'CALLBACK') {
-          outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
-          outcomePayload.followUpTime = followUpTime || '10:00';
-          outcomePayload.followUpNote =
-            followUpNote.trim() || noteDraft.trim() || 'Telecaller follow-up callback';
-        }
+        outcomePayload.nextAction = 'CALLBACK';
+        outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
+        outcomePayload.followUpTime = followUpTime || '10:00';
+        outcomePayload.followUpNote =
+          followUpNote.trim() || noteDraft.trim() || 'Telecaller follow-up callback';
       }
       await api.post(`/calls/${activeCall.id}/outcome`, outcomePayload);
 
       const farmerName = farmerDisplayName;
       const outcomeText =
         disposition === 'INTERESTED'
-          ? `Interested (${nextAction === 'CALLBACK' ? `Follow-up on ${followUpDate}` : 'Handed over to RM'})`
+          ? `Interested (Follow-up scheduled on ${followUpDate})`
           : disposition === 'NOT_INTERESTED'
             ? 'Not Interested'
             : 'Not Answered';
@@ -651,6 +787,44 @@ export function AgentWorkspacePage() {
   const farmerDisplayPhone =
     activeCall?.phoneNumber || matchedQueueItem?.customer?.primaryPhone || queryPhone || '';
 
+  async function handleSendAdvisory(channel: 'whatsapp' | 'sms') {
+    const targetPhone = farmerDisplayPhone;
+    if (!targetPhone) {
+      setError('No farmer phone number available to dispatch message.');
+      return;
+    }
+    const messageBody =
+      noteDraft.trim() ||
+      `Hello from GROTEC FarmerOS. Thank you for speaking with our agronomy team today! For any bio-fertilizer queries, feel free to contact us anytime.`;
+    setSendingMessage(channel);
+    setError(null);
+    try {
+      if (channel === 'whatsapp') {
+        await messagingApi.sendWhatsApp({
+          to: targetPhone,
+          body: messageBody,
+          customerId: context?.customer?.id || activeCall?.customerId || matchedQueueItem?.customer?.id || undefined,
+          entityType: 'CALL',
+          entityId: activeCall?.id,
+        });
+        setSuccessNotice(`WhatsApp advisory message dispatched to ${formatE164(targetPhone)}.`);
+      } else {
+        await messagingApi.sendSms({
+          to: targetPhone,
+          body: messageBody,
+          customerId: context?.customer?.id || activeCall?.customerId || matchedQueueItem?.customer?.id || undefined,
+          entityType: 'CALL',
+          entityId: activeCall?.id,
+        });
+        setSuccessNotice(`SMS advisory dispatched to ${formatE164(targetPhone)} via Exotel.`);
+      }
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSendingMessage(null);
+    }
+  }
+
   // Farmer context for the calling panel. Everything below is read from the
   // CallContext payload already fetched for this call (GET /calls/:id/context),
   // which returns the same CustomerDetail shape the Farmers page renders — one
@@ -765,10 +939,32 @@ export function AgentWorkspacePage() {
             Dashboard
           </Link>
           <span className="text-slate-300">/</span>
-          <span className="font-bold text-slate-800">Agent Calling Mode</span>
-          <span className="rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-            Active Telecaller
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-800">Calling Mode:</span>
+            <div className="relative inline-flex items-center">
+              <select
+                aria-label="Agent Calling Mode"
+                value={callingMode}
+                onChange={(e) => setAgentCallingMode(e.target.value as AgentCallingMode)}
+                className={cx(
+                  'rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand-500 transition',
+                  CALLING_MODES.find((m) => m.id === callingMode)?.color || 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                )}
+              >
+                {CALLING_MODES.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              {callingMode === 'EXOTEL_IVR_AGENT' && (
+                <span className="ml-1.5 flex h-2 w-2 relative" title="Exotel IVRS cum Agent active">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              )}
+            </div>
+          </div>
           {matchedQueueItem && (
             <span className="rounded bg-slate-100 text-slate-600 px-1.5 py-0.2 text-[10px] font-semibold">
               {matchedQueueItem.leadId ? 'Lead Pipeline' : 'Existing Customer'}
@@ -996,13 +1192,24 @@ export function AgentWorkspacePage() {
                       <span className="text-[10px] font-mono text-slate-400">
                         {context?.customer?.farmerCode || matchedQueueItem?.customer?.farmerCode || 'FARM-REF'}
                       </span>
+                      {context?.customer ? (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={openExistingFarmerModal}
+                          className="h-6 px-1.5 text-[10px] text-slate-700"
+                          title="Switch or link to another existing farmer"
+                        >
+                          <Users className="h-3 w-3" /> Switch Farmer
+                        </Button>
+                      ) : null}
                       {customerEditable && !farmerEditing ? (
                         <button
                           type="button"
                           onClick={startFarmerEdit}
                           className="text-[11px] font-semibold text-brand-600 hover:underline"
                         >
-                          Edit
+                          Edit Profile
                         </button>
                       ) : null}
                       {editableCustomerId ? (
@@ -1011,11 +1218,43 @@ export function AgentWorkspacePage() {
                           className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 hover:underline"
                           title="Phones, locations and crops are managed on the full farmer profile"
                         >
-                          Profile
+                          Full Profile
                         </Link>
                       ) : null}
                     </div>
                   </div>
+
+                  {/* If farmer is NOT present on this call, show notice and quick actions to add or link */}
+                  {!context?.customer ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs space-y-2 mb-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-amber-900">No Farmer Record Linked to This Call</p>
+                          <p className="text-[11px] text-amber-800 mt-0.5">
+                            Number <span className="font-mono font-bold">{farmerDisplayPhone || 'unknown'}</span> is unmapped. Register a new farmer or link to an existing profile below.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200/60">
+                        <Button
+                          size="xs"
+                          variant="primary"
+                          onClick={() => setShowAddFarmerModal(true)}
+                        >
+                          <UserPlus className="h-3.5 w-3.5" /> + Add New Farmer
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={openExistingFarmerModal}
+                          className="bg-white hover:bg-slate-50 text-slate-800 font-medium border-slate-300"
+                        >
+                          <Search className="h-3.5 w-3.5" /> 🔍 Add to Existing Farmer
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {/* Farmer Details */}
                   <div className="space-y-2.5 text-xs">
@@ -1170,14 +1409,6 @@ export function AgentWorkspacePage() {
                           {pendingFollowUp ? formatDate(pendingFollowUp.dueAt) : 'None scheduled'}
                         </span>
                       </div>
-                      {context?.relationshipOwner ? (
-                        <div className="flex justify-between gap-3">
-                          <span className="text-slate-500 shrink-0">Relationship mgr:</span>
-                          <span className="font-medium text-slate-700 text-right">
-                            {context.relationshipOwner.fullName}
-                          </span>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -1412,6 +1643,35 @@ export function AgentWorkspacePage() {
                   placeholder="Record crop status, farmer inquiries, pest observations, and recommended Grotec organic solutions..."
                   className="w-full rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none leading-relaxed"
                 />
+
+                {/* Instant Farmer Messaging Triggers */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                  <span className="text-[10px] font-medium text-slate-500">
+                    Dispatch advisory directly:
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={!farmerDisplayPhone || sendingMessage !== null}
+                      onClick={() => handleSendAdvisory('whatsapp')}
+                      title={farmerDisplayPhone ? `Send notes to ${formatE164(farmerDisplayPhone)} via WhatsApp` : 'No phone number'}
+                      className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      {sendingMessage === 'whatsapp' ? 'Sending WhatsApp...' : 'Send WhatsApp'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!farmerDisplayPhone || sendingMessage !== null}
+                      onClick={() => handleSendAdvisory('sms')}
+                      title={farmerDisplayPhone ? `Send notes to ${formatE164(farmerDisplayPhone)} via Exotel SMS` : 'No phone number'}
+                      className="inline-flex items-center gap-1 rounded bg-sky-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <Smartphone className="h-3 w-3" />
+                      {sendingMessage === 'sms' ? 'Sending SMS...' : 'Send SMS'}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Disposition Selector */}
@@ -1424,87 +1684,60 @@ export function AgentWorkspacePage() {
                   onChange={(e) => setDisposition(e.target.value as any)}
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none"
                 >
-                  <option value="INTERESTED">Interested (Follow-Up or Sales Handover)</option>
+                  <option value="INTERESTED">Interested (Schedule Follow-Up)</option>
                   <option value="NOT_INTERESTED">Not Interested</option>
                   <option value="NOT_ANSWERED">Not Answered / Callback Needed</option>
                 </select>
               </div>
 
-              {/* Interested Next Action Sub-Panel */}
+              {/* Interested Next Action Sub-Panel (Sales Handover removed, direct Callback) */}
               {disposition === 'INTERESTED' && (
                 <div className="rounded-md border border-emerald-100 bg-emerald-50/50 p-3 space-y-2.5">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                    Interested Next Action (Required)
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="nextAction"
-                        value="CALLBACK"
-                        checked={nextAction === 'CALLBACK'}
-                        onChange={() => setNextAction('CALLBACK')}
-                        className="text-brand-600 focus:ring-brand-500"
-                      />
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-800">
                       Schedule Callback Follow-Up
                     </label>
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="nextAction"
-                        value="SALES"
-                        checked={nextAction === 'SALES'}
-                        onChange={() => setNextAction('SALES')}
-                        className="text-brand-600 focus:ring-brand-500"
-                      />
-                      Sales Handover (Assign to RM)
-                    </label>
+                    <span className="text-[10px] text-emerald-700 font-medium">Finalize Discussion • Callback</span>
                   </div>
 
-                  {nextAction === 'CALLBACK' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-emerald-200/60">
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                          Follow-Up Date *
-                        </label>
-                        <input
-                          type="date"
-                          required
-                          value={followUpDate}
-                          onChange={(e) => setFollowUpDate(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                          Follow-Up Time *
-                        </label>
-                        <input
-                          type="time"
-                          required
-                          value={followUpTime}
-                          onChange={(e) => setFollowUpTime(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                          Reason / Specifics
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Discuss Phos trial quote"
-                          value={followUpNote}
-                          onChange={(e) => setFollowUpNote(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
-                        />
-                      </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Follow-Up Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={followUpDate}
+                        onChange={(e) => setFollowUpDate(e.target.value)}
+                        className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                      />
                     </div>
-                  ) : (
-                    <p className="text-[11px] text-emerald-800 pt-1">
-                      Converting to Sales will mark the lead converted, assign a Relationship Manager (RM), and automatically queue product guidance SMS.
-                    </p>
-                  )}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Follow-Up Time *
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={followUpTime}
+                        onChange={(e) => setFollowUpTime(e.target.value)}
+                        className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Reason / Specifics
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Discuss bio-fertilizer trial quote"
+                        value={followUpNote}
+                        onChange={(e) => setFollowUpNote(e.target.value)}
+                        className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1786,32 +2019,17 @@ export function AgentWorkspacePage() {
                 </select>
 
                 {pendingWrapUp.disposition === 'INTERESTED' && (
-                  <>
-                    <select
-                      value={pendingWrapUp.nextAction}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500 font-medium">Follow-Up Date:</span>
+                    <input
+                      type="date"
+                      value={pendingWrapUp.followUpDate}
                       onChange={(e) =>
-                        setPendingWrapUp({ ...pendingWrapUp, nextAction: e.target.value as any })
+                        setPendingWrapUp({ ...pendingWrapUp, followUpDate: e.target.value, nextAction: 'CALLBACK' })
                       }
-                      className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-800"
-                    >
-                      <option value="CALLBACK">Schedule Callback</option>
-                      <option value="SALES">Sales / RM Handover</option>
-                    </select>
-
-                    {pendingWrapUp.nextAction === 'CALLBACK' && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-500 font-medium">Follow-Up Date:</span>
-                        <input
-                          type="date"
-                          value={pendingWrapUp.followUpDate}
-                          onChange={(e) =>
-                            setPendingWrapUp({ ...pendingWrapUp, followUpDate: e.target.value })
-                          }
-                          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
-                        />
-                      </div>
-                    )}
-                  </>
+                      className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
+                    />
+                  </div>
                 )}
 
                 <Button
@@ -1937,6 +2155,128 @@ export function AgentWorkspacePage() {
           onClose={() => setShowNewCustomer(false)}
           onCreated={() => setShowNewCustomer(false)}
         />
+      ) : null}
+
+      {/* Mid-Call Add Farmer Modal */}
+      {showAddFarmerModal ? (
+        <NewCustomerModal
+          initialPhone={farmerDisplayPhone}
+          onClose={() => setShowAddFarmerModal(false)}
+          onCreated={(id) => void handleNewFarmerCreated(id)}
+        />
+      ) : null}
+
+      {/* Mid-Call Add to Existing Farmer Search & Link Modal */}
+      {showExistingFarmerModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true">
+          <Card className="max-h-[90vh] w-full max-w-lg overflow-hidden flex flex-col shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5 bg-slate-50/80">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-brand-600" />
+                <h2 className="text-sm font-bold text-slate-800">Add to Existing Farmer Profile</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExistingFarmerModal(false)}
+                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+              {existingFarmerLinkError ? (
+                <Alert tone="error">{existingFarmerLinkError}</Alert>
+              ) : null}
+
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <Input
+                    value={existingFarmerSearch}
+                    onChange={(e) => {
+                      setExistingFarmerSearch(e.target.value);
+                      void searchExistingFarmers(e.target.value);
+                    }}
+                    placeholder="Search by farmer name, phone number, or village..."
+                    className="pl-8 text-xs"
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={existingFarmerSearching}
+                  onClick={() => void searchExistingFarmers(existingFarmerSearch)}
+                >
+                  {existingFarmerSearching ? 'Searching…' : 'Search'}
+                </Button>
+              </div>
+
+              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto border border-slate-200 rounded-md">
+                {existingFarmersList.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    {existingFarmerSearching ? 'Searching CRM records…' : 'No matching farmers found. Try typing a name or phone number above.'}
+                  </div>
+                ) : (
+                  existingFarmersList.map((farmer) => (
+                    <div
+                      key={farmer.id}
+                      className="p-3 flex items-center justify-between hover:bg-slate-50 text-xs transition"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900">{farmer.fullName}</span>
+                          <span className="font-mono text-[10px] text-slate-400">
+                            {farmer.farmerCode || 'FARM'}
+                          </span>
+                          <span
+                            className={cx(
+                              'text-[9px] font-bold px-1.5 py-0.2 rounded border',
+                              farmer.status === 'ACTIVE'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                            )}
+                          >
+                            {farmer.status}
+                          </span>
+                        </div>
+                        <p className="font-mono text-[11px] text-slate-600">
+                          {farmer.primaryPhone ? formatE164(farmer.primaryPhone) : 'No primary phone'}
+                          {farmer.phoneCount > 1 ? ` (+${farmer.phoneCount - 1} more)` : ''}
+                        </p>
+                      </div>
+                      <Button
+                        size="xs"
+                        variant="primary"
+                        disabled={existingFarmerLinkBusy}
+                        onClick={() => void linkFarmerToCall(farmer.id)}
+                      >
+                        {existingFarmerLinkBusy ? 'Linking…' : 'Link to Call'}
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-slate-50">
+              <span className="text-[11px] text-slate-500">
+                Cannot find this farmer in CRM?
+              </span>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => {
+                  setShowExistingFarmerModal(false);
+                  setShowAddFarmerModal(true);
+                }}
+              >
+                <UserPlus className="h-3.5 w-3.5" /> + Register New Farmer Instead
+              </Button>
+            </div>
+          </Card>
+        </div>
       ) : null}
     </div>
   );

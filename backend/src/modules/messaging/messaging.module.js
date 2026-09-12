@@ -8,13 +8,16 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../../common/audit/audit.module';
 import { MessagingRegistry } from './messaging.registry';
 import { MessagingService } from './messaging.service';
+import { MessagesController } from './messages.controller';
+
 let MessagingModule = class MessagingModule {
 };
 MessagingModule = __decorate([
     Module({
         imports: [AuditModule],
+        controllers: [MessagesController],
         providers: [MessagingRegistry, MessagingService],
-        exports: [MessagingService],
+        exports: [MessagingService, MessagingRegistry],
     })
 ], MessagingModule);
 export { MessagingModule };

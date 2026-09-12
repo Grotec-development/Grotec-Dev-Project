@@ -7,41 +7,34 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, MaxLength, Min } from 'class-validator';
-export class CreateEmployeeDocumentDto {
+import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+
+export class SendSmsDto {
 }
 __decorate([
     IsString(),
     IsNotEmpty(),
-    MaxLength(255),
+    MinLength(5),
+    MaxLength(20),
     __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "fileName", void 0);
+], SendSmsDto.prototype, "to", void 0);
+
 __decorate([
     IsString(),
     IsNotEmpty(),
-    MaxLength(50),
+    MinLength(1),
+    MaxLength(1000),
     __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "fileType", void 0);
+], SendSmsDto.prototype, "body", void 0);
+
 __decorate([
     IsOptional(),
-    IsString(),
-    MaxLength(100),
+    IsUUID(),
     __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "mimeType", void 0);
-__decorate([
-    IsNumber(),
-    Min(1),
-    __metadata("design:type", Number)
-], CreateEmployeeDocumentDto.prototype, "fileSize", void 0);
+], SendSmsDto.prototype, "customerId", void 0);
+
 __decorate([
     IsOptional(),
-    IsNumber(),
-    Min(1),
-    __metadata("design:type", Number)
-], CreateEmployeeDocumentDto.prototype, "fileSizeBytes", void 0);
-__decorate([
-    IsString(),
-    IsNotEmpty(),
-    IsUrl({ protocols: ['http', 'https'], require_protocol: true }),
+    IsUUID(),
     __metadata("design:type", String)
-], CreateEmployeeDocumentDto.prototype, "fileUrl", void 0);
+], SendSmsDto.prototype, "callId", void 0);

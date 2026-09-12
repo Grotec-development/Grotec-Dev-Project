@@ -14,12 +14,23 @@ import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { toPage } from '../../common/utils/pagination';
-function parseDateOnly(dateStr) {
-    const parts = dateStr.split('T')[0].split('-');
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+function parseDateOnly(value) {
+    const datePart = typeof value === 'string' ? value.split('T')[0] : '';
+    const date = new Date(`${datePart}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== datePart) {
+        throw ApiError.badRequest('INVALID_DATE', 'A valid calendar date is required');
+    }
+    return date;
+}
+function leaveDaysByYear(startDate, endDate, daysCount) {
+    if (daysCount === 0.5) return [{ year: startDate.getUTCFullYear(), days: 0.5 }];
+    const years = [];
+    for (let year = startDate.getUTCFullYear(); year <= endDate.getUTCFullYear(); year++) {
+        const start = Math.max(startDate.getTime(), Date.UTC(year, 0, 1));
+        const end = Math.min(endDate.getTime(), Date.UTC(year, 11, 31));
+        years.push({ year, days: (end - start) / 86_400_000 + 1 });
+    }
+    return years;
 }
 let LeaveService = class LeaveService {
     constructor(prisma, audit) {
@@ -239,6 +250,11 @@ let LeaveService = class LeaveService {
         if (startDate > endDate) {
             throw ApiError.badRequest('INVALID_DATE_RANGE', 'Start date must be before or equal to end date');
         }
+        const calendarDays = (endDate.getTime() - startDate.getTime()) / 86_400_000 + 1;
+        const daysCount = calendarDays === 1 && dto.daysCount === 0.5 ? 0.5 : calendarDays;
+        if (dto.daysCount !== daysCount) {
+            throw ApiError.badRequest('INVALID_LEAVE_DURATION', 'Days must match the inclusive calendar date range, or be 0.5 for a single date');
+        }
         // Check for overlapping applications
         const overlapping = await this.prisma.leaveApplication.findFirst({
             where: {
@@ -251,20 +267,20 @@ let LeaveService = class LeaveService {
         if (overlapping) {
             throw ApiError.badRequest('OVERLAPPING_LEAVE', 'An overlapping leave application already exists for this date range');
         }
-        const year = startDate.getFullYear();
-        // Check balance
-        const balance = await this.prisma.leaveBalance.findUnique({
-            where: {
-                employeeId_leaveTypeId_year: {
-                    employeeId: targetEmployeeId,
-                    leaveTypeId: dto.leaveTypeId,
-                    year,
-                },
-            },
-        });
         if (leaveType.isPaid) {
-            if (!balance || Number(balance.balance) < dto.daysCount) {
-                throw ApiError.badRequest('INSUFFICIENT_LEAVE_BALANCE', `Insufficient leave balance. Remaining: ${balance ? balance.balance : 0}, requested: ${dto.daysCount}`);
+            for (const { year, days } of leaveDaysByYear(startDate, endDate, daysCount)) {
+                const balance = await this.prisma.leaveBalance.findUnique({
+                    where: {
+                        employeeId_leaveTypeId_year: {
+                            employeeId: targetEmployeeId,
+                            leaveTypeId: dto.leaveTypeId,
+                            year,
+                        },
+                    },
+                });
+                if (!balance || Number(balance.balance) < days) {
+                    throw ApiError.badRequest('INSUFFICIENT_LEAVE_BALANCE', `Insufficient leave balance for ${year}`);
+                }
             }
         }
         const application = await this.prisma.$transaction(async (tx) => {
@@ -274,7 +290,7 @@ let LeaveService = class LeaveService {
                     leaveTypeId: dto.leaveTypeId,
                     startDate,
                     endDate,
-                    daysCount: dto.daysCount,
+                    daysCount,
                     reason: dto.reason,
                     status: LeaveStatus.PENDING,
                 },
@@ -326,8 +342,8 @@ let LeaveService = class LeaveService {
             }
         }
         const result = await this.prisma.$transaction(async (tx) => {
-            const updated = await tx.leaveApplication.update({
-                where: { id },
+            const decision = await tx.leaveApplication.updateMany({
+                where: { id, status: LeaveStatus.PENDING },
                 data: {
                     status: LeaveStatus.APPROVED,
                     approverId: actor.id,
@@ -335,20 +351,26 @@ let LeaveService = class LeaveService {
                     rejectionReason: null,
                 },
             });
-            // Update LeaveBalance if it's paid leave
-            const year = existing.startDate.getFullYear();
+            if (decision.count !== 1) {
+                throw ApiError.conflict('LEAVE_ALREADY_DECIDED', 'Leave application has already been decided');
+            }
+            const updated = await tx.leaveApplication.findUnique({ where: { id } });
+            // Deduct each calendar year's balance only if sufficient days remain.
+            const days = (existing.endDate.getTime() - existing.startDate.getTime()) / 86_400_000 + 1;
+            const halfDay = days === 1 && Number(existing.daysCount) === 0.5;
+            if (days <= 0 || (!halfDay && Number(existing.daysCount) !== days)) {
+                throw ApiError.badRequest('INVALID_LEAVE_DURATION', 'Leave duration must match the calendar date range');
+            }
             if (existing.leaveType.isPaid) {
-                await tx.leaveBalance.updateMany({
-                    where: {
-                        employeeId: existing.employeeId,
-                        leaveTypeId: existing.leaveTypeId,
-                        year,
-                    },
-                    data: {
-                        used: { increment: existing.daysCount },
-                        balance: { decrement: existing.daysCount },
-                    },
-                });
+                for (const { year, days } of leaveDaysByYear(existing.startDate, existing.endDate, Number(existing.daysCount))) {
+                    const deducted = await tx.leaveBalance.updateMany({
+                        where: { employeeId: existing.employeeId, leaveTypeId: existing.leaveTypeId, year, balance: { gte: days } },
+                        data: { used: { increment: days }, balance: { decrement: days } },
+                    });
+                    if (deducted.count !== 1) {
+                        throw ApiError.badRequest('INSUFFICIENT_LEAVE_BALANCE', `Insufficient leave balance for ${year}`);
+                    }
+                }
             }
             // Generate Attendance records for leave duration
             const curr = new Date(existing.startDate);
@@ -435,8 +457,8 @@ let LeaveService = class LeaveService {
             }
         }
         const result = await this.prisma.$transaction(async (tx) => {
-            const updated = await tx.leaveApplication.update({
-                where: { id },
+            const decision = await tx.leaveApplication.updateMany({
+                where: { id, status: LeaveStatus.PENDING },
                 data: {
                     status: LeaveStatus.REJECTED,
                     approverId: actor.id,
@@ -444,6 +466,10 @@ let LeaveService = class LeaveService {
                     rejectionReason: dto.reason,
                 },
             });
+            if (decision.count !== 1) {
+                throw ApiError.conflict('LEAVE_ALREADY_DECIDED', 'Leave application has already been decided');
+            }
+            const updated = await tx.leaveApplication.findUnique({ where: { id } });
             await tx.leaveApprovalHistory.create({
                 data: {
                     leaveApplicationId: id,

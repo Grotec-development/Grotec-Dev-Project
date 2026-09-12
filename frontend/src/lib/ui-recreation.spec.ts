@@ -217,7 +217,6 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
   const CRM_NAV_ITEMS = [
     { to: '/dashboard', label: 'Dashboard', permission: 'customer.read' },
     { to: '/agent', label: 'Agent Mode', permission: 'call.read' },
-    { to: '/relationship-manager', label: 'Relationship Mgr', permission: 'relationship.read' },
     { to: '/action-center', label: 'Action Center', permission: 'call.read' },
     { to: '/customers', label: 'Farmers', permission: 'customer.read' },
     { to: '/leads', label: 'Leads Pipeline', permission: 'lead.read' },
@@ -231,7 +230,6 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
     '/agent',
     '/action-center',
     '/customers',
-    '/relationship-manager',
   ]);
 
   const FOUNDER_HIDDEN_NAV = new Set([
@@ -279,7 +277,6 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
     expect(labels).toEqual([
       'Dashboard',
       'Agent Mode',
-      'Relationship Mgr',
       'Action Center',
       'Farmers',
     ]);
@@ -293,7 +290,6 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
     expect(labels).toEqual([
       'Dashboard',
       'Agent Mode',
-      'Relationship Mgr',
       'Farmers',
     ]);
   });

@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c, _d;
+var _a, _b, _c, _d, _e;
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PERMISSIONS } from '@grotec/shared';
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
@@ -18,6 +18,7 @@ import { RequirePermission } from '../../common/decorators/require-permission.de
 import { AddNoteDto } from './dto/add-note.dto';
 import { PlaceCallDto } from './dto/place-call.dto';
 import { RecordOutcomeDto } from './dto/record-outcome.dto';
+import { LinkCustomerDto } from './dto/link-customer.dto';
 import { CallsService } from './calls.service';
 let CallsController = class CallsController {
     constructor(calls) {
@@ -46,6 +47,9 @@ let CallsController = class CallsController {
     }
     outcome(actor, id, dto) {
         return this.calls.recordOutcome(actor, id, dto);
+    }
+    linkCustomer(actor, id, dto) {
+        return this.calls.linkCustomer(actor, id, dto.customerId);
     }
 };
 __decorate([
@@ -121,6 +125,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, typeof (_d = typeof RecordOutcomeDto !== "undefined" && RecordOutcomeDto) === "function" ? _d : Object]),
     __metadata("design:returntype", void 0)
 ], CallsController.prototype, "outcome", null);
+__decorate([
+    Post(':id/customer'),
+    RequirePermission(PERMISSIONS.callManage),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, typeof (_e = typeof LinkCustomerDto !== "undefined" && LinkCustomerDto) === "function" ? _e : Object]),
+    __metadata("design:returntype", void 0)
+], CallsController.prototype, "linkCustomer", null);
 CallsController = __decorate([
     Controller('calls'),
     __metadata("design:paramtypes", [typeof (_a = typeof CallsService !== "undefined" && CallsService) === "function" ? _a : Object])

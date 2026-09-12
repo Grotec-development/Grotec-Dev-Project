@@ -199,4 +199,60 @@ describe('AttendanceService (Regularization & Shift Permissions)', () => {
       })
     ).rejects.toThrow('Founder / CEO is the business owner and is not tracked for attendance');
   });
+
+  describe('ESSL Webhook & Sync', () => {
+    const originalEnv = process.env.ESSL_WEBHOOK_SECRET;
+
+    it('throws WEBHOOKS_DISABLED if ESSL_WEBHOOK_SECRET is not configured', async () => {
+      delete process.env.ESSL_WEBHOOK_SECRET;
+      try {
+        await expect(
+          service.handleEsslWebhook('any-secret', { deviceId: 'dev-1', punches: [] })
+        ).rejects.toThrow('ESSL webhook secret is not configured');
+      } finally {
+        if (originalEnv !== undefined) {
+          process.env.ESSL_WEBHOOK_SECRET = originalEnv;
+        }
+      }
+    });
+
+    it('throws INVALID_WEBHOOK_SECRET if secret does not match', async () => {
+      process.env.ESSL_WEBHOOK_SECRET = 'configured-secret';
+      try {
+        await expect(
+          service.handleEsslWebhook('wrong-secret', { deviceId: 'dev-1', punches: [] })
+        ).rejects.toThrow('Invalid ESSL webhook secret');
+      } finally {
+        if (originalEnv !== undefined) {
+          process.env.ESSL_WEBHOOK_SECRET = originalEnv;
+        } else {
+          delete process.env.ESSL_WEBHOOK_SECRET;
+        }
+      }
+    });
+
+    it('syncEssl returns synced 0 and does NOT synthesize fake punches when punches is empty', async () => {
+      mockPrisma.esslDevice = {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'dev-1',
+            deviceCode: 'DEV-01',
+            name: 'Main Gate',
+            mappings: [{ biometricPin: '101', employeeId: 'emp-1' }],
+          },
+        ]),
+      };
+
+      const result = await service.syncEssl(founderActor, { date: '2026-09-10', punches: [] });
+      expect(result).toEqual({ synced: 0, date: '2026-09-10' });
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('syncEssl forbids AGENT from triggering hardware sync', async () => {
+      await expect(
+        service.syncEssl(agentActor, { date: '2026-09-10', punches: [] })
+      ).rejects.toThrow('Agents cannot trigger biometric hardware sync');
+    });
+  });
 });
+

@@ -45,70 +45,62 @@ let OutboxEventHandlers = OutboxEventHandlers_1 = class OutboxEventHandlers {
     // -------------------------------------------------------------------------
     // Payroll
     // -------------------------------------------------------------------------
-    async handlePayrollPublished(event) {
+    async handlePayrollPublished(event, tx) {
         const { runId, month } = event.payload;
         // Fetch line items for this run (run was already committed by the time we process).
-        const run = await this.prisma.payrollRun.findUnique({
+        const run = await tx.payrollRun.findUnique({
             where: { id: runId },
-            include: { lineItems: { include: { employee: { select: { id: true, fullName: true } } } } },
+            include: { lineItems: { orderBy: { employeeId: 'asc' }, include: { employee: { select: { id: true, fullName: true } } } } },
         });
         if (!run) {
-            this.logger.warn(`Payroll run ${runId} not found when processing payroll.published`);
-            return;
+            throw new Error(`Payroll run ${runId} not found when processing payroll.published`);
         }
-        // Process each employee's advance recovery + notification in its own transaction.
-        // Failure for one employee is isolated and retried independently.
-        await Promise.allSettled(run.lineItems.map((item) => this.processPayrollEmployeeSideEffect(runId, month, item)));
+        // Fail the event if any employee fails; the worker rolls back all effects.
+        for (const item of run.lineItems) {
+            await this.processPayrollEmployeeSideEffect(runId, month, item, tx);
+        }
     }
-    async processPayrollEmployeeSideEffect(runId, month, item) {
-        try {
-            await this.prisma.$transaction(async (tx) => {
-                if (item.advanceRecovery.toNumber() > 0) {
-                    const advances = await tx.advanceLedger.findMany({
-                        where: { employeeId: item.employeeId, status: 'ACTIVE', runningBalance: { gt: 0 } },
-                        orderBy: { issuedAt: 'asc' },
-                    });
-                    let remaining = item.advanceRecovery.toNumber();
-                    for (const adv of advances) {
-                        if (remaining <= 0)
-                            break;
-                        const deduction = Math.min(adv.runningBalance.toNumber(), remaining);
-                        const newBal = adv.runningBalance.toNumber() - deduction;
-                        await tx.advanceRecovery.create({
-                            data: {
-                                advanceId: adv.id,
-                                payrollRunId: runId,
-                                amount: deduction,
-                                linkedPayrollMonth: month,
-                                notes: `Recovered via payroll ${month}`,
-                            },
-                        });
-                        await tx.advanceLedger.update({
-                            where: { id: adv.id },
-                            data: {
-                                runningBalance: newBal,
-                                status: newBal <= 0 ? 'COMPLETED' : 'ACTIVE',
-                            },
-                        });
-                        remaining -= deduction;
-                    }
-                }
-                await tx.appNotification.create({
+    async processPayrollEmployeeSideEffect(runId, month, item, tx) {
+        await tx.$queryRaw`SELECT id FROM employees WHERE id = ${item.employeeId}::uuid FOR UPDATE`;
+        if (item.advanceRecovery.toNumber() > 0) {
+            const advances = await tx.advanceLedger.findMany({
+                where: { employeeId: item.employeeId, status: 'ACTIVE', runningBalance: { gt: 0 } },
+                orderBy: { issuedAt: 'asc' },
+            });
+            let remaining = item.advanceRecovery.toNumber();
+            for (const adv of advances) {
+                if (remaining <= 0)
+                    break;
+                const deduction = Math.min(adv.runningBalance.toNumber(), remaining);
+                const newBal = adv.runningBalance.toNumber() - deduction;
+                await tx.advanceRecovery.create({
                     data: {
-                        recipientId: item.employeeId,
-                        type: 'PAYROLL_STATUS',
-                        title: `Payslip Available for ${month}`,
-                        message: `Your payslip for ${month} of INR ${item.netPay.toNumber().toLocaleString('en-IN')} has been published.`,
-                        data: { payrollRunId: runId, lineItemId: item.id, month },
+                        advanceId: adv.id,
+                        payrollRunId: runId,
+                        amount: deduction,
+                        linkedPayrollMonth: month,
+                        notes: `Recovered via payroll ${month}`,
                     },
                 });
-            });
+                await tx.advanceLedger.update({
+                    where: { id: adv.id },
+                    data: {
+                        runningBalance: newBal,
+                        status: newBal <= 0 ? 'COMPLETED' : 'ACTIVE',
+                    },
+                });
+                remaining -= deduction;
+            }
         }
-        catch (err) {
-            this.logger.warn(`payroll.published side effect failed for employee ${item.employeeId} in run ${month}: ` +
-                `${err instanceof Error ? err.message : String(err)}`);
-            throw err; // re-throw so the worker treats this as transient failure and retries
-        }
+        await tx.appNotification.create({
+            data: {
+                recipientId: item.employeeId,
+                type: 'PAYROLL_STATUS',
+                title: `Payslip Available for ${month}`,
+                message: `Your payslip for ${month} of INR ${item.netPay.toNumber().toLocaleString('en-IN')} has been published.`,
+                data: { payrollRunId: runId, lineItemId: item.id, month },
+            },
+        });
     }
     // -------------------------------------------------------------------------
     // Customer

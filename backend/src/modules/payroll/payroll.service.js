@@ -104,8 +104,13 @@ let PayrollService = PayrollService_1 = class PayrollService {
             where: { status: 'ACTIVE', deletedAt: null },
             include: {
                 salaryRevisions: {
-                    orderBy: { revisionNumber: 'desc' },
+                    where: { effectiveFrom: { lte: monthEnd } },
+                    orderBy: [{ effectiveFrom: 'desc' }, { revisionNumber: 'desc' }],
                     take: 1,
+                },
+                leaveApplications: {
+                    where: { status: 'APPROVED', startDate: { lte: monthEnd }, endDate: { gte: monthStart }, leaveType: { isPaid: false } },
+                    select: { startDate: true, endDate: true, daysCount: true },
                 },
                 attendanceRecords: {
                     where: {
@@ -168,7 +173,13 @@ let PayrollService = PayrollService_1 = class PayrollService {
                 let absentDays = 0;
                 let halfDays = 0;
                 for (const r of attRecords) {
-                    if (r.status === 'PRESENT' ||
+                    const unpaidLeave = r.status === 'LEAVE' && emp.leaveApplications.find(leave => r.date >= leave.startDate && r.date <= leave.endDate);
+                    if (unpaidLeave) {
+                        const unpaidDays = Number(unpaidLeave.daysCount) === 0.5 ? 0.5 : 1;
+                        absentDays += unpaidDays;
+                        presentDays += 1 - unpaidDays;
+                    }
+                    else if (r.status === 'PRESENT' ||
                         r.status === 'WEEKLY_OFF' ||
                         r.status === 'HOLIDAY' ||
                         r.status === 'LEAVE') {

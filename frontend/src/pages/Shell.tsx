@@ -3,7 +3,6 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react
 import {
   LayoutDashboard,
   Phone,
-  UserRoundCheck,
   Users,
   Contact,
   Sprout,
@@ -49,7 +48,6 @@ interface NavItem {
 const CRM_NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'customer.read' },
   { to: '/agent', label: 'Agent Mode', icon: Phone, permission: 'call.read' },
-  { to: '/relationship-manager', label: 'Relationship Mgr', icon: UserRoundCheck, permission: 'relationship.read' },
   { to: '/action-center', label: 'Action Center', icon: Briefcase, permission: 'call.read' },
   { to: '/customers', label: 'Farmers', icon: Users, permission: 'customer.read' },
   { to: '/leads', label: 'Leads Pipeline', icon: Contact, permission: 'lead.read' },
@@ -69,10 +67,6 @@ const AGENT_PRIMARY_NAV = new Set([
   '/agent',
   '/action-center',
   '/customers',
-  // Relationship Manager is allow-listed for AGENT, but the RBAC filter below
-  // still applies: it only renders once the role actually holds
-  // `relationship.read`, which AGENT does not carry today.
-  '/relationship-manager',
 ]);
 
 /**
@@ -243,7 +237,6 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
     '/dashboard': { title: 'Telecaller Workstation', description: 'Call queue, follow-ups, and farmer engagements.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Telecaller Workstation' }] },
     '/agent': { title: 'Telecaller Workstation', description: 'Telecaller calling workspace — dial queue and log outcomes.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Calls', href: '/agent' }] },
     '/calling': { title: 'Active Outbound Call', description: 'Live outbound call session in progress.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Calls', href: '/agent' }, { label: 'Active Call' }] },
-    '/relationship-manager': { title: 'Relationship Manager', description: 'Converted farmer portfolio and field assignment.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Relationship Manager' }] },
     '/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Action Center' }] },
     '/hrms/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations', href: '/hrms' }, { label: 'Action Center' }] },
     '/customers': { title: 'Farmer Directory', description: 'Farmer master — search by name, phone, district, or crop.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Farmer Directory' }] },

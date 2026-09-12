@@ -653,7 +653,10 @@ let AttendanceService = class AttendanceService {
         return { items: employees };
     }
     async handleEsslWebhook(secret, dto) {
-        const expectedSecret = process.env.ESSL_WEBHOOK_SECRET || 'dev-essl-webhook-secret';
+        const expectedSecret = process.env.ESSL_WEBHOOK_SECRET;
+        if (!expectedSecret) {
+            throw ApiError.serviceUnavailable('WEBHOOKS_DISABLED', 'ESSL webhook secret is not configured');
+        }
         if (!secret || secret !== expectedSecret) {
             throw ApiError.unauthorized('INVALID_WEBHOOK_SECRET', 'Invalid ESSL webhook secret');
         }
@@ -774,27 +777,9 @@ let AttendanceService = class AttendanceService {
         }
         const targetDateStr = dto.date || new Date().toISOString().slice(0, 10);
         const targetDate = parseDateOnly(targetDateStr);
-        let punchesToProcess = dto.punches;
-        if (!punchesToProcess || punchesToProcess.length === 0) {
-            punchesToProcess = [];
-            for (const device of devices) {
-                for (const mapping of device.mappings) {
-                    const inTime = new Date(`${targetDateStr}T09:15:00.000Z`);
-                    const outTime = new Date(`${targetDateStr}T18:05:00.000Z`);
-                    punchesToProcess.push({
-                        deviceCode: device.deviceCode,
-                        biometricPin: mapping.biometricPin,
-                        punchTime: inTime.toISOString(),
-                        punchType: 'IN',
-                    });
-                    punchesToProcess.push({
-                        deviceCode: device.deviceCode,
-                        biometricPin: mapping.biometricPin,
-                        punchTime: outTime.toISOString(),
-                        punchType: 'OUT',
-                    });
-                }
-            }
+        const punchesToProcess = dto.punches || [];
+        if (punchesToProcess.length === 0) {
+            return { synced: 0, date: targetDateStr };
         }
         const results = await this.prisma.$transaction(async (tx) => {
             const records = [];

@@ -349,9 +349,10 @@ let EmployeesService = class EmployeesService {
         const canSeeFinancials = this.canAccessFinancials(actor, employee.id, employee.role.code);
         const canSeePerformance = this.canAccessPerformance(actor, employee.id, employee.role.code);
         const currentSalary = canSeeFinancials ? (employee.salaryRevisions[0] ?? null) : null;
+        const { salaryRevisions, ...safeEmployee } = employee;
         return {
             overview: {
-                ...employee,
+                ...safeEmployee,
                 currentSalary,
             },
             permissions: {

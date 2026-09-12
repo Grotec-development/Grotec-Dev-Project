@@ -11,6 +11,7 @@ var _a;
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MockAutoDialerProvider } from './mock-auto-dialer.provider';
+import { ExotelDialerProvider } from './exotel-dialer.provider';
 /**
  * Selects the active AutoDialerProvider. The mock is registered by default;
  * a production vendor adapter is registered here (config-selected) when chosen —
@@ -25,6 +26,16 @@ let DialerRegistry = class DialerRegistry {
             ringingMs: this.number(config, 'DIALER_RING_MS', 4000),
             connectDelayMs: this.number(config, 'DIALER_CONNECT_MS', 800),
             answerRate: this.number(config, 'DIALER_ANSWER_RATE', 1),
+        }));
+        this.register(new ExotelDialerProvider({
+            accountSid: config.get('EXOTEL_ACCOUNT_SID'),
+            apiKey: config.get('EXOTEL_API_KEY'),
+            apiToken: config.get('EXOTEL_API_TOKEN'),
+            subdomain: config.get('EXOTEL_SUBDOMAIN'),
+            callerId: config.get('EXOTEL_CALLER_ID'),
+            appId: config.get('EXOTEL_APP_ID'),
+            flowUrl: config.get('EXOTEL_FLOW_URL'),
+            webhookUrl: config.get('EXOTEL_WEBHOOK_URL'),
         }));
     }
     get(id) {

@@ -10,6 +10,10 @@
   ],
   "scripts": {
     "build:shared": "npm run build --workspace @grotec/shared",
+    "build:backend": "npm run build:shared && npm run prisma:generate --workspace @grotec/backend && npm run build --workspace @grotec/backend",
+    "build:frontend": "npm run build:shared && npm run build --workspace @grotec/frontend",
+    "build": "npm run build:backend && npm run build:frontend",
+    "start:backend": "npm run start:prod --workspace @grotec/backend",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run build --workspace @grotec/shared && npm run start:dev --workspace @grotec/backend",
     "dev:web": "npm run dev --workspace @grotec/frontend",
