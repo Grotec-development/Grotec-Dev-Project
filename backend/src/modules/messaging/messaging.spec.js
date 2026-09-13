@@ -6,6 +6,12 @@ import { SmtpEmailProvider } from './smtp-email.provider';
 import { MessagingRegistry } from './messaging.registry';
 import { MessagingService } from './messaging.service';
 
+// Unit tests must also work before the schema-specific Prisma client is generated.
+vi.mock('@prisma/client', async (importOriginal) => ({
+    ...await importOriginal(),
+    MessageType: undefined,
+}));
+
 describe('Messaging Providers & Integration', () => {
     describe('ExotelSmsProvider', () => {
         it('dispatches SMS and returns providerMessageId with SENT status in simulation mode', async () => {
@@ -122,7 +128,14 @@ describe('Messaging Providers & Integration', () => {
             expect(res.channel).toBe('SMS');
             expect(res.to).toBe('+919876500001');
             expect(res.status).toBe(MessageStatus.SENT);
-            expect(prismaMock.outboundMessage.create).toHaveBeenCalled();
+            expect(res.id).toBe('msg-1');
+            expect(prismaMock.outboundMessage.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    customerId: 'c1111111-1111-1111-1111-111111111111',
+                    type: 'PRODUCT_DETAILS',
+                    status: MessageStatus.SENT,
+                }),
+            });
             expect(auditMock.record).toHaveBeenCalled();
         });
 
@@ -136,6 +149,14 @@ describe('Messaging Providers & Integration', () => {
 
             expect(res.channel).toBe('WHATSAPP');
             expect(res.status).toBe(MessageStatus.SENT);
+            expect(res.id).toBe('msg-1');
+            expect(prismaMock.outboundMessage.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    customerId: 'c2222222-2222-2222-2222-222222222222',
+                    type: 'PRODUCT_DETAILS',
+                    status: MessageStatus.SENT,
+                }),
+            });
             expect(auditMock.record).toHaveBeenCalled();
         });
 
