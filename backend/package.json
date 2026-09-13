@@ -12,6 +12,8 @@
     "dev": "npm run start:dev",
     "prestart:dev": "npm run build --workspace @grotec/shared",
     "test": "npm run build --workspace @grotec/shared && vitest run",
+    "test:unit": "npm run build --workspace @grotec/shared && vitest run --config vitest.unit.config.js",
+    "test:e2e": "RUN_E2E=true vitest run",
     "test:watch": "vitest",
     "prisma:migrate-dev": "prisma migrate dev",
     "prisma:migrate-deploy": "prisma migrate deploy",
