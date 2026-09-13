@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2, Calendar, FileText, ShoppingBag, PhoneCall } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2, Calendar, FileText, ShoppingBag, PhoneCall, Send } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Crop, CustomerDetail, Lead, Page, Referral } from '../../lib/types';
 import { formatDate, formatE164 } from '../../lib/format';
@@ -81,6 +81,92 @@ export function CustomerDetailPage() {
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['customer', id] }),
   });
+
+  const callsQuery = useQuery({
+    queryKey: ['customer-calls', id],
+    queryFn: async () => (await api.get<{ items: any[] }>('/calls', { params: { customerId: id, pageSize: 50 } })).data,
+    enabled: Boolean(id),
+  });
+
+  const notesQuery = useQuery({
+    queryKey: ['customer-notes', id],
+    queryFn: async () => (await api.get<any[]>(`/customers/${id}/notes`)).data,
+    enabled: Boolean(id),
+  });
+
+  const [newNoteBody, setNewNoteBody] = useState('');
+  const [addingNote, setAddingNote] = useState(false);
+
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoteBody.trim()) return;
+    setAddingNote(true);
+    try {
+      await api.post(`/customers/${id}/notes`, { body: newNoteBody.trim() });
+      setNewNoteBody('');
+      void queryClient.invalidateQueries({ queryKey: ['customer-notes', id] });
+    } catch {
+      // ignore
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const timelineItems = useMemo(() => {
+    interface TimelineDisplayItem {
+      id: string;
+      actor: string;
+      role: string;
+      timestamp: string;
+      note: string;
+      badge?: { label: string; tone: 'green' | 'amber' | 'blue' | 'red' | 'slate' };
+      dateVal: number;
+    }
+
+    const list: TimelineDisplayItem[] = [];
+
+    const realCalls = callsQuery.data?.items || [];
+    const realNotes = notesQuery.data || [];
+
+    for (const call of realCalls) {
+      const actorName = call.agent?.fullName || 'Telecaller';
+      const outcomeNote = call.notes?.map((n: any) => n.body).join(' • ') || (call.outcome ? `Call Outcome: ${call.outcome.replace('_', ' ')}` : `Call Status: ${call.status}`);
+      const tone: 'green' | 'amber' | 'blue' | 'red' | 'slate' =
+        call.outcome === 'INTERESTED' ? 'green' : call.outcome === 'NOT_INTERESTED' ? 'red' : call.status === 'CONNECTED' ? 'blue' : 'amber';
+      list.push({
+        id: `call-${call.id}`,
+        actor: actorName,
+        role: 'Outbound Call',
+        timestamp: formatDate(call.startedAt),
+        note: outcomeNote,
+        badge: { label: call.outcome ? call.outcome.replace('_', ' ') : call.status, tone },
+        dateVal: new Date(call.startedAt).getTime(),
+      });
+    }
+
+    for (const note of realNotes) {
+      list.push({
+        id: `note-${note.id}`,
+        actor: note.author?.fullName || 'Agronomy Advisor',
+        role: 'Advisory Note',
+        timestamp: formatDate(note.createdAt),
+        note: note.body,
+        badge: { label: 'Advisory Note', tone: 'blue' },
+        dateVal: new Date(note.createdAt).getTime(),
+      });
+    }
+
+    if (list.length === 0) {
+      return MOCK_TIMELINE.map((m) => ({
+        ...m,
+        badge: undefined,
+        dateVal: 0,
+      }));
+    }
+
+    list.sort((a, b) => b.dateVal - a.dateVal);
+    return list;
+  }, [callsQuery.data?.items, notesQuery.data]);
 
   if (!data) {
     return (
@@ -305,13 +391,18 @@ export function CustomerDetailPage() {
                   Call History Timeline
                 </h2>
               </div>
-              <div className="divide-y divide-slate-100 p-2">
-                {MOCK_TIMELINE.map((item) => (
+              <div className="divide-y divide-slate-100 p-2 max-h-[450px] overflow-y-auto">
+                {timelineItems.map((item) => (
                   <div key={item.id} className="p-3 hover:bg-slate-50/50 rounded-md transition-colors space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <div className="flex items-center gap-1.5 font-bold text-slate-800">
                         <span>{item.actor}</span>
                         <span className="text-slate-400 font-normal">({item.role})</span>
+                        {item.badge && (
+                          <Badge tone={item.badge.tone}>
+                            {item.badge.label}
+                          </Badge>
+                        )}
                       </div>
                       <span className="text-slate-400 font-mono text-[10px]">{item.timestamp}</span>
                     </div>
@@ -352,12 +443,48 @@ export function CustomerDetailPage() {
 
       {/* Tab Content: Advisory Notes */}
       {activeTab === 'advisory_notes' && (
-        <div className="grid gap-5 xl:grid-cols-2">
-          <Card className="p-4 shadow-xs">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Agronomy &amp; Advisory Notes</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Farmer is keen on organic nutrient alternatives for next planting cycle. Recommended drip emitter cleaning due to high mineral content in bore water.
-            </p>
+        <div className="grid gap-5 xl:grid-cols-2 items-start">
+          <Card className="p-4 shadow-xs space-y-4">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Add Advisory Note</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Record agronomic recommendations, soil health notes, or farmer requests.</p>
+            </div>
+            <form onSubmit={handleAddNote} className="space-y-3">
+              <textarea
+                value={newNoteBody}
+                onChange={(e) => setNewNoteBody(e.target.value)}
+                placeholder="Type advisory guidance, product dosages, or farmer feedback..."
+                className="w-full text-xs rounded-lg border border-slate-200 p-2.5 min-h-[90px] focus:outline-emerald-600"
+                required
+              />
+              <div className="flex justify-end">
+                <Button size="sm" type="submit" disabled={addingNote || !newNoteBody.trim()} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                  <Send className="h-3.5 w-3.5" />
+                  {addingNote ? 'Saving…' : 'Post Note'}
+                </Button>
+              </div>
+            </form>
+
+            <div className="border-t border-slate-100 pt-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Recorded Notes</h4>
+              {notesQuery.data && notesQuery.data.length > 0 ? (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto divide-y divide-slate-100">
+                  {notesQuery.data.map((n: any) => (
+                    <div key={n.id} className="pt-2 text-xs">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="font-bold text-slate-700">{n.author?.fullName || 'Advisor'}</span>
+                        <span className="font-mono text-[10px]">{formatDate(n.createdAt)}</span>
+                      </div>
+                      <p className="mt-1 text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 leading-relaxed">
+                        {n.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No notes recorded yet. Post the first advisory note above.</p>
+              )}
+            </div>
           </Card>
           <PhonesCard customerId={data.id} customer={data} canEdit={canEdit} />
         </div>
