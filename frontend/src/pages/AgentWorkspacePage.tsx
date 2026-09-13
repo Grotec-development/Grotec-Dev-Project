@@ -198,6 +198,39 @@ export function AgentWorkspacePage() {
     setSuccessNotice(`Calling mode switched to: ${config?.label || mode}`);
   };
 
+  // Auto-advance queue state (wrap-up pause & progressive auto-dial)
+  const [autoAdvance, setAutoAdvanceState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('grotec_auto_advance') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const autoAdvanceTimerRef = useRef<number | null>(null);
+  const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
+
+  const setAutoAdvance = (enabled: boolean) => {
+    setAutoAdvanceState(enabled);
+    try {
+      localStorage.setItem('grotec_auto_advance', String(enabled));
+    } catch {}
+    if (!enabled && autoAdvanceTimerRef.current) {
+      window.clearInterval(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+      setAutoAdvanceCountdown(null);
+    }
+    setSuccessNotice(`Queue auto-advance ${enabled ? 'enabled (3s pause)' : 'disabled'}.`);
+  };
+
+  const cancelAutoAdvance = () => {
+    if (autoAdvanceTimerRef.current) {
+      window.clearInterval(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+    setAutoAdvanceCountdown(null);
+    setSuccessNotice('Auto-advance paused.');
+  };
+
   // Farmer Add & Link states
   const [showAddFarmerModal, setShowAddFarmerModal] = useState(false);
   const [showExistingFarmerModal, setShowExistingFarmerModal] = useState(false);
@@ -631,6 +664,24 @@ export function AgentWorkspacePage() {
       } catch {}
       setSuccessNotice(`Call completed for ${farmerName}! Disposition saved: ${outcomeText}. Real-time alert dispatched to grotecdatabase@gmail.com.`);
       void loadQueue();
+
+      // Progressive auto-advance to next customer in queue if enabled
+      if ((autoAdvance || callingMode === 'PROGRESSIVE_DIALER') && nextQueueItem?.customer?.primaryPhone) {
+        const nextTarget = nextQueueItem;
+        setAutoAdvanceCountdown(3);
+        let secondsLeft = 3;
+        const countInterval = window.setInterval(() => {
+          secondsLeft -= 1;
+          if (secondsLeft > 0) {
+            setAutoAdvanceCountdown(secondsLeft);
+          } else {
+            window.clearInterval(countInterval);
+            setAutoAdvanceCountdown(null);
+            void dial(nextTarget.customer.primaryPhone || '', nextTarget.customer.id, nextTarget.leadId);
+          }
+        }, 1000);
+        autoAdvanceTimerRef.current = countInterval;
+      }
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -772,7 +823,7 @@ export function AgentWorkspacePage() {
   }
 
   const filteredQueue = useMemo(() => {
-    return queue.filter((item) => {
+    const list = queue.filter((item) => {
       if (queueCategory === 'EXISTING') {
         return Boolean(item.customer && item.customer.farmerCode);
       }
@@ -783,6 +834,13 @@ export function AgentWorkspacePage() {
         return !item.lastCall;
       }
       return true;
+    });
+
+    // Priority ordering: items with pending wrap-ups or scheduled follow-ups first, then newest
+    return [...list].sort((a, b) => {
+      const aPending = a.lastCall?.status === 'ENDED' && !a.lastCall?.outcome ? 1 : 0;
+      const bPending = b.lastCall?.status === 'ENDED' && !b.lastCall?.outcome ? 1 : 0;
+      return bPending - aPending;
     });
   }, [queue, queueCategory]);
 
@@ -1038,6 +1096,23 @@ export function AgentWorkspacePage() {
               )}
             </div>
           </div>
+          <span className="text-slate-300 hidden sm:inline">|</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-800">Auto-Advance:</span>
+            <button
+              type="button"
+              onClick={() => setAutoAdvance(!autoAdvance)}
+              className={cx(
+                'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer border transition shadow-2xs',
+                autoAdvance
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/50'
+                  : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200',
+              )}
+              title="Automatically queue next call with 3s wrap-up pause upon saving outcome"
+            >
+              {autoAdvance ? 'ON (3s Pause)' : 'OFF'}
+            </button>
+          </div>
           {matchedQueueItem && (
             <span className="rounded bg-slate-100 text-slate-600 px-1.5 py-0.2 text-[10px] font-semibold">
               {matchedQueueItem.leadId ? 'Lead Pipeline' : 'Existing Customer'}
@@ -1070,6 +1145,30 @@ export function AgentWorkspacePage() {
           ))}
         </div>
       </div>
+
+      {/* Auto-Advance Countdown Banner */}
+      {autoAdvanceCountdown !== null && nextQueueItem && (
+        <div className="rounded-xl bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white px-5 py-3 shadow-md flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <span className="h-3 w-3 rounded-full bg-white animate-ping shrink-0"></span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider">
+                Auto-Advancing to next farmer in {autoAdvanceCountdown}s...
+              </p>
+              <p className="text-[11px] text-amber-100">
+                Up Next: <span className="font-bold">{nextQueueItem.customer.fullName}</span> ({formatE164(nextQueueItem.customer.primaryPhone || '')})
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={cancelAutoAdvance}
+            className="px-3 py-1.5 bg-black/30 hover:bg-black/50 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+          >
+            Cancel Auto-Advance
+          </button>
+        </div>
+      )}
 
       {/* Up Next Preview Area */}
       {nextQueueItem && (
