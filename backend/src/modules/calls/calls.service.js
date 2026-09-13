@@ -111,7 +111,17 @@ let CallsService = class CallsService {
         }
         const providerId = (dto.mode === 'EXOTEL_IVR_AGENT' || dto.provider === 'exotel') && this.dialers.has('exotel') ? 'exotel' : undefined;
         const dialer = this.dialers.get(providerId);
-        const placed = await dialer.placeCall({ phoneE164: e164, customerPhone: e164, mode: dto.mode });
+        const agentRecord = await this.prisma.employee.findUnique({
+            where: { id: actor.id },
+            select: { phone: true },
+        });
+        const agentPhone = agentRecord?.phone || process.env.EXOTEL_CALLER_ID || '9444330285';
+        const placed = await dialer.placeCall({
+            phoneE164: e164,
+            customerPhone: e164,
+            agentPhone,
+            mode: dto.mode,
+        });
         const call = await this.prisma.$transaction(async (tx) => {
             const row = await tx.call.create({
                 data: {

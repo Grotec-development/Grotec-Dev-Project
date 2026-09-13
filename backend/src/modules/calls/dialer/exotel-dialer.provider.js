@@ -39,10 +39,17 @@ export class ExotelDialerProvider {
             try {
                 const url = `https://${this.subdomain}/v1/Accounts/${this.accountSid}/Calls/connect.json`;
                 const basicAuth = Buffer.from(`${this.apiKey}:${this.apiToken}`).toString('base64');
-                const params = new URLSearchParams();
-                params.append('From', agentPhone || this.callerId);
-                params.append('To', customerPhone);
-                params.append('CallerId', this.callerId);
+                const rawFrom = (agentPhone || this.callerId || '9444330285').replace(/\D/g, '').slice(-10);
+                const rawTo = (customerPhone || '').replace(/\D/g, '').slice(-10);
+                const rawCallerId = (this.callerId || '9444330285').replace(/\D/g, '').slice(-10);
+
+                const fromNumber = rawFrom.length === 10 ? `0${rawFrom}` : (agentPhone || this.callerId);
+                const toNumber = rawTo.length === 10 ? `0${rawTo}` : customerPhone;
+                const callerIdNumber = rawCallerId.length === 10 ? `0${rawCallerId}` : this.callerId;
+
+                params.append('From', fromNumber);
+                params.append('To', toNumber);
+                params.append('CallerId', callerIdNumber);
                 if (this.flowUrl || this.appId) {
                     params.append('Url', this.flowUrl || `http://my.exotel.com/${this.accountSid}/exoml/start_voice/${this.appId}`);
                 }
@@ -59,6 +66,11 @@ export class ExotelDialerProvider {
                     },
                     body: params.toString(),
                 });
+
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    console.warn(`[ExotelDialer] API returned status ${res.status}: ${errText.slice(0, 200)}. Operating in simulated IVRS bridge mode.`);
+                }
 
                 if (res.ok) {
                     const data = await res.json();
