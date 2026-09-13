@@ -83,6 +83,7 @@ function playAudioCue(muted: boolean) {
 }
 
 export type AgentCallingMode =
+  | 'DIRECT_SIM'
   | 'EXOTEL_IVR_AGENT'
   | 'ACTIVE_TELECALLER'
   | 'PREVIEW_DIALER'
@@ -97,17 +98,24 @@ export const CALLING_MODES: {
   desc: string;
 }[] = [
   {
+    id: 'DIRECT_SIM',
+    label: 'Direct SIM / Handset Call (tel:)',
+    badge: 'Direct SIM',
+    color: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
+    desc: 'Dials directly from your mobile SIM (9444330285) to customer phone without cloud fees',
+  },
+  {
     id: 'EXOTEL_IVR_AGENT',
     label: 'Exotel IVRS cum Agent',
     badge: 'Exotel IVR Agent',
-    color: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    desc: 'Exotel cloud telephony with automated IVR prompt bridging to agent',
+    color: 'bg-blue-50 text-blue-800 border-blue-200',
+    desc: 'Exotel cloud telephony with automated IVR prompt bridging to agent handset',
   },
   {
     id: 'ACTIVE_TELECALLER',
     label: 'Active Telecaller',
     badge: 'Active Telecaller',
-    color: 'bg-blue-50 text-blue-800 border-blue-200',
+    color: 'bg-indigo-50 text-indigo-800 border-indigo-200',
     desc: 'Direct agent browser-based calling',
   },
   {
@@ -524,7 +532,11 @@ export function AgentWorkspacePage() {
     setError(null);
     setSuccessNotice(null);
     setLiveTranscript(null);
-    telephonyAudio.startRingback();
+    if (callingMode === 'DIRECT_SIM') {
+      window.location.href = `tel:${phoneNumber}`;
+    } else {
+      telephonyAudio.startRingback();
+    }
     try {
       const res = await api.post<Call>('/calls', { phoneNumber, customerId, leadId, mode: callingMode });
       setActiveCall(res.data);
@@ -943,7 +955,7 @@ export function AgentWorkspacePage() {
   const lastContactCall = context?.history?.[0] ?? null;
   const pendingFollowUp = context?.followUps?.find((f) => f.status === 'PENDING') ?? null;
 
-  // Real-time acoustic telephony state management & speech synthesis
+  // Real-time acoustic telephony state management (ringback, connection tones)
   useEffect(() => {
     const status = activeCall?.status;
     const prevStatus = prevCallStatusRef.current;
@@ -954,12 +966,6 @@ export function AgentWorkspacePage() {
       telephonyAudio.stopRingback();
       if (prevStatus !== 'CONNECTED') {
         telephonyAudio.playConnectChime();
-        telephonyAudio.speakFarmerGreeting(
-          farmerDisplayName,
-          farmerLocation,
-          farmerCrops,
-          (text) => setLiveTranscript(text),
-        );
       }
     } else if (!isActive(status)) {
       telephonyAudio.stopRingback();
@@ -969,7 +975,7 @@ export function AgentWorkspacePage() {
     }
 
     prevCallStatusRef.current = status || null;
-  }, [activeCall?.status, farmerDisplayName, farmerLocation, farmerCrops]);
+  }, [activeCall?.status]);
 
   // Clean up telephony audio on component unmount
   useEffect(() => {
@@ -1235,6 +1241,36 @@ export function AgentWorkspacePage() {
               </Button>
             </div>
           )}
+          {(error.toLowerCase().includes('exotel') || error.toLowerCase().includes('401') || error.toLowerCase().includes('dialer') || error.toLowerCase().includes('telephony')) && (
+            <div className="rounded-xl bg-amber-50 border border-amber-300 p-4 space-y-3 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-900 space-y-1">
+                  <p className="font-bold">Cloud Telephony Authentication Notice:</p>
+                  <p>Exotel cloud telephony returned 401 Unauthorized because the credentials in backend/.env are unprovisioned or expired. To place calls directly from your mobile SIM (9444330285) without cloud telephony setup:</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <a
+                  href={`tel:${manualNumber || '6281489942'}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition"
+                >
+                  <Phone className="h-3.5 w-3.5" /> Direct SIM Call ({manualNumber || '6281489942'})
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAgentCallingMode('DIRECT_SIM');
+                    setError(null);
+                    setSuccessNotice('Switched Calling Mode to Direct SIM Call. Subsequent calls will open your phone app.');
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-2xs transition cursor-pointer"
+                >
+                  Switch Mode to Direct SIM
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -1328,18 +1364,18 @@ export function AgentWorkspacePage() {
         </div>
       )}
 
-      {/* Live Farmer Speech Audio Channel Card */}
-      {callActive && liveTranscript && (
+      {/* Live Telephony Voice Channel Card */}
+      {callActive && (
         <div className="rounded-xl bg-slate-900 text-white p-4 border border-slate-700/80 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
           <div className="flex items-start gap-3">
             <div className="p-2.5 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0 mt-0.5 ring-1 ring-emerald-500/40">
-              <Volume2 className="h-5 w-5 animate-pulse" />
+              <PhoneCall className="h-5 w-5 animate-pulse" />
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  Farmer Audio Channel (Live Speech Feed)
+                  Active PSTN / SIM Telephony Line
                 </span>
                 <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 font-medium">
                   {farmerLocation || 'Papanasam, Thanjavur'}
@@ -1348,40 +1384,35 @@ export function AgentWorkspacePage() {
                   {farmerCrops || 'Rice (Paddy)'}
                 </span>
               </div>
-              <p className="text-xs text-slate-200 leading-relaxed italic">
-                &ldquo;{liveTranscript}&rdquo;
+              <p className="text-xs text-slate-300 leading-relaxed flex items-center gap-2">
+                <span>Agent Caller ID: <strong className="text-white font-mono">9444330285</strong></span>
+                <span>→</span>
+                <span>Customer: <strong className="text-emerald-400 font-mono">{formatE164(farmerDisplayPhone)}</strong></span>
+                <span className="text-slate-400">({activeCall?.provider?.toUpperCase() || 'DIRECT_SIM'})</span>
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-            <button
-              type="button"
-              onClick={() =>
-                telephonyAudio.speakFarmerGreeting(
-                  farmerDisplayName,
-                  farmerLocation,
-                  farmerCrops,
-                  (text) => setLiveTranscript(text),
-                )
-              }
-              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-600 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-              title="Replay farmer voice in headset"
+            <a
+              href={`tel:${farmerDisplayPhone}`}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Launch native phone dialer / SIM link"
             >
-              <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Replay Voice</span>
-            </button>
+              <Phone className="h-3.5 w-3.5" />
+              <span>Dial via Handset SIM</span>
+            </a>
             <button
               type="button"
               onClick={() => {
-                const snippet = `\n[Farmer Inquiry: ${liveTranscript}]`;
+                const snippet = `\n[Call Notes for ${farmerDisplayName} (${formatE164(farmerDisplayPhone)}) - Crop: ${farmerCrops || 'Paddy'}]`;
                 setNoteDraft((prev) => (prev ? `${prev.trimEnd()}${snippet}` : snippet.trim()));
-                setSuccessNotice('Copied farmer audio inquiry directly into call notes.');
+                setSuccessNotice('Added call header to notes.');
               }}
-              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-              title="Copy inquiry to call notes"
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Insert timestamped header into notes"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Insert in Notes</span>
+              <span>Add Notes</span>
             </button>
           </div>
         </div>
@@ -2410,7 +2441,7 @@ export function AgentWorkspacePage() {
                   value={manualNumber}
                   onChange={(e) => setManualNumber(e.target.value)}
                 />
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="call"
                     size="md"
@@ -2418,8 +2449,25 @@ export function AgentWorkspacePage() {
                     disabled={!manualNumber.trim() || busy}
                     onClick={() => void dial(manualNumber.trim())}
                   >
-                    <PhoneCall className="h-4 w-4" /> Dial Number
+                    <PhoneCall className="h-4 w-4" /> Dial ({callingMode === 'EXOTEL_IVR_AGENT' ? 'Exotel' : 'System'})
                   </Button>
+                  <a
+                    href={manualNumber.trim() ? `tel:${manualNumber.trim()}` : '#'}
+                    onClick={(e) => {
+                      if (!manualNumber.trim() || busy) {
+                        e.preventDefault();
+                        return;
+                      }
+                      setAgentCallingMode('DIRECT_SIM');
+                      void dial(manualNumber.trim());
+                    }}
+                    className={cx(
+                      'w-full font-bold shadow-xs rounded-lg flex items-center justify-center gap-1.5 text-xs text-white transition py-2',
+                      !manualNumber.trim() || busy ? 'bg-slate-300 cursor-not-allowed pointer-events-none' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                    )}
+                  >
+                    <Phone className="h-4 w-4" /> Direct SIM Call
+                  </a>
                 </div>
 
                 {/* Real Farmer Quick-Dial Card: K. Ramanathan */}
@@ -2438,18 +2486,31 @@ export function AgentWorkspacePage() {
                     <p className="text-emerald-800 font-mono font-bold">+91 6281489942</p>
                     <p className="text-slate-600 text-[10px]">Papanasam, Thanjavur • Rice (Paddy) 5.0 Acres</p>
                   </div>
-                  <Button
-                    variant="call"
-                    size="xs"
-                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-xs py-2"
-                    disabled={busy}
-                    onClick={() => {
-                      setManualNumber('+916281489942');
-                      void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
-                    }}
-                  >
-                    <Phone className="h-3 w-3 fill-current" /> Call K. Ramanathan (+91 6281489942)
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Button
+                      variant="call"
+                      size="xs"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-xs py-2"
+                      disabled={busy}
+                      onClick={() => {
+                        setManualNumber('+916281489942');
+                        void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
+                      }}
+                    >
+                      <Phone className="h-3 w-3 fill-current" /> Call System
+                    </Button>
+                    <a
+                      href="tel:+916281489942"
+                      onClick={() => {
+                        setManualNumber('+916281489942');
+                        setAgentCallingMode('DIRECT_SIM');
+                        void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
+                      }}
+                      className="w-full bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow-xs py-2 flex items-center justify-center gap-1.5 transition text-center cursor-pointer"
+                    >
+                      <PhoneCall className="h-3 w-3" /> Direct SIM
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

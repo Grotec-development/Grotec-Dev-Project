@@ -70,28 +70,37 @@ export class ExotelDialerProvider {
 
                 if (!res.ok) {
                     const errText = await res.text().catch(() => '');
-                    console.warn(`[ExotelDialer] API returned status ${res.status}: ${errText.slice(0, 200)}. Operating in simulated IVRS bridge mode.`);
+                    let msg = `Exotel API returned HTTP ${res.status}`;
+                    try {
+                        const parsed = JSON.parse(errText);
+                        if (parsed?.RestException?.Message) {
+                            msg += `: ${parsed.RestException.Message} (Code: ${parsed.RestException.Code || ''})`;
+                        } else {
+                            msg += `: ${errText.slice(0, 150)}`;
+                        }
+                    } catch {
+                        msg += `: ${errText.slice(0, 150) || res.statusText}`;
+                    }
+                    throw new Error(msg);
                 }
 
-                if (res.ok) {
-                    const data = await res.json();
-                    const providerCallId = data?.Call?.Sid || simulatedId;
-                    const session = {
-                        providerCallId,
-                        status: CallStatus.DIALING,
-                        connectedAt: null,
-                        endedAt: null,
-                        disconnectReason: null,
-                        timers: [],
-                        ended: false,
-                        live: true,
-                    };
-                    this.calls.set(providerCallId, session);
-                    return { providerCallId, status: CallStatus.DIALING };
-                }
+                const data = await res.json();
+                const providerCallId = data?.Call?.Sid || simulatedId;
+                const session = {
+                    providerCallId,
+                    status: CallStatus.DIALING,
+                    connectedAt: null,
+                    endedAt: null,
+                    disconnectReason: null,
+                    timers: [],
+                    ended: false,
+                    live: true,
+                };
+                this.calls.set(providerCallId, session);
+                return { providerCallId, status: CallStatus.DIALING };
             } catch (err) {
-                // Fall back to simulated flow on network or credential rejection
-                console.warn('[ExotelDialer] Failed to place live call, falling back to simulated IVRS cum agent:', err?.message);
+                console.error('[ExotelDialer] Failed to place live call:', err.message);
+                throw err;
             }
         }
 

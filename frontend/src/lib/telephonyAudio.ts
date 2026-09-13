@@ -136,50 +136,19 @@ class TelephonyAudioEngine {
   }
 
   /**
-   * Speaks realistic farmer greeting over the in-call audio channel
+   * Farmer audio channel transcript callback (speech synthesis disabled for real calling)
    */
   speakFarmerGreeting(
-    farmerName: string,
-    location?: string,
-    crop?: string,
-    onTranscript?: (text: string) => void,
+    _farmerName: string,
+    _location?: string,
+    _crop?: string,
+    _onTranscript?: (text: string) => void,
   ) {
-    if (!('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel();
-
-    const cropText = crop ? crop.replace(/\s*\([^)]*\)/g, '').trim() : 'paddy';
-    const locText = location ? location.split(',')[0].trim() : 'Thanjavur';
-    const greeting = `Vanakkam. Yes, ${farmerName} here from ${locText}. I am calling regarding my ${cropText} crop. I have a problem with leaf yellowing and stem borer attack. Please suggest Grotec bio fertilizers and guidance.`;
-    
-    if (onTranscript) {
-      onTranscript(greeting);
-    }
-
-    const utterance = new SpeechSynthesisUtterance(greeting);
-    utterance.rate = 0.95;
-    utterance.pitch = 0.98;
-
-    // Try to find an Indian English or Tamil voice
-    const voices = window.speechSynthesis.getVoices();
-    const targetVoice =
-      voices.find((v) => v.lang === 'en-IN' || v.lang === 'ta-IN') ||
-      voices.find((v) => v.name.includes('India')) ||
-      voices.find((v) => v.lang.startsWith('en')) ||
-      null;
-
-    if (targetVoice) {
-      utterance.voice = targetVoice;
-    }
-
-    window.speechSynthesis.speak(utterance);
+    // Disabled: Real telephone calls connect handset-to-handset; no simulated browser speech
   }
 
   stopAll() {
     this.stopRingback();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
   }
 }
 
