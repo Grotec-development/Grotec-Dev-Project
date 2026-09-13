@@ -37,8 +37,10 @@ let MockAutoDialerProvider = class MockAutoDialerProvider {
             ended: false,
         };
         this.calls.set(providerCallId, call);
-        call.timers.push(setTimeout(() => this.apply(call, CallStatus.RINGING), this.ringingMs));
-        call.timers.push(setTimeout(() => this.resolveRinging(call), this.ringingMs + this.connectDelayMs));
+        if (input?.mode !== 'DIRECT_SIM') {
+            call.timers.push(setTimeout(() => this.apply(call, CallStatus.RINGING), this.ringingMs));
+            call.timers.push(setTimeout(() => this.resolveRinging(call), this.ringingMs + this.connectDelayMs));
+        }
         return Promise.resolve({ providerCallId, status: CallStatus.DIALING });
     }
     getStatus(providerCallId) {

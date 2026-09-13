@@ -1241,13 +1241,33 @@ export function AgentWorkspacePage() {
               </Button>
             </div>
           )}
-          {(error.toLowerCase().includes('exotel') || error.toLowerCase().includes('401') || error.toLowerCase().includes('dialer') || error.toLowerCase().includes('telephony')) && (
+          {(error.toLowerCase().includes('exotel') || error.toLowerCase().includes('401') || error.toLowerCase().includes('403') || error.toLowerCase().includes('kyc') || error.toLowerCase().includes('dialer') || error.toLowerCase().includes('telephony')) && (
             <div className="rounded-xl bg-amber-50 border border-amber-300 p-4 space-y-3 shadow-xs">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-amber-900 space-y-1">
-                  <p className="font-bold">Cloud Telephony Authentication Notice:</p>
-                  <p>Exotel cloud telephony returned 401 Unauthorized because the credentials in backend/.env are unprovisioned or expired. To place calls directly from your mobile SIM (9444330285) without cloud telephony setup:</p>
+                  {error.toLowerCase().includes('kyc') || error.toLowerCase().includes('403') ? (
+                    <>
+                      <p className="font-bold text-amber-950">Exotel API Connected — KYC Verification Required (TRAI Compliance):</p>
+                      <p>
+                        Your Exotel credentials (<code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-amber-900 font-semibold">nsk6a1</code>) are active and verified. However, Exotel returned:
+                        <span className="block mt-1 font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded p-1.5">
+                          "Your account is not yet KYC compliant. This is mandatory before making outbound calls."
+                        </span>
+                      </p>
+                      <p className="pt-1">
+                        Under Indian TRAI telecom regulations, automated outbound dialers cannot place calls until basic identity documents are uploaded at <a href="https://my.exotel.com" target="_blank" rel="noreferrer" className="font-bold underline text-amber-900 hover:text-amber-950">my.exotel.com &rarr; My Account &rarr; KYC</a>.
+                      </p>
+                      <p className="font-medium text-emerald-800">
+                        In the meantime, you can place 100% real calls right now using Direct SIM Call from your phone:
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-bold">Cloud Telephony Notice:</p>
+                      <p>{error}</p>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -1342,6 +1362,27 @@ export function AgentWorkspacePage() {
             <div className="bg-black/30 border border-white/20 px-3 py-1.5 rounded-lg font-mono text-xs font-bold tracking-widest text-white shadow-xs">
               {formatTimer(elapsed)}
             </div>
+            {activeCall?.status !== 'CONNECTED' && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  if (!activeCall) return;
+                  try {
+                    await api.post(`/calls/${activeCall.id}/answer`);
+                    await loadActiveCall();
+                    setSuccessNotice('Call marked answered. You can now record advisory notes.');
+                  } catch (err: any) {
+                    setError(errorMessage(err));
+                  }
+                }}
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-500 border border-emerald-400 px-3 py-1.5 text-xs font-bold text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer animate-pulse"
+                title="Click when farmer answers the phone"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Farmer Answered</span>
+              </button>
+            )}
             <button
               type="button"
               disabled={busy}

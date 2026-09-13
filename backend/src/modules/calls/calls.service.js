@@ -244,6 +244,36 @@ let CallsService = class CallsService {
         ]);
         return this.serialize(updated);
     }
+    async answerCall(id, actor) {
+        const call = await this.prisma.call.findUnique({ where: { id } });
+        if (!call || call.agentId !== actor.id)
+            throw ApiError.notFound('CALL_NOT_FOUND', 'Call not found');
+        if (call.status === CallStatus.CONNECTED) {
+            return this.serialize(await this.requireCall(id, actor));
+        }
+        if (![CallStatus.DIALING, CallStatus.RINGING].includes(call.status)) {
+            throw ApiError.conflict('CALL_NOT_DIALING', 'Only dialing or ringing calls can be answered');
+        }
+        const updated = await this.prisma.call.update({
+            where: { id: call.id },
+            data: {
+                status: CallStatus.CONNECTED,
+                connectedAt: new Date(),
+            },
+            include: {
+                notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
+            },
+        });
+        await this.audit.record(this.prisma, {
+            actorId: actor.id,
+            entityType: 'CALL',
+            entityId: call.id,
+            entityLabel: call.phoneNumber,
+            action: 'call.answered',
+            after: { status: CallStatus.CONNECTED, connectedAt: updated.connectedAt },
+        });
+        return this.serialize(updated);
+    }
     // -------------------------------------------------------------------- notes
     async addNote(id, actor, dto) {
         const call = await this.requireCall(id, actor); // agent-ownership + permission gate

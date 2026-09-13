@@ -42,6 +42,9 @@ let CallsController = class CallsController {
     end(actor, id) {
         return this.calls.endCall(id, actor);
     }
+    answer(actor, id) {
+        return this.calls.answerCall(id, actor);
+    }
     note(actor, id, dto) {
         return this.calls.addNote(id, actor, dto);
     }
@@ -105,6 +108,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], CallsController.prototype, "end", null);
+__decorate([
+    Post(':id/answer'),
+    RequirePermission(PERMISSIONS.callManage),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], CallsController.prototype, "answer", null);
 __decorate([
     Post(':id/notes'),
     RequirePermission(PERMISSIONS.callManage),
