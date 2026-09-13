@@ -22,47 +22,24 @@ import { SendSmsDto } from './dto/send-sms.dto';
 import { SendWhatsAppDto } from './dto/send-whatsapp.dto';
 import { SendEmailDto } from './dto/send-email.dto';
 
-@ApiTags('Messages & Notifications')
-@ApiBearerAuth()
-@Controller('messages')
-export class MessagesController {
+let MessagesController = class MessagesController {
     constructor(messaging) {
         this.messaging = messaging;
     }
 
-    @Post('sms')
-    @ApiOperation({ summary: 'Dispatch SMS via Exotel Phone Messages API' })
-    @RequirePermission(PERMISSIONS.callManage)
-    async sendSms(@CurrentEmployee() actor, @Body() dto) {
+    async sendSms(actor, dto) {
         return this.messaging.sendSms(actor, dto);
     }
 
-    @Post('whatsapp')
-    @ApiOperation({ summary: 'Dispatch WhatsApp message via WhatsApp Cloud/Business API' })
-    @RequirePermission(PERMISSIONS.callManage)
-    async sendWhatsApp(@CurrentEmployee() actor, @Body() dto) {
+    async sendWhatsApp(actor, dto) {
         return this.messaging.sendWhatsApp(actor, dto);
     }
 
-    @Post('email')
-    @ApiOperation({ summary: 'Dispatch Email notification via SMTP Transporter' })
-    @RequirePermission(PERMISSIONS.customerRead)
-    async sendEmail(@CurrentEmployee() actor, @Body() dto) {
+    async sendEmail(actor, dto) {
         return this.messaging.sendEmail(actor, dto);
     }
 
-    @Get('outbox')
-    @ApiOperation({ summary: 'List outbound messages history across SMS, WhatsApp, and email' })
-    @RequirePermission(PERMISSIONS.callRead)
-    async listOutbox(
-        @CurrentEmployee() actor,
-        @Query('status') status,
-        @Query('customerId') customerId,
-        @Query('phone') phone,
-        @Query('provider') provider,
-        @Query('page') page,
-        @Query('pageSize') pageSize,
-    ) {
+    async listOutbox(actor, status, customerId, phone, provider, page, pageSize) {
         return this.messaging.listOutbound(actor, parsePagination(page, pageSize), {
             status,
             customerId,
@@ -71,22 +48,89 @@ export class MessagesController {
         });
     }
 
-    @Get('status')
-    @ApiOperation({ summary: 'Check connectivity status of Exotel SMS, WhatsApp API, and SMTP Email' })
-    @RequirePermission(PERMISSIONS.callRead)
     async getStatus() {
         return this.messaging.getProviderStatus();
     }
 
-    @Post('resend/:id')
-    @ApiOperation({ summary: 'Retry delivering a queued or failed outbound message' })
-    @RequirePermission(PERMISSIONS.callManage)
-    async resend(@CurrentEmployee() actor, @Param('id') id) {
+    async resend(actor, id) {
         return this.messaging.deliver(id);
     }
-}
+};
+
+__decorate([
+    Post('sms'),
+    ApiOperation({ summary: 'Dispatch SMS via Exotel Phone Messages API' }),
+    RequirePermission(PERMISSIONS.callManage),
+    __param(0, CurrentEmployee()),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_b = typeof SendSmsDto !== "undefined" && SendSmsDto) === "function" ? _b : Object]),
+    __metadata("design:returntype", Promise)
+], MessagesController.prototype, "sendSms", null);
+
+__decorate([
+    Post('whatsapp'),
+    ApiOperation({ summary: 'Dispatch WhatsApp message via WhatsApp Cloud/Business API' }),
+    RequirePermission(PERMISSIONS.callManage),
+    __param(0, CurrentEmployee()),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_c = typeof SendWhatsAppDto !== "undefined" && SendWhatsAppDto) === "function" ? _c : Object]),
+    __metadata("design:returntype", Promise)
+], MessagesController.prototype, "sendWhatsApp", null);
+
+__decorate([
+    Post('email'),
+    ApiOperation({ summary: 'Dispatch Email notification via SMTP Transporter' }),
+    RequirePermission(PERMISSIONS.customerRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_d = typeof SendEmailDto !== "undefined" && SendEmailDto) === "function" ? _d : Object]),
+    __metadata("design:returntype", Promise)
+], MessagesController.prototype, "sendEmail", null);
+
+__decorate([
+    Get('outbox'),
+    ApiOperation({ summary: 'List outbound messages history across SMS, WhatsApp, and email' }),
+    RequirePermission(PERMISSIONS.callRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query('status')),
+    __param(2, Query('customerId')),
+    __param(3, Query('phone')),
+    __param(4, Query('provider')),
+    __param(5, Query('page')),
+    __param(6, Query('pageSize')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String, String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], MessagesController.prototype, "listOutbox", null);
+
+__decorate([
+    Get('status'),
+    ApiOperation({ summary: 'Check connectivity status of Exotel SMS, WhatsApp API, and SMTP Email' }),
+    RequirePermission(PERMISSIONS.callRead),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], MessagesController.prototype, "getStatus", null);
+
+__decorate([
+    Post('resend/:id'),
+    ApiOperation({ summary: 'Retry delivering a queued or failed outbound message' }),
+    RequirePermission(PERMISSIONS.callManage),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], MessagesController.prototype, "resend", null);
 
 MessagesController = __decorate([
+    ApiTags('Messages & Notifications'),
+    ApiBearerAuth(),
     Controller('messages'),
     __metadata("design:paramtypes", [typeof (_a = typeof MessagingService !== "undefined" && MessagingService) === "function" ? _a : Object])
 ], MessagesController);
+
+export { MessagesController };

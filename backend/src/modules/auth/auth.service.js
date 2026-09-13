@@ -15,7 +15,7 @@ import { EmployeeStatus } from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { AuditAction, AuditEntityType } from '@grotec/shared';
+import { AuditAction, AuditEntityType, PROPOSED_ROLE_PERMISSIONS } from '@grotec/shared';
 import { hashPassword, verifyPassword } from './password.util';
 import { RateLimitService } from './rate-limit.service';
 import { generateRefreshToken, hashRefreshToken } from './session.util';
@@ -210,7 +210,8 @@ let AuthService = class AuthService {
             email: employee.email,
             fullName: employee.fullName,
             roleCode: role.code,
-            permissions,
+            permissions: permissions || [],
+            tenantId: employee.tenantId ?? null,
         };
     }
     async changePassword(principal, currentPassword, newPassword) {
@@ -241,9 +242,15 @@ let AuthService = class AuthService {
         });
         if (!role)
             throw ApiError.unauthorized();
+        let permissions = (role.rolePermissions || [])
+            .map((rp) => rp.permission?.code)
+            .filter(Boolean);
+        if (permissions.length === 0 && PROPOSED_ROLE_PERMISSIONS[role.code]) {
+            permissions = PROPOSED_ROLE_PERMISSIONS[role.code];
+        }
         return {
             role,
-            permissions: role.rolePermissions.map((rp) => rp.permission.code),
+            permissions,
         };
     }
     signAccessToken(employeeId, email, fullName, roleCode, permissions, sessionId, tenantId) {

@@ -106,6 +106,22 @@ export async function resetData(prisma) {
                 },
             },
         }),
+        prisma.employee.updateMany({
+            where: {
+                email: {
+                    in: [
+                        'founder@grotec.local',
+                        'manager@grotec.local',
+                        'agent@grotec.local',
+                        'staff@grotec.local',
+                        'delivery@grotec.local',
+                    ],
+                },
+            },
+            data: {
+                status: 'ACTIVE',
+            },
+        }),
     ]);
 }
 /** Logs in and returns the access token. */

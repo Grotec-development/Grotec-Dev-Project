@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { PROPOSED_ROLE_PERMISSIONS } from '@grotec/shared';
 import { api, clearAccessToken, errorMessage, setAccessToken } from '../lib/api';
 import { setLogoutReason } from '../lib/idleReason';
 import type { AppUser } from '../lib/types';
@@ -30,6 +31,22 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function sanitizeUser(raw: unknown): AppUser | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const u = raw as Partial<AppUser>;
+  const roleCode = u.roleCode ?? ('AGENT' as AppUser['roleCode']);
+  const defaultRolePerms = (PROPOSED_ROLE_PERMISSIONS[roleCode] ?? []) as AppUser['permissions'];
+  const permissions = Array.isArray(u.permissions) && u.permissions.length > 0 ? u.permissions : defaultRolePerms;
+
+  return {
+    id: u.id ?? '',
+    email: u.email ?? '',
+    fullName: u.fullName ?? '',
+    roleCode,
+    permissions,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<AppUser | null>(null);
@@ -40,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const res = await api.get<AppUser>('/auth/me');
         if (!cancelled) {
-          setUser(res.data);
+          setUser(sanitizeUser(res.data));
           setStatus('authed');
         }
       } catch {
@@ -59,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post<LoginResult>('/auth/login', { email, password });
     setAccessToken(res.data.accessToken);
-    setUser(res.data.employee);
+    setUser(sanitizeUser(res.data.employee));
     setStatus('authed');
   }, []);
 
@@ -99,7 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [status, logout]);
 
   const hasPermission = useCallback(
-    (permission: string) => (user ? user.permissions.includes(permission as AppUser['permissions'][number]) : false),
+    (permission: string) =>
+      Array.isArray(user?.permissions)
+        ? user.permissions.includes(permission as AppUser['permissions'][number])
+        : false,
     [user],
   );
 
