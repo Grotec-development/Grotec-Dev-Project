@@ -111,6 +111,79 @@ export function AttendancePage() {
   const [syncingEssl, setSyncingEssl] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
+  // eSSL Biometric hardware & mapping state
+  const [showEsslModal, setShowEsslModal] = useState(false);
+  const [esslTab, setEsslTab] = useState<'devices' | 'mappings' | 'webhook'>('devices');
+  const [esslDevices, setEsslDevices] = useState<any[]>([]);
+  const [esslMappings, setEsslMappings] = useState<any[]>([]);
+  const [loadingEssl, setLoadingEssl] = useState(false);
+  const [esslError, setEsslError] = useState<string | null>(null);
+  const [esslSuccess, setEsslSuccess] = useState<string | null>(null);
+
+  const [newDevice, setNewDevice] = useState({
+    deviceCode: '',
+    name: '',
+    ipAddress: '',
+    location: '',
+  });
+
+  const [newMapping, setNewMapping] = useState({
+    employeeId: '',
+    deviceId: '',
+    biometricPin: '',
+  });
+
+  const fetchEsslData = async () => {
+    setLoadingEssl(true);
+    setEsslError(null);
+    try {
+      const [devRes, mapRes] = await Promise.all([
+        api.get('/attendance/essl/devices').catch(() => ({ data: [] })),
+        api.get('/attendance/essl/mappings').catch(() => ({ data: [] })),
+      ]);
+      setEsslDevices(Array.isArray(devRes.data) ? devRes.data : devRes.data?.items || []);
+      setEsslMappings(Array.isArray(mapRes.data) ? mapRes.data : mapRes.data?.items || []);
+    } catch (err: any) {
+      setEsslError(err.response?.data?.error?.message || 'Failed to load eSSL hardware records');
+    } finally {
+      setLoadingEssl(false);
+    }
+  };
+
+  const handleCreateDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDevice.deviceCode.trim() || !newDevice.name.trim()) return;
+    setLoadingEssl(true);
+    setEsslError(null);
+    try {
+      await api.post('/attendance/essl/devices', newDevice);
+      setEsslSuccess(`Terminal ${newDevice.deviceCode} registered successfully.`);
+      setNewDevice({ deviceCode: '', name: '', ipAddress: '', location: '' });
+      await fetchEsslData();
+    } catch (err: any) {
+      setEsslError(err.response?.data?.error?.message || 'Failed to register eSSL terminal');
+    } finally {
+      setLoadingEssl(false);
+    }
+  };
+
+  const handleCreateMapping = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMapping.employeeId || !newMapping.deviceId || !newMapping.biometricPin.trim()) return;
+    setLoadingEssl(true);
+    setEsslError(null);
+    try {
+      await api.post('/attendance/essl/mappings', newMapping);
+      setEsslSuccess('Employee mapped to biometric PIN successfully.');
+      setNewMapping({ employeeId: '', deviceId: '', biometricPin: '' });
+      await fetchEsslData();
+    } catch (err: any) {
+      setEsslError(err.response?.data?.error?.message || 'Failed to map employee biometric PIN');
+    } finally {
+      setLoadingEssl(false);
+    }
+  };
+
   // Fetch My Attendance data
   const fetchMyData = async () => {
     setLoading(true);
@@ -286,16 +359,30 @@ export function AttendancePage() {
           {activeTab === 'team' && (
             <>
               {hasPermission('attendance.approve') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSyncEssl}
-                  disabled={syncingEssl}
-                  className="gap-1.5"
-                >
-                  <Fingerprint className="h-4 w-4 text-brand-600" />
-                  {syncingEssl ? 'Syncing…' : 'Sync ESSL Device'}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowEsslModal(true);
+                      void fetchEsslData();
+                    }}
+                    className="gap-1.5"
+                  >
+                    <Fingerprint className="h-4 w-4 text-emerald-600" />
+                    Biometric Hardware & PINs
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSyncEssl}
+                    disabled={syncingEssl}
+                    className="gap-1.5"
+                  >
+                    <RefreshCw className={cx('h-4 w-4 text-brand-600', syncingEssl && 'animate-spin')} />
+                    {syncingEssl ? 'Syncing…' : 'Sync ESSL Device'}
+                  </Button>
+                </>
               )}
               {hasPermission('attendance.mark') && employees.length > 0 && (
                 <Button variant="outline" size="sm" onClick={handleOpenBulkModal} className="gap-1.5">
@@ -1101,6 +1188,289 @@ export function AttendancePage() {
           }
         }}
       />
+
+      {/* eSSL Biometric Hardware & Mappings Modal */}
+      {showEsslModal && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-2xl w-full p-6 relative max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <button
+              type="button"
+              onClick={() => setShowEsslModal(false)}
+              className="absolute top-4 right-4 p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Fingerprint className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">eSSL Biometric Hardware & Mappings</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Configure biometric terminals, map employee biometric PINs, and manage punch ingest feeds.
+                </p>
+              </div>
+            </div>
+
+            {/* Notification messages */}
+            {esslSuccess && (
+              <div className="mt-3 rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-xs font-semibold text-emerald-800 flex items-center justify-between">
+                <span>{esslSuccess}</span>
+                <button type="button" onClick={() => setEsslSuccess(null)}><X className="h-3.5 w-3.5" /></button>
+              </div>
+            )}
+            {esslError && (
+              <div className="mt-3 rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-xs font-semibold text-rose-800 flex items-center justify-between">
+                <span>{esslError}</span>
+                <button type="button" onClick={() => setEsslError(null)}><X className="h-3.5 w-3.5" /></button>
+              </div>
+            )}
+
+            {/* Sub-tabs */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg mt-4 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setEsslTab('devices')}
+                className={cx(
+                  'px-3 py-1.5 rounded-md transition cursor-pointer flex-1 text-center',
+                  esslTab === 'devices' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                )}
+              >
+                Terminals ({esslDevices.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEsslTab('mappings')}
+                className={cx(
+                  'px-3 py-1.5 rounded-md transition cursor-pointer flex-1 text-center',
+                  esslTab === 'mappings' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                )}
+              >
+                Employee PINs ({esslMappings.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEsslTab('webhook')}
+                className={cx(
+                  'px-3 py-1.5 rounded-md transition cursor-pointer flex-1 text-center',
+                  esslTab === 'webhook' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                )}
+              >
+                Terminal Push Guide
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="mt-4 overflow-y-auto flex-1 space-y-4 pr-1 text-xs">
+              {loadingEssl ? (
+                <div className="p-8 flex items-center justify-center gap-2 text-slate-400">
+                  <Spinner />
+                  <span>Loading biometric configuration...</span>
+                </div>
+              ) : esslTab === 'devices' ? (
+                <div className="space-y-4">
+                  {/* Register Form */}
+                  <form onSubmit={handleCreateDevice} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-3">
+                    <span className="font-bold text-slate-800 block">Register eSSL Terminal</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Device Code">
+                        <Input
+                          placeholder="e.g. ESSL-HO-01"
+                          value={newDevice.deviceCode}
+                          onChange={(e) => setNewDevice({ ...newDevice, deviceCode: e.target.value })}
+                          required
+                        />
+                      </Field>
+                      <Field label="Terminal Name">
+                        <Input
+                          placeholder="e.g. Head Office Entrance"
+                          value={newDevice.name}
+                          onChange={(e) => setNewDevice({ ...newDevice, name: e.target.value })}
+                          required
+                        />
+                      </Field>
+                      <Field label="IP Address (Optional)">
+                        <Input
+                          placeholder="e.g. 192.168.1.200"
+                          value={newDevice.ipAddress}
+                          onChange={(e) => setNewDevice({ ...newDevice, ipAddress: e.target.value })}
+                        />
+                      </Field>
+                      <Field label="Location / Branch">
+                        <Input
+                          placeholder="e.g. Thanjavur HO"
+                          value={newDevice.location}
+                          onChange={(e) => setNewDevice({ ...newDevice, location: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button size="sm" type="submit" disabled={loadingEssl || !newDevice.deviceCode || !newDevice.name}>
+                        Add Terminal
+                      </Button>
+                    </div>
+                  </form>
+
+                  {/* Device List */}
+                  <div>
+                    <span className="font-bold text-slate-700 mb-2 block">Registered Biometric Terminals</span>
+                    {esslDevices.length === 0 ? (
+                      <p className="text-slate-400 italic">No terminals registered yet. Add your first eSSL device above.</p>
+                    ) : (
+                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                        {esslDevices.map((d: any) => (
+                          <div key={d.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                            <div>
+                              <div className="flex items-center gap-2 font-bold text-slate-900">
+                                <span>{d.name}</span>
+                                <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                  {d.deviceCode}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Location: {d.location || 'HQ'} • IP: {d.ipAddress || 'DHCP'} • Mapped Employees: {d._count?.mappings || 0}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              Active
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : esslTab === 'mappings' ? (
+                <div className="space-y-4">
+                  {/* Create Mapping Form */}
+                  <form onSubmit={handleCreateMapping} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-3">
+                    <span className="font-bold text-slate-800 block">Map Employee to Biometric PIN</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Field label="Employee">
+                        <Select
+                          value={newMapping.employeeId}
+                          onChange={(e) => setNewMapping({ ...newMapping, employeeId: e.target.value })}
+                          required
+                        >
+                          <option value="">Select Employee...</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.fullName} ({emp.employeeCode})
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field label="Terminal">
+                        <Select
+                          value={newMapping.deviceId}
+                          onChange={(e) => setNewMapping({ ...newMapping, deviceId: e.target.value })}
+                          required
+                        >
+                          <option value="">Select Terminal...</option>
+                          {esslDevices.map((d: any) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name} ({d.deviceCode})
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field label="Biometric PIN (Terminal)">
+                        <Input
+                          placeholder="e.g. 101"
+                          value={newMapping.biometricPin}
+                          onChange={(e) => setNewMapping({ ...newMapping, biometricPin: e.target.value })}
+                          required
+                        />
+                      </Field>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        type="submit"
+                        disabled={loadingEssl || !newMapping.employeeId || !newMapping.deviceId || !newMapping.biometricPin}
+                      >
+                        Save PIN Mapping
+                      </Button>
+                    </div>
+                  </form>
+
+                  {/* Mapping List */}
+                  <div>
+                    <span className="font-bold text-slate-700 mb-2 block">Active Employee PIN Mappings</span>
+                    {esslMappings.length === 0 ? (
+                      <p className="text-slate-400 italic">No employee PIN mappings configured yet.</p>
+                    ) : (
+                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                        {esslMappings.map((m: any) => (
+                          <div key={m.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                            <div>
+                              <div className="font-bold text-slate-900">
+                                {m.employee?.fullName || 'Employee'}{' '}
+                                <span className="text-slate-400 font-normal">({m.employee?.employeeCode || '—'})</span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Terminal: {m.device?.name || m.device?.deviceCode || 'All'} • Department:{' '}
+                                {m.employee?.department || 'Operations'}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-mono text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded">
+                                PIN: {m.biometricPin}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
+                    <span className="font-bold text-slate-800 block">Terminal Webhook Integration</span>
+                    <p className="text-slate-600 text-xs">
+                      eSSL terminals or local eTimeTrackLite sync agents push biometric punch logs directly to this
+                      endpoint:
+                    </p>
+                    <div className="bg-slate-900 text-emerald-400 font-mono p-2.5 rounded text-[11px] select-all">
+                      POST /api/v1/attendance/essl/webhook
+                    </div>
+                    <div className="pt-2">
+                      <span className="font-semibold text-slate-700 block">Required Header:</span>
+                      <code className="text-slate-800 bg-slate-200 px-1.5 py-0.5 rounded font-mono text-[11px]">
+                        x-essl-secret: &lt;configured-secret&gt;
+                      </code>
+                    </div>
+                    <div className="pt-2">
+                      <span className="font-semibold text-slate-700 block">Payload Schema:</span>
+                      <pre className="bg-slate-900 text-slate-200 p-2.5 rounded font-mono text-[11px] overflow-x-auto">
+{`{
+  "deviceId": "ESSL-HO-01",
+  "punches": [
+    {
+      "externalBiometricId": "101",
+      "punchAt": "2026-09-13T09:15:00.000Z",
+      "punchType": "CHECK_IN"
+    }
+  ]
+}`}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-200 mt-4">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowEsslModal(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

@@ -8,6 +8,7 @@ import { AgentWorkspacePage } from './pages/AgentWorkspacePage';
 import { CustomersPage } from './pages/customers/CustomersPage';
 import { CustomerDetailPage } from './pages/customers/CustomerDetailPage';
 import { LeadsPage } from './pages/leads/LeadsPage';
+import { RelationshipPage } from './pages/relationship/RelationshipPage';
 import { CropsPage } from './pages/CropsPage';
 import { KnowledgeBasePage } from './pages/KnowledgeBasePage';
 import { TeamPage } from './pages/TeamPage';
@@ -39,6 +40,8 @@ export const router = createBrowserRouter([
       { path: 'customers', element: <CustomersPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'leads', element: <LeadsPage /> },
+      { path: 'relationship', element: <RelationshipPage /> },
+      { path: 'relationship-manager', element: <RelationshipPage /> },
       { path: 'crops', element: <CropsPage /> },
       { path: 'knowledge-base', element: <KnowledgeBasePage /> },
       { path: 'team', element: <TeamPage /> },
