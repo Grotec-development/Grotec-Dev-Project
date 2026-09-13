@@ -47,6 +47,7 @@ export class ExotelDialerProvider {
                 const toNumber = rawTo.length === 10 ? `0${rawTo}` : customerPhone;
                 const callerIdNumber = rawCallerId.length === 10 ? `0${rawCallerId}` : this.callerId;
 
+                const params = new URLSearchParams();
                 params.append('From', fromNumber);
                 params.append('To', toNumber);
                 params.append('CallerId', callerIdNumber);
