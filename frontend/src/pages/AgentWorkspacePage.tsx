@@ -194,7 +194,7 @@ export function AgentWorkspacePage() {
         return saved as AgentCallingMode;
       }
     } catch {}
-    return 'EXOTEL_IVR_AGENT';
+    return 'DIRECT_SIM';
   });
 
   const setAgentCallingMode = (mode: AgentCallingMode) => {
@@ -2487,18 +2487,6 @@ export function AgentWorkspacePage() {
                     <p className="text-slate-600 text-[10px]">Papanasam, Thanjavur • Rice (Paddy) 5.0 Acres</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    <Button
-                      variant="call"
-                      size="xs"
-                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-xs py-2"
-                      disabled={busy}
-                      onClick={() => {
-                        setManualNumber('+916281489942');
-                        void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
-                      }}
-                    >
-                      <Phone className="h-3 w-3 fill-current" /> Call System
-                    </Button>
                     <a
                       href="tel:+916281489942"
                       onClick={() => {
@@ -2506,10 +2494,39 @@ export function AgentWorkspacePage() {
                         setAgentCallingMode('DIRECT_SIM');
                         void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
                       }}
-                      className="w-full bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow-xs py-2 flex items-center justify-center gap-1.5 transition text-center cursor-pointer"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs py-2.5 flex items-center justify-center gap-1.5 transition text-center cursor-pointer"
                     >
-                      <PhoneCall className="h-3 w-3" /> Direct SIM
+                      <PhoneCall className="h-3.5 w-3.5" /> Direct SIM Call
                     </a>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="w-full bg-white hover:bg-slate-50 border-slate-300 text-slate-800 font-bold shadow-xs py-2.5"
+                      disabled={busy}
+                      onClick={() => {
+                        setManualNumber('+916281489942');
+                        setAgentCallingMode('EXOTEL_IVR_AGENT');
+                        void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
+                      }}
+                    >
+                      <Phone className="h-3 w-3 text-blue-600" /> Exotel Cloud
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Telephony Connection Instructions */}
+                <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 text-xs text-slate-700 space-y-2">
+                  <div className="font-bold flex items-center gap-1.5 text-slate-900 text-[11px] uppercase tracking-wider">
+                    <Smartphone className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span>How Calls Connect</span>
+                  </div>
+                  <div className="space-y-1.5 text-[11px] leading-relaxed">
+                    <p>
+                      <strong className="text-emerald-800">1. Direct SIM (Recommended)</strong>: Click <em>Direct SIM Call</em> to trigger your mobile phone or PC Phone Link to dial <strong>+91 6281489942</strong> immediately from your SIM. Grotec CRM tracks the call, duration, and farmer notes in real time.
+                    </p>
+                    <p>
+                      <strong className="text-blue-800">2. Exotel Cloud Telephony</strong>: Requires live <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">EXOTEL_API_KEY</code> &amp; <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">EXOTEL_API_TOKEN</code> in <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">backend/.env</code>. Exotel will call your mobile (9444330285) first, then bridge to the farmer.
+                    </p>
                   </div>
                 </div>
               </div>
