@@ -12,7 +12,6 @@ import {
   Clock,
   ArrowLeft,
   CalendarClock,
-  Sparkles,
   AlertTriangle,
   FileEdit,
   X,

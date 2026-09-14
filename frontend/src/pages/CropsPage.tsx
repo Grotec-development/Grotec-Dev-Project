@@ -34,8 +34,8 @@ export function CropsPage() {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Crop Catalog</h1>
-          <p className="text-sm text-slate-500">
-            Reference catalog of the crops GROTEC deals in — field, tree, plantation and vegetable crops (PRD §6.5.2).
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Reference catalog of agricultural crops supported by GROTEC bio-inputs and nutrition schedules.
           </p>
         </div>
         {canManage ? (
@@ -174,7 +174,7 @@ function CreateCropModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="Category" hint="Field / tree / plantation / vegetable crop (PRD §6.5.2)">
+          <Field label="Category" hint="Field, tree, plantation, or vegetable crop">
             <Select value={category} onChange={(e) => setCategory(e.target.value)}>
               <option value="">Select a category…</option>
               {CROP_CATEGORIES.map((c) => (

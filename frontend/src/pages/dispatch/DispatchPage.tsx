@@ -142,21 +142,21 @@ export function DispatchPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200/90 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-blue-50 text-blue-700 rounded-lg">
+            <span className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
               <Truck className="w-5 h-5" />
             </span>
-            <h1 className="text-2xl font-bold text-slate-900">Dispatch & Trip Logistics</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Dispatch & Trip Logistics</h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Trip manifests, loading verification, transit tracking, and closure reconciliation (PRD §18.1)
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Trip manifests, loading verification, vehicle transit tracking, and route closure settlement.
           </p>
         </div>
         <button
           onClick={() => setIsCreateTripOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-colors text-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-medium shadow-xs transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Schedule Delivery Trip
@@ -457,8 +457,8 @@ export function DispatchPage() {
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
                 <AlertOctagon className="w-4 h-4 mt-0.5 shrink-0" />
                 <p>
-                  <strong>PRD §18.1 Invariant:</strong> Loading reconciles planned items vs physically loaded goods.
-                  Any mismatch strictly blocks dispatch.
+                  <strong>Loading Gate Verification:</strong> Physically verify all manifest goods match vehicle contents.
+                  Any discrepancy blocks departure.
                 </p>
               </div>
 
@@ -511,9 +511,9 @@ export function DispatchPage() {
 
             <div className="space-y-3 text-sm">
               <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-800">
-                <p className="font-semibold">Reconciliation Invariant (PRD §18.3):</p>
+                <p className="font-semibold">Inventory Settlement:</p>
                 <p className="mt-0.5">
-                  All stops are verified. Excess lorry stock from quantity reductions will be automatically credited
+                  All customer stops are completed. Undelivered stock returned in vehicle will automatically credit
                   back to the central warehouse available pool.
                 </p>
               </div>

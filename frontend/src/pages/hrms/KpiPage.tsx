@@ -258,9 +258,9 @@ export function KpiPage() {
           />
         </div>
 
-        <div className="text-xs text-slate-500 flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-md">
-          <ShieldCheck className="h-4 w-4 text-brand-600" />
-          <span>Historical score immutability enforced upon freezing per PRD §7.4.2</span>
+        <div className="text-xs text-slate-500 flex items-center gap-1.5 bg-slate-100/90 border border-slate-200/80 px-3 py-1.5 rounded-md">
+          <ShieldCheck className="h-4 w-4 text-emerald-600" />
+          <span>Evaluation records are locked and auditable once finalized for payroll.</span>
         </div>
       </div>
 

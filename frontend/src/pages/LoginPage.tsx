@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ShieldCheck, Lock, CheckCircle2, Loader2, ArrowRight, Sprout, Sparkles } from 'lucide-react';
+import { ShieldCheck, Lock, CheckCircle2, Loader2, ArrowRight, Sprout } from 'lucide-react';
 import { useAuth, authErrorMessage } from '../auth/AuthContext';
 import { Alert, Button, Card, Field, Input, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
@@ -112,56 +112,22 @@ export function LoginPage() {
         jsonLd={LOCAL_BUSINESS_LD}
       />
 
-      {/* Style Toggle Floating Pill in Top-Right (Development Only) */}
-      {import.meta.env.DEV && (
-        <div className="fixed top-4 right-4 z-50">
-          <button
-            type="button"
-            onClick={toggleStyle}
-            className="rounded-full border border-slate-300/80 bg-white/95 backdrop-blur px-3.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-brand-500 transition-all duration-200"
-          >
-            {isMinimal ? 'Switch to Variant A (Branded Split)' : 'Switch to Variant B (Minimal Card)'}
-          </button>
-        </div>
-      )}
-
       {/* ========================================================================= */}
-      {/* VARIANT A: Branded Split Panel (Default) matching PDF mockup Screen 5     */}
+      {/* Branded Split Panel (Default)                                             */}
       {/* ========================================================================= */}
       {!isMinimal ? (
         <div className="flex min-h-screen w-full flex-col lg:flex-row bg-white">
-          {/* Left Panel (~45% width) - Forest Green Branded Area with Ambient Agricultural Animations */}
-          <div className="relative flex min-h-[340px] lg:min-h-screen lg:w-[45%] flex-col justify-between bg-brand-900 p-8 lg:p-14 text-white overflow-hidden shadow-2xl">
-            
-            {/* Ambient Animated Sunbeam Sweeping across fields */}
+          {/* Left Panel (~45% width) - Solid Forest Green Branded Area */}
+          <div className="relative flex min-h-[320px] lg:min-h-screen lg:w-[45%] flex-col justify-between bg-gradient-to-b from-[#134423] via-[#0e351b] to-[#0a2714] p-8 lg:p-14 text-white overflow-hidden shadow-2xl">
+            {/* Subtle textured grid overlay */}
             <div
-              className="pointer-events-none absolute -inset-y-1/2 w-64 bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent animate-sunbeam blur-xl"
+              className="pointer-events-none absolute inset-0 opacity-[0.04]"
+              style={{
+                backgroundImage: 'radial-gradient(rgba(255,255,255,0.8) 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
+              }}
               aria-hidden="true"
             />
-
-            {/* Floating Organic Seed / Spore Particles */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-              <span className="absolute bottom-12 left-[15%] h-2 w-2 rounded-full bg-emerald-400/40 blur-[1px] animate-float-seed-1" />
-              <span className="absolute bottom-20 left-[45%] h-2.5 w-2.5 rounded-full bg-emerald-300/35 blur-[1px] animate-float-seed-2" />
-              <span className="absolute bottom-8 left-[70%] h-1.5 w-1.5 rounded-full bg-emerald-200/45 blur-[0.5px] animate-float-seed-3" />
-              <span className="absolute bottom-28 left-[30%] h-2 w-2 rounded-full bg-emerald-400/30 blur-[1px] animate-float-seed-4" />
-              <span className="absolute bottom-16 left-[85%] h-1.5 w-1.5 rounded-full bg-emerald-300/40 blur-[0.5px] animate-float-seed-5" />
-            </div>
-
-            {/* Abstract Organic Field-Row Line Art SVG with gentle swaying animation */}
-            <div className="pointer-events-none absolute inset-0 opacity-15 animate-field-sway" aria-hidden="true">
-              <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none">
-                <path d="M-100,200 C200,100 400,300 900,150" stroke="#ffffff" strokeWidth="2.5" />
-                <path d="M-100,350 C300,250 500,450 900,300" stroke="#ffffff" strokeWidth="2" />
-                <path d="M-100,500 C250,400 450,600 900,450" stroke="#ffffff" strokeWidth="2.5" />
-                <path d="M-100,650 C300,550 500,750 900,600" stroke="#ffffff" strokeWidth="2" />
-                <path d="M-100,800 C200,700 450,900 900,750" stroke="#ffffff" strokeWidth="2.5" />
-                <path d="M-100,950 C350,850 550,1050 900,900" stroke="#ffffff" strokeWidth="2" />
-                {/* Organic leaf node curves */}
-                <circle cx="280" cy="280" r="160" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="6 6" />
-                <circle cx="500" cy="680" r="220" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="8 8" />
-              </svg>
-            </div>
 
             {/* Top Brand Wordmark with Authentic Grotec Brand Logo */}
             <div className="relative z-10">

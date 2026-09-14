@@ -290,7 +290,7 @@ function GuidanceModal({
               ))}
             </Select>
           </Field>
-          <Field label="Problem / issue type" hint="What kind of problem this entry addresses (PRD §6.5.2)">
+          <Field label="Problem / issue type" hint="Category of crop issue (disease, deficiency, or pest)">
             <Select value={problemType} onChange={(e) => setProblemType(e.target.value)}>
               <option value="">Select a type…</option>
               {PROBLEM_TYPES.map((t) => (

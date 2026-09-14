@@ -70,8 +70,8 @@ export function ExceptionCentrePage() {
             </span>
             <h1 className="text-2xl font-bold text-slate-900">Operations Exception Centre</h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Manager oversight for dynamic quantity changes, stock shortages, and invoice revisions (PRD §18.2)
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Review and approve in-flight delivery adjustments, vehicle stock reconciliations, and invoice revisions.
           </p>
         </div>
 

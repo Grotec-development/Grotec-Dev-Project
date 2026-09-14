@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, CalendarClock, CheckCircle2, ThumbsDown, ThumbsUp, PhoneMissed, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CheckCircle2, ThumbsDown, ThumbsUp, PhoneMissed } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { CallOutcome, NextAction, OutcomeRecordResult } from '../../lib/types';
 import { Alert, Badge, Button } from '../../components/ui';

@@ -103,21 +103,21 @@ export function InventoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200/90 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-indigo-50 text-indigo-700 rounded-lg">
+            <span className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
               <Boxes className="w-5 h-5" />
             </span>
-            <h1 className="text-2xl font-bold text-slate-900">Multi-State Inventory</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Multi-State Inventory Ledger</h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Real-time stock state ledger: Available, Allocated, Loaded, and In-Vehicle pools (PRD §18.1)
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Real-time stock tracking across central warehouse, allocated orders, and field vehicle pools.
           </p>
         </div>
         <button
           onClick={() => setIsAdjustOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm transition-colors text-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-medium shadow-xs transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Stock Adjustment
@@ -177,7 +177,7 @@ export function InventoryPage() {
           onClick={() => setActiveTab('STOCKS')}
           className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
             activeTab === 'STOCKS'
-              ? 'border-indigo-600 text-indigo-700'
+              ? 'border-emerald-700 text-emerald-800'
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -188,7 +188,7 @@ export function InventoryPage() {
           onClick={() => setActiveTab('MOVEMENTS')}
           className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
             activeTab === 'MOVEMENTS'
-              ? 'border-indigo-600 text-indigo-700'
+              ? 'border-emerald-700 text-emerald-800'
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -433,7 +433,7 @@ export function InventoryPage() {
                 <button
                   type="submit"
                   disabled={adjustMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm"
+                  className="px-4 py-2 text-sm font-medium text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-xs"
                 >
                   {adjustMutation.isPending ? 'Saving...' : 'Apply Adjustment'}
                 </button>

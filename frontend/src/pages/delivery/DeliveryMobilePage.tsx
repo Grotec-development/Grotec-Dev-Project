@@ -447,8 +447,8 @@ export function DeliveryMobilePage() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Raise Quantity Exception</h3>
-                <p className="text-xs text-amber-700 font-medium">PRD §18.2 Field Modification Workflow</p>
+                <h3 className="font-bold text-slate-900 text-base">Adjust Order Quantity</h3>
+                <p className="text-xs text-slate-500">Submit in-field quantity reduction for manager approval</p>
               </div>
               <button onClick={() => setIsExceptionModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Bot, Send, Sparkles, X, Sprout, Loader2 } from 'lucide-react';
+import { Send, X, Sprout, Loader2 } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import type { AssistantChatResponse, AssistantSource } from '../lib/types';
 import { useAuth } from '../auth/AuthContext';
@@ -74,20 +74,20 @@ export function AssistantWidget() {
           className="flex h-[30rem] w-[min(24rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
         >
           {/* Header */}
-          <header className="flex items-center justify-between gap-2 bg-brand-600 px-4 py-3 text-white">
-            <div className="flex items-center gap-2">
+          <header className="flex items-center justify-between gap-2 bg-emerald-800 px-4 py-3 text-white">
+            <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
-                <Sparkles className="h-4 w-4" />
+                <Sprout className="h-4 w-4 text-emerald-200" />
               </div>
               <div>
-                <p className="text-sm font-semibold leading-tight">Ask Grotec Assistant</p>
+                <p className="text-sm font-bold leading-tight">Crop Advisory</p>
                 {context?.customerName ? (
-                  <p className="truncate text-[11px] leading-tight text-brand-100">
-                    Helping {context.customerName}
-                    {context.cropId ? ' · crop context attached' : ''}
+                  <p className="truncate text-[11px] leading-tight text-emerald-200">
+                    Farmer: {context.customerName}
+                    {context.cropId ? ' · crop context linked' : ''}
                   </p>
                 ) : (
-                  <p className="text-[11px] leading-tight text-brand-100">Crop & product guidance</p>
+                  <p className="text-[11px] leading-tight text-emerald-200">Bio-fertilizer & pest guidance</p>
                 )}
               </div>
             </div>
@@ -170,11 +170,11 @@ export function AssistantWidget() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        title="Ask Grotec Assistant"
-        className="flex items-center gap-2 rounded-full bg-brand-600 py-3 pl-3 pr-5 text-white shadow-lg transition-colors hover:bg-brand-700"
+        title="Crop Advisory"
+        className="flex items-center gap-2 rounded-full bg-emerald-800 hover:bg-emerald-900 py-2.5 pl-3.5 pr-4 text-white shadow-md transition-colors text-xs font-semibold"
       >
-        <Bot className="h-5 w-5" />
-        <span className="text-sm font-semibold">Ask Grotec Assistant</span>
+        <Sprout className="h-4 w-4 text-emerald-200" />
+        <span>Crop Advisory</span>
       </button>
     </div>
   );

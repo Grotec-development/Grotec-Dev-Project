@@ -252,7 +252,7 @@ export function PayrollPage() {
           <Card className="p-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Monthly Workflow State Engine (PRD §7.8.4)
+                Monthly Payroll Processing Workflow
               </span>
               <Badge
                 tone={
@@ -377,7 +377,7 @@ export function PayrollPage() {
                     </Button>
                   ) : (
                     <div className="mt-3 rounded bg-amber-100/70 p-2 text-center text-[11px] font-medium text-amber-800">
-                      Locked. Awaiting Founder sign-off & disbursement release (PRD §5.1.2).
+                      Locked. Awaiting executive sign-off & disbursement release.
                     </div>
                   )
                 )}

@@ -149,21 +149,21 @@ export function OrdersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200/90 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
             <span className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
               <ShoppingCart className="w-5 h-5" />
             </span>
-            <h1 className="text-2xl font-bold text-slate-900">Sales Orders & Billing</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Sales Orders & Billing</h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            End-to-end order processing, product allocations, GST tax invoicing, and collection tracking
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Order management, warehouse allocation, GST tax invoices, and payment tracking.
           </p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors text-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-medium shadow-xs transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Create Sales Order

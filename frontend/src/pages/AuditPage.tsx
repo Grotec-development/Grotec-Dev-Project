@@ -33,8 +33,8 @@ export function AuditPage() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Audit log</h1>
-          <p className="text-sm text-slate-500">
-            Append-only record of who changed what. Founder-only per PRD §5.2.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Append-only system record of administrative actions, data changes, and operational events.
           </p>
         </div>
         <Select className="w-56" value={entityType} onChange={(e) => setEntityType(e.target.value)} aria-label="Filter by entity">

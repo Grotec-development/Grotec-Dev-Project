@@ -15,7 +15,6 @@ import {
   PhoneForwarded,
   Trophy,
   Award,
-  Sparkles,
   BarChart2,
   Calendar,
   Layers,

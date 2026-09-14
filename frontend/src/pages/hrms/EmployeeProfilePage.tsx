@@ -433,12 +433,11 @@ export function EmployeeProfilePage() {
               </div>
             </div>
 
-            {/* Total Revenue Pending State Notice (PRD Invariant) */}
-            <div className="mt-4 rounded-md bg-amber-50 border border-amber-200 p-3 flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-800">
-                <span className="font-semibold">Total Revenue: Pending Phase 2 Sales System Integration.</span>{' '}
-                Per PRD §7.4, revenue amounts are not fabricated with mock data. Real sales invoices and booking receipts integrate in Phase 2.
+            {/* Sales Revenue Explanation */}
+            <div className="mt-4 rounded-md bg-slate-50 border border-slate-200 p-3 flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+              <div className="text-xs text-slate-600">
+                <span className="font-semibold text-slate-700">Sales Revenue:</span> Calculated automatically from confirmed customer sales orders, dispatched shipments, and verified collections.
               </div>
             </div>
           </Card>

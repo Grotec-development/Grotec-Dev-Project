@@ -86,21 +86,21 @@ export function FactoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200/90 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-amber-50 text-amber-700 rounded-lg">
+            <span className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
               <Factory className="w-5 h-5" />
             </span>
-            <h1 className="text-2xl font-bold text-slate-900">Factory & Production</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Factory & Production Batches</h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Finished-goods register, certified batch runs, and manufacturing quality control (PRD §18.1)
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Finished-goods register, certified formulation runs, and manufacturing quality records.
           </p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors text-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-medium shadow-xs transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Record Production Batch

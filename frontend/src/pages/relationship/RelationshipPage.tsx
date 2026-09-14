@@ -16,7 +16,6 @@ import {
   Sprout,
   MapPin,
   Clock,
-  Sparkles,
   AlertCircle,
   X,
   ChevronRight,
@@ -212,8 +211,8 @@ export function RelationshipPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              PRD §6.4 CRM Module
+            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              Customer Retention
             </span>
             <span className="text-xs text-slate-400">•</span>
             <span className="text-xs font-semibold text-slate-500">Customer Relationship Ownership</span>
@@ -297,7 +296,7 @@ export function RelationshipPage() {
         <div className="bg-white rounded-xl border border-emerald-200 p-4 shadow-xs bg-linear-to-br from-emerald-50/40 to-transparent">
           <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
             <span>Interested Farmers</span>
-            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <UserCheck className="h-4 w-4 text-emerald-600" />
           </div>
           <div className="text-2xl font-black text-emerald-700 mt-2">{interestedCount}</div>
           <div className="text-[11px] text-emerald-600 mt-0.5">Ready for bio-input solutions</div>

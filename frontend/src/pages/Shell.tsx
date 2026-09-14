@@ -628,10 +628,13 @@ export function Shell() {
             </div>
             {isNavExpanded && (
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-bold text-slate-900 leading-tight">{user.fullName || 'Priya S.'}</p>
-                <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 mt-0.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Connected
+                <p className="truncate text-xs font-bold text-slate-900 leading-tight">{user.fullName || 'User'}</p>
+                <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+                  {user.roleCode === 'FOUNDER' ? 'Founder & CEO' :
+                   user.roleCode === 'MANAGER' ? 'Operations Manager' :
+                   user.roleCode === 'AGENT' ? 'Telecaller Agent' :
+                   user.roleCode === 'STAFF' ? 'Office Staff' :
+                   user.roleCode === 'DELIVERY' ? 'Field Delivery' : user.roleCode}
                 </p>
               </div>
             )}
@@ -674,10 +677,10 @@ export function Shell() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Multi-Tenancy Organization Badge */}
-            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200/80 text-[11px] font-semibold shadow-2xs">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-              <span>Tenant: GROTEC Agrotech</span>
+            {/* Organization Workspace Badge */}
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+              <span>GROTEC Agrotech</span>
             </div>
 
             <div className="relative hidden md:block w-72">
