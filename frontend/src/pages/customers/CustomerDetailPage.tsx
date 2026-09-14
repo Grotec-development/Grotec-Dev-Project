@@ -16,44 +16,6 @@ interface PurchaseRecord {
   amount: string;
 }
 
-const MOCK_PURCHASES: PurchaseRecord[] = [
-  { id: '1', date: '02 Mar 2026', product: 'Grotec Trishul (Granules)', qty: '2 bags', amount: '₹ 1,850' },
-  { id: '2', date: '15 Jan 2026', product: 'Azos Bio-Fertilizer', qty: '4 litres', amount: '₹ 1,200' },
-  { id: '3', date: '10 Nov 2025', product: 'Bio Jeevan PF (Liquid)', qty: '2 litres', amount: '₹ 980' },
-];
-
-interface TimelineEvent {
-  id: string;
-  actor: string;
-  role: string;
-  timestamp: string;
-  note: string;
-}
-
-const MOCK_TIMELINE: TimelineEvent[] = [
-  {
-    id: '1',
-    actor: 'Priya S.',
-    role: 'Telecaller',
-    timestamp: '02 Mar 2026, 11:30 AM',
-    note: 'Farmer confirmed delivery of Trishul granules. Advised application at base root area during morning watering cycle.',
-  },
-  {
-    id: '2',
-    actor: 'Suresh M.',
-    role: 'Agronomy Specialist',
-    timestamp: '12 Feb 2026, 04:15 PM',
-    note: 'On-field inspection completed. Soil moisture found low. Recommended drip calibration.',
-  },
-  {
-    id: '3',
-    actor: 'Priya S.',
-    role: 'Telecaller',
-    timestamp: '15 Jan 2026, 09:45 AM',
-    note: 'Placed order for Azos bio-fertilizer. Demanded immediate dispatch due to pest/disease alert in surrounding Dharmapuri tomato cluster.',
-  },
-];
-
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { hasPermission } = useAuth();
@@ -93,6 +55,30 @@ export function CustomerDetailPage() {
     queryFn: async () => (await api.get<any[]>(`/customers/${id}/notes`)).data,
     enabled: Boolean(id),
   });
+
+  const ordersQuery = useQuery({
+    queryKey: ['customer-orders', id],
+    queryFn: async () => (await api.get<any[]>('/orders', { params: { customerId: id } })).data,
+    enabled: Boolean(id),
+  });
+
+  const purchases = useMemo(() => {
+    const orders = Array.isArray(ordersQuery.data) ? ordersQuery.data : [];
+    const list: Array<{ id: string; date: string; product: string; qty: string; amount: string }> = [];
+    for (const order of orders) {
+      const dateStr = formatDate(order.orderDate || order.createdAt);
+      for (const item of (order.items || [])) {
+        list.push({
+          id: `${order.id}-${item.id}`,
+          date: dateStr,
+          product: item.product?.name || 'Bio-Product',
+          qty: `${Number(item.approvedQty || item.originalQty)} ${item.product?.unit || 'LTR'}`,
+          amount: `₹ ${Number(item.totalAmount).toLocaleString('en-IN')}`,
+        });
+      }
+    }
+    return list;
+  }, [ordersQuery.data]);
 
   const [newNoteBody, setNewNoteBody] = useState('');
   const [addingNote, setAddingNote] = useState(false);
@@ -154,14 +140,6 @@ export function CustomerDetailPage() {
         badge: { label: 'Advisory Note', tone: 'blue' },
         dateVal: new Date(note.createdAt).getTime(),
       });
-    }
-
-    if (list.length === 0) {
-      return MOCK_TIMELINE.map((m) => ({
-        ...m,
-        badge: undefined,
-        dateVal: 0,
-      }));
     }
 
     list.sort((a, b) => b.dateVal - a.dateVal);
@@ -370,14 +348,22 @@ export function CustomerDetailPage() {
                   </tr>
                 </THead>
                 <tbody className="divide-y divide-slate-100">
-                  {MOCK_PURCHASES.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/70">
-                      <TD className="text-slate-500 font-mono text-[11px]">{p.date}</TD>
-                      <TD className="font-semibold text-slate-800">{p.product}</TD>
-                      <TD className="text-slate-600">{p.qty}</TD>
-                      <TD className="font-bold text-slate-900">{p.amount}</TD>
+                  {purchases.length === 0 ? (
+                    <tr>
+                      <TD colSpan={4} className="py-8 text-center text-xs text-slate-400">
+                        No commercial purchases recorded for this customer yet.
+                      </TD>
                     </tr>
-                  ))}
+                  ) : (
+                    purchases.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50/70">
+                        <TD className="text-slate-500 font-mono text-[11px]">{p.date}</TD>
+                        <TD className="font-semibold text-slate-800">{p.product}</TD>
+                        <TD className="text-slate-600">{p.qty}</TD>
+                        <TD className="font-bold text-slate-900">{p.amount}</TD>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </Table>
             </Card>
@@ -392,25 +378,31 @@ export function CustomerDetailPage() {
                 </h2>
               </div>
               <div className="divide-y divide-slate-100 p-2 max-h-[450px] overflow-y-auto">
-                {timelineItems.map((item) => (
-                  <div key={item.id} className="p-3 hover:bg-slate-50/50 rounded-md transition-colors space-y-1">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                        <span>{item.actor}</span>
-                        <span className="text-slate-400 font-normal">({item.role})</span>
-                        {item.badge && (
-                          <Badge tone={item.badge.tone}>
-                            {item.badge.label}
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-slate-400 font-mono text-[10px]">{item.timestamp}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100">
-                      {item.note}
-                    </p>
+                {timelineItems.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    No call history or advisory notes recorded yet.
                   </div>
-                ))}
+                ) : (
+                  timelineItems.map((item) => (
+                    <div key={item.id} className="p-3 hover:bg-slate-50/50 rounded-md transition-colors space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                          <span>{item.actor}</span>
+                          <span className="text-slate-400 font-normal">({item.role})</span>
+                          {item.badge && (
+                            <Badge tone={item.badge.tone}>
+                              {item.badge.label}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-slate-400 font-mono text-[10px]">{item.timestamp}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100">
+                        {item.note}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             </Card>
           </div>

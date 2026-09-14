@@ -44,12 +44,6 @@ let AuthService = class AuthService {
             } catch {
                 // ignore uri decoding error
             }
-            if (!passwordOk) {
-                const fallbackList = ['Grotecdatabase123@', 'Grotecdatabase123%40', 'Founder@123', 'txbuytqsgntxhdwn', 'txbu ytqs gntx hdwn'];
-                if (fallbackList.includes(password) || fallbackList.includes(decodeURIComponent(password))) {
-                    passwordOk = true;
-                }
-            }
         }
         if (!employee || !passwordOk) {
             this.rateLimit.recordFailure(normalized, clientIp);

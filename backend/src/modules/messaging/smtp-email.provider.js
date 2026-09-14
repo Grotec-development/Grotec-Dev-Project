@@ -12,11 +12,11 @@ export class SmtpEmailProvider {
     constructor(config = {}) {
         this.id = 'smtp-email';
         this.logger = new Logger('SmtpEmailProvider');
-        this.host = config.host || process.env.SMTP_HOST || '';
-        this.port = Number(config.port || process.env.SMTP_PORT || 587);
+        this.host = config.host !== undefined ? config.host : (process.env.SMTP_HOST || '');
+        this.port = Number(config.port !== undefined ? config.port : (process.env.SMTP_PORT || 587));
         this.secure = (config.secure !== undefined ? config.secure : process.env.SMTP_SECURE === 'true') || this.port === 465;
-        this.user = config.user || process.env.SMTP_USER || '';
-        this.pass = config.pass || process.env.SMTP_PASS || '';
+        this.user = config.user !== undefined ? config.user : (process.env.SMTP_USER || '');
+        this.pass = config.pass !== undefined ? config.pass : (process.env.SMTP_PASS || '');
         this.from = config.from || process.env.SMTP_FROM || process.env.MAIL_FROM || '"GROTEC FarmerOS" <notifications@grotec.local>';
 
         this.isLive = Boolean(
@@ -73,7 +73,15 @@ export class SmtpEmailProvider {
             }
         }
 
-        // Simulated SMTP delivery
+        if (process.env.NODE_ENV === 'production') {
+            return {
+                providerMessageId: simulatedId,
+                status: MessageStatus.FAILED,
+                error: 'SMTP email service is not configured with valid credentials in production',
+            };
+        }
+
+        // Simulated SMTP delivery (development / test only)
         this.logger.log(`[Simulated SMTP Email] -> ${to} | Subject: "${subject || 'Notification'}" | Body: ${(body || html || '').slice(0, 80)}`);
         return {
             providerMessageId: simulatedId,

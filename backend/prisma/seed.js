@@ -365,13 +365,21 @@ async function seedEmployees() {
     const founderPassword = process.env.FOUNDER_PASSWORD ?? 'Founder@123';
     const founderRole = await findRole('FOUNDER');
     const demoEmployeeProfiles = {
-        [founderEmail]: { code: 'EMP0001', designation: 'Founder & CEO', department: 'Executive', experience: '10+ years', joiningDate: new Date('2024-01-01') },
+        'founder@grotec.local': { code: 'EMP0001', designation: 'Founder & CEO', department: 'Executive', experience: '10+ years', joiningDate: new Date('2024-01-01') },
+        'grotecdatabase@gmail.com': { code: 'EMP0000', designation: 'Founder & CEO', department: 'Executive', experience: '10+ years', joiningDate: new Date('2024-01-01') },
         'manager@grotec.local': { code: 'EMP0002', designation: 'Operations Manager', department: 'Operations', experience: '6 years', joiningDate: new Date('2024-06-01') },
         'agent@grotec.local': { code: 'EMP0003', designation: 'Senior Telecaller', department: 'Telecalling', experience: '2.5 years', joiningDate: new Date('2025-01-15') },
         'staff@grotec.local': { code: 'EMP0005', designation: 'Office & HR Staff', department: 'Human Resources', experience: '3 years', joiningDate: new Date('2024-11-01') },
         'delivery@grotec.local': { code: 'EMP0004', designation: 'Delivery & Field Specialist', department: 'Field Operations', experience: '2 years', joiningDate: new Date('2025-01-10') },
     };
-    const founderProf = demoEmployeeProfiles[founderEmail];
+    const existingFounder = await prisma.employee.findUnique({ where: { email: founderEmail } });
+    const founderProf = demoEmployeeProfiles[founderEmail] || {
+        code: existingFounder?.employeeCode || 'EMP0000',
+        designation: 'Founder & CEO',
+        department: 'Executive',
+        experience: '10+ years',
+        joiningDate: new Date('2024-01-01'),
+    };
     const founder = await prisma.employee.upsert({
         where: { email: founderEmail },
         update: {
@@ -879,6 +887,7 @@ async function main() {
     await seedKpiMetricDefinitions();
     await seedKpi();
     await seedPayroll();
+    await seedPhase2(founderId);
     const counts = {
         employees: await prisma.employee.count(),
         customers: await prisma.customer.count(),
@@ -886,8 +895,129 @@ async function main() {
         crops: await prisma.crop.count(),
         calls: await prisma.call.count(),
         guidance: await prisma.cropProductGuidance.count(),
+        products: await prisma.product.count(),
+        batches: await prisma.productionBatch.count(),
     };
     console.log('seed complete:', counts);
+}
+
+async function seedPhase2(founderId) {
+    const categories = [
+        { code: 'BIO_FERT', name: 'Bio-Fertilizers', description: 'Microbial inoculants fixing nitrogen and solubilizing soil phosphorus' },
+        { code: 'BIO_FUNG', name: 'Bio-Fungicides & Disease Control', description: 'Beneficial antagonistic fungi and bacteria protecting root & foliar zone' },
+        { code: 'PLANT_STIM', name: 'Plant Growth Stimulants', description: 'Organic bio-stimulants, PGRs, amino acids, and fulvic formulations' },
+        { code: 'BIO_PEST', name: 'Bio-Pest Protectors', description: 'Botanical and herbal insect repellents for sucking and chewing pests' },
+        { code: 'SOIL_MANURE', name: 'Soil Conditioners & Organic Manure', description: 'FCO 1985 enriched organic carbon and soil conditioners' },
+    ];
+
+    const categoryMap = {};
+    for (const cat of categories) {
+        const row = await prisma.productCategory.upsert({
+            where: { code: cat.code },
+            update: { name: cat.name, description: cat.description },
+            create: { code: cat.code, name: cat.name, description: cat.description },
+        });
+        categoryMap[cat.code] = row.id;
+    }
+
+    const products = [
+        { sku: 'GRO-BIO-PF-1L', name: 'Bio Jeevan PF', brand: 'Grotec', cat: 'BIO_FUNG', unit: 'LTR', size: 1.0, price: 380, gst: 5.0, desc: 'Pseudomonas fluorescens 2x10^8 CFU/ml biological fungicide' },
+        { sku: 'GRO-BIO-TV-1L', name: 'Bio Jeevan TV', brand: 'Grotec', cat: 'BIO_FUNG', unit: 'LTR', size: 1.0, price: 360, gst: 5.0, desc: 'Trichoderma viride 2x10^8 CFU/ml mycoparasitic bio-fungicide' },
+        { sku: 'GRO-BIO-AZOS-1L', name: 'Bio Jeevan Azos', brand: 'Grotec', cat: 'BIO_FERT', unit: 'LTR', size: 1.0, price: 320, gst: 5.0, desc: 'Azospirillum lipoferum symbiotic nitrogen fixer' },
+        { sku: 'GRO-BIO-AZOTOB-1L', name: 'Bio Jeevan Azotob', brand: 'Grotec', cat: 'BIO_FERT', unit: 'LTR', size: 1.0, price: 320, gst: 5.0, desc: 'Azotobacter chroococcum diazotrophic nitrogen fixer' },
+        { sku: 'GRO-BIO-PHOS-1L', name: 'Bio Jeevan Phos', brand: 'Grotec', cat: 'BIO_FERT', unit: 'LTR', size: 1.0, price: 340, gst: 5.0, desc: 'Phosphobacteria (PSB) phosphate solubilizing bacteria' },
+        { sku: 'GRO-BIO-RHIZOB-1L', name: 'Bio Jeevan Rhizob', brand: 'Grotec', cat: 'BIO_FERT', unit: 'LTR', size: 1.0, price: 310, gst: 5.0, desc: 'Rhizobium leguminosarum symbiotic nodulator for pulses' },
+        { sku: 'GRO-BIO-MICROMIX-1L', name: 'Bio Jeevan Micromix', brand: 'Grotec', cat: 'BIO_FERT', unit: 'LTR', size: 1.0, price: 420, gst: 5.0, desc: 'Consortium 10^10 CFU/ml multi-strain bio-fertilizer' },
+        { sku: 'GRO-ULTRA-ACT-1L', name: 'Jeevan Sakthi Ultra Action +', brand: 'Grotec', cat: 'PLANT_STIM', unit: 'LTR', size: 1.0, price: 650, gst: 5.0, desc: 'Organic plant growth stimulator with PGRs and amino acids' },
+        { sku: 'GRO-TRISHUL-1L', name: 'Jeevan Sakthi Trishul', brand: 'Grotec', cat: 'BIO_PEST', unit: 'LTR', size: 1.0, price: 580, gst: 5.0, desc: 'Botanical bio-pest protector and herbal insect repellent' },
+        { sku: 'GRO-ASTHRA-1L', name: 'Jeevan Sakthi Asthra', brand: 'Grotec', cat: 'BIO_PEST', unit: 'LTR', size: 1.0, price: 540, gst: 5.0, desc: 'Botanical broad-spectrum organic crop protector' },
+        { sku: 'GRO-SANJEEVINI-1KG', name: 'Jeevan Sakthi Sanjeevini Gel', brand: 'Grotec', cat: 'PLANT_STIM', unit: 'KG', size: 1.0, price: 720, gst: 5.0, desc: 'Concentrated organic bio-stimulant gel for stress tolerance' },
+        { sku: 'GRO-RAKSHA-1L', name: 'Raksha', brand: 'Grotec', cat: 'BIO_FUNG', unit: 'LTR', size: 1.0, price: 490, gst: 5.0, desc: 'Organic plant defense and biological disease barrier formulation' },
+        { sku: 'GRO-THAVAM-1L', name: 'Thavam', brand: 'Grotec', cat: 'SOIL_MANURE', unit: 'LTR', size: 1.0, price: 450, gst: 5.0, desc: 'Specialized soil conditioner and root revitalizer' },
+        { sku: 'GRO-ORG-FERT-50KG', name: 'Grotec Organic Fertilizer', brand: 'Grotec', cat: 'SOIL_MANURE', unit: 'BAG', size: 50.0, price: 950, gst: 5.0, desc: 'Mineral-based enriched organic manure (FCO 1985 certified, >14% carbon)' },
+    ];
+
+    for (const p of products) {
+        const prod = await prisma.product.upsert({
+            where: { sku: p.sku },
+            update: {
+                name: p.name,
+                brand: p.brand,
+                categoryId: categoryMap[p.cat],
+                unit: p.unit,
+                packageSize: p.size,
+                basePrice: p.price,
+                gstRate: p.gst,
+                description: p.desc,
+                isActive: true,
+            },
+            create: {
+                sku: p.sku,
+                name: p.name,
+                brand: p.brand,
+                categoryId: categoryMap[p.cat],
+                unit: p.unit,
+                packageSize: p.size,
+                basePrice: p.price,
+                gstRate: p.gst,
+                description: p.desc,
+                isActive: true,
+            },
+        });
+
+        const batchNumber = `BATCH-202609-${p.sku.slice(4, 10)}`;
+        const batch = await prisma.productionBatch.upsert({
+            where: { batchNumber },
+            update: { quantityProduced: 500, quantityRemaining: 450 },
+            create: {
+                batchNumber,
+                productId: prod.id,
+                mfgDate: new Date('2026-09-01'),
+                expDate: new Date('2028-09-01'),
+                quantityProduced: 500,
+                quantityRemaining: 450,
+                status: 'COMPLETED',
+                notes: 'Standard certified production run in Dharmapuri factory',
+                createdById: founderId,
+            },
+        });
+
+        await prisma.inventoryStock.upsert({
+            where: {
+                productId_batchId_state_location: {
+                    productId: prod.id,
+                    batchId: batch.id,
+                    state: 'AVAILABLE',
+                    location: 'CENTRAL_WAREHOUSE',
+                },
+            },
+            update: { quantity: 450 },
+            create: {
+                productId: prod.id,
+                batchId: batch.id,
+                state: 'AVAILABLE',
+                location: 'CENTRAL_WAREHOUSE',
+                quantity: 450,
+            },
+        });
+    }
+
+    const deliveryStaff = await prisma.employee.findFirst({ where: { email: 'delivery@grotec.local' } });
+    if (deliveryStaff) {
+        await prisma.vehicle.upsert({
+            where: { regNumber: 'TN-29-BA-4589' },
+            update: { driverId: deliveryStaff.id, status: 'AVAILABLE', capacityKg: 2500 },
+            create: {
+                regNumber: 'TN-29-BA-4589',
+                model: 'Tata 407 LPT Heavy',
+                capacityKg: 2500,
+                driverId: deliveryStaff.id,
+                status: 'AVAILABLE',
+            },
+        });
+    }
+
+    console.log('seeded Phase 2 categories, 14 products, production batches, inventory, and vehicle');
 }
 main()
     .catch((error) => {

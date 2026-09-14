@@ -53,6 +53,17 @@ export namespace PERMISSIONS {
     let hrmsAuditRead: string;
     let tenantRead: string;
     let tenantManage: string;
+    let productionRead: string;
+    let productionManage: string;
+    let inventoryRead: string;
+    let inventoryManage: string;
+    let ordersRead: string;
+    let ordersManage: string;
+    let dispatchRead: string;
+    let dispatchManage: string;
+    let deliveryRead: string;
+    let deliveryExecute: string;
+    let exceptionsManage: string;
 }
 /** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
 /** @type {PermissionCode[]} */

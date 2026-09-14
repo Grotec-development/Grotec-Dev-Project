@@ -158,6 +158,7 @@ export interface PendingWrapUpItem {
 }
 
 export function AgentWorkspacePage() {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const queryPhone = searchParams.get('phone') || '';
   const queryName = searchParams.get('name') || '';
@@ -640,23 +641,25 @@ export function AgentWorkspacePage() {
             ? 'Not Interested'
             : 'Not Answered';
 
-      // Dispatch real-time call advisory email via verified Gmail SMTP
-      try {
-        await messagingApi.sendEmail({
-          to: 'grotecdatabase@gmail.com',
-          subject: `[GROTEC Real-Time Alert] Call Completed: ${farmerName} (${formatE164(farmerDisplayPhone)}) - ${disposition}`,
-          body: `GROTEC FarmerOS Real-Time Telephony Call Advisory Summary\n\n` +
-                `Farmer: ${farmerName}\n` +
-                `Phone: ${formatE164(farmerDisplayPhone)}\n` +
-                `Agent Outbound Line: 9444330285\n` +
-                `Talk Time: ${formatTimer(elapsed)}\n` +
-                `Disposition: ${disposition}\n` +
-                (disposition === 'INTERESTED' ? `Follow-up Date: ${followUpDate} at ${followUpTime}\nFollow-up Note: ${followUpNote || 'Follow-up callback'}\n` : '') +
-                `Advisory Notes:\n${noteDraft || 'No notes entered'}\n\n` +
-                `Dispatched live via GROTEC FarmerOS SMTP Engine (smtp.gmail.com:465)`,
-        });
-      } catch (mailErr) {
-        console.warn('Real-time SMTP dispatch warning:', mailErr);
+      // Dispatch real-time call advisory email via SMTP
+      if (user?.email) {
+        try {
+          await messagingApi.sendEmail({
+            to: user.email,
+            subject: `[GROTEC Real-Time Alert] Call Completed: ${farmerName} (${formatE164(farmerDisplayPhone)}) - ${disposition}`,
+            body: `GROTEC FarmerOS Real-Time Telephony Call Advisory Summary\n\n` +
+                  `Farmer: ${farmerName}\n` +
+                  `Phone: ${formatE164(farmerDisplayPhone)}\n` +
+                  `Agent: ${user.fullName || user.email}\n` +
+                  `Talk Time: ${formatTimer(elapsed)}\n` +
+                  `Disposition: ${disposition}\n` +
+                  (disposition === 'INTERESTED' ? `Follow-up Date: ${followUpDate} at ${followUpTime}\nFollow-up Note: ${followUpNote || 'Follow-up callback'}\n` : '') +
+                  `Advisory Notes:\n${noteDraft || 'No notes entered'}\n\n` +
+                  `Dispatched via GROTEC FarmerOS Communications Engine`,
+          });
+        } catch (mailErr) {
+          console.warn('Real-time SMTP dispatch warning:', mailErr);
+        }
       }
 
       setActiveCall(null);
@@ -674,7 +677,7 @@ export function AgentWorkspacePage() {
         if (activeCall?.id) localStorage.removeItem(`grotec_draft_note_${activeCall.id}`);
         localStorage.removeItem('grotec_draft_note_active');
       } catch {}
-      setSuccessNotice(`Call completed for ${farmerName}! Disposition saved: ${outcomeText}. Real-time alert dispatched to grotecdatabase@gmail.com.`);
+      setSuccessNotice(`Call completed for ${farmerName}! Disposition saved: ${outcomeText}.`);
       void loadQueue();
 
       // Progressive auto-advance to next customer in queue if enabled
@@ -740,13 +743,13 @@ export function AgentWorkspacePage() {
       id: item.callId,
       customerId: item.customerId ?? null,
       leadId: item.leadId ?? null,
-      agentId: 'agent-1',
+      agentId: user?.id || 'agent',
       phoneNumber: item.phoneNumber,
       direction: 'OUTBOUND',
       status: 'ENDED',
       outcome: null,
       nextAction: null,
-      provider: 'MOCK_DIALER',
+      provider: callingMode === 'EXOTEL_IVR_AGENT' ? 'exotel' : 'direct_sim',
       providerCallId: item.callId,
       connectedAt: item.endedAt,
       startedAt: item.endedAt,
@@ -811,13 +814,13 @@ export function AgentWorkspacePage() {
       id: item.lastCall.id,
       customerId: item.customer.id,
       leadId: item.leadId,
-      agentId: 'agent-1',
+      agentId: user?.id || 'agent',
       phoneNumber: item.lastCall.phoneNumber,
       direction: 'OUTBOUND',
       status: 'ENDED',
       outcome: null,
       nextAction: null,
-      provider: 'MOCK_DIALER',
+      provider: (item.lastCall as any)?.provider || (callingMode === 'EXOTEL_IVR_AGENT' ? 'exotel' : 'direct_sim'),
       providerCallId: item.lastCall.id,
       connectedAt: item.lastCall.startedAt,
       startedAt: item.lastCall.startedAt,

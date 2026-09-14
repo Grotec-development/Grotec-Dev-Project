@@ -65,6 +65,31 @@ let CustomersService = class CustomersService {
                 where,
                 include: {
                     phones: { where: LIVE_PHONE, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+                    locations: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+                    crops: { where: { deletedAt: null }, include: { crop: { select: { name: true, localName: true } } } },
+                    relationshipOwnership: {
+                        where: { releasedAt: null },
+                        include: { employee: { select: { fullName: true } } },
+                        take: 1,
+                    },
+                    leads: {
+                        where: { deletedAt: null },
+                        orderBy: { createdAt: 'desc' },
+                        take: 1,
+                        include: {
+                            ownerships: {
+                                where: { releasedAt: null },
+                                include: { employee: { select: { fullName: true } } },
+                                take: 1,
+                            },
+                        },
+                    },
+                    calls: {
+                        orderBy: { startedAt: 'desc' },
+                        take: 1,
+                        select: { startedAt: true, createdAt: true },
+                    },
+                    createdBy: { select: { fullName: true } },
                 },
                 orderBy: { createdAt: 'desc' },
                 skip: pagination.skip,
@@ -72,15 +97,32 @@ let CustomersService = class CustomersService {
             }),
             this.prisma.customer.count({ where }),
         ]);
-        return toPage(rows.map((customer) => ({
-            id: customer.id,
-            farmerCode: customer.farmerCode,
-            fullName: customer.fullName,
-            status: customer.status,
-            primaryPhone: customer.phones[0]?.phoneE164 ?? null,
-            phoneCount: customer.phones.length,
-            createdAt: customer.createdAt,
-        })), total, pagination);
+        return toPage(rows.map((customer) => {
+            const loc = customer.locations?.[0] || null;
+            const rm = customer.relationshipOwnership?.[0]?.employee?.fullName ||
+                       customer.leads?.[0]?.ownerships?.[0]?.employee?.fullName ||
+                       customer.createdBy?.fullName ||
+                       null;
+            const lastCall = customer.calls?.[0];
+            const lastContactAt = lastCall?.startedAt || lastCall?.createdAt || null;
+            const cropList = (customer.crops || []).map(c => c.crop?.name || c.notes).filter(Boolean);
+
+            return {
+                id: customer.id,
+                farmerCode: customer.farmerCode,
+                fullName: customer.fullName,
+                status: customer.status,
+                primaryPhone: customer.phones[0]?.phoneE164 ?? null,
+                phoneCount: customer.phones.length,
+                district: loc?.district || null,
+                taluk: loc?.taluk || null,
+                village: loc?.village || null,
+                crops: cropList.length > 0 ? cropList.join(', ') : null,
+                rm,
+                lastContactAt: lastContactAt ? lastContactAt.toISOString() : null,
+                createdAt: customer.createdAt,
+            };
+        }), total, pagination);
     }
     async lookupByPhone(rawPhone) {
         const e164 = normalizePhoneToE164(rawPhone);

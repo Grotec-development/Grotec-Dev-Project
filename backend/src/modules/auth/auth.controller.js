@@ -51,7 +51,7 @@ let AuthController = class AuthController {
     }
     setRefreshCookie(res, token) {
         const days = Number(this.config.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
-        const secure = this.config.get('COOKIE_SECURE') === 'true';
+        const secure = this.config.get('COOKIE_SECURE') === 'true' || process.env.NODE_ENV === 'production';
         const sameSite = this.config.get('COOKIE_SAME_SITE') ?? 'lax';
         res.cookie(REFRESH_COOKIE, token, refreshCookieOptions(days, secure, sameSite));
     }

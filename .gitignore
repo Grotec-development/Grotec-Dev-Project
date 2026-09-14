@@ -42,6 +42,7 @@ login.json
 # Local tooling & workspaces
 .claude/
 .freebuff/
+output/
 
 # OS files
 .DS_Store

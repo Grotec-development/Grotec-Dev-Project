@@ -92,6 +92,15 @@ export namespace AuditEntityType {
     let OUTBOUND_MESSAGE: string;
     let CUSTOMER_NOTE: string;
     let REFERRAL: string;
+    let PRODUCT: string;
+    let PRODUCTION_BATCH: string;
+    let INVENTORY_STOCK: string;
+    let SALES_ORDER: string;
+    let INVOICE: string;
+    let VEHICLE: string;
+    let TRIP: string;
+    let TRIP_STOP: string;
+    let QUANTITY_EXCEPTION: string;
 }
 export namespace AuditAction {
     export let LOGIN_SUCCESS: string;
@@ -146,6 +155,18 @@ export namespace AuditAction {
     export let PAYROLL_APPROVED: string;
     export let PAYROLL_PUBLISHED: string;
     export let REFERRAL_CREATED: string;
+    export let BATCH_PRODUCED: string;
+    export let STOCK_ADJUSTED: string;
+    export let ORDER_PLACED: string;
+    export let ORDER_APPROVED: string;
+    export let ORDER_CANCELLED: string;
+    export let TRIP_DISPATCHED: string;
+    export let DELIVERY_COMPLETED: string;
+    export let EXCEPTION_REQUESTED: string;
+    export let EXCEPTION_APPROVED: string;
+    export let EXCEPTION_REJECTED: string;
+    export let INVOICE_REVISED: string;
+    export let TRIP_CLOSED: string;
 }
 export namespace PAGINATION {
     let DEFAULT_PAGE: number;
@@ -232,6 +253,81 @@ export namespace OutboxStatus {
     export let PROCESSED: string;
     let FAILED_3: string;
     export { FAILED_3 as FAILED };
+}
+export namespace StockState {
+    let PRODUCED: string;
+    let AVAILABLE: string;
+    let ALLOCATED: string;
+    let LOADED: string;
+    let DELIVERED: string;
+    let REMAINING_IN_VEHICLE: string;
+    let RETURNED: string;
+    let REALLOCATED: string;
+}
+export namespace TripStatus {
+    export let DRAFT: string;
+    export let PLANNED: string;
+    export let LOADING: string;
+    let LOADED_1: string;
+    export { LOADED_1 as LOADED };
+    export let DISPATCHED: string;
+    export let IN_TRANSIT: string;
+    export let DELIVERING: string;
+    export let RECONCILIATION: string;
+    let CLOSED_1: string;
+    export { CLOSED_1 as CLOSED };
+}
+export namespace DeliveryStatus {
+    let PLANNED_1: string;
+    export { PLANNED_1 as PLANNED };
+    export let EN_ROUTE: string;
+    export let ARRIVED: string;
+    export let IN_PROGRESS: string;
+    let COMPLETED_1: string;
+    export { COMPLETED_1 as COMPLETED };
+    export let PARTIAL: string;
+    export let POSTPONED: string;
+    let FAILED_4: string;
+    export { FAILED_4 as FAILED };
+}
+export namespace QuantityExceptionStatus {
+    export let REQUESTED: string;
+    export let UNDER_REVIEW: string;
+    let APPROVED_2: string;
+    export { APPROVED_2 as APPROVED };
+    let REJECTED_2: string;
+    export { REJECTED_2 as REJECTED };
+    export let REVISED: string;
+    export let APPLIED: string;
+}
+export namespace OrderStatus {
+    let DRAFT_1: string;
+    export { DRAFT_1 as DRAFT };
+    export let PENDING_APPROVAL: string;
+    export let CONFIRMED: string;
+    let ALLOCATED_1: string;
+    export { ALLOCATED_1 as ALLOCATED };
+    let DISPATCHED_1: string;
+    export { DISPATCHED_1 as DISPATCHED };
+    let DELIVERED_1: string;
+    export { DELIVERED_1 as DELIVERED };
+    let CANCELLED_2: string;
+    export { CANCELLED_2 as CANCELLED };
+}
+export namespace InvoiceStatus {
+    let DRAFT_2: string;
+    export { DRAFT_2 as DRAFT };
+    export let ISSUED: string;
+    let REVISED_1: string;
+    export { REVISED_1 as REVISED };
+    export let PAID: string;
+}
+export namespace UnitOfMeasure {
+    let KG: string;
+    let LTR: string;
+    let BAG: string;
+    let PACKET: string;
+    let BOTTLE: string;
 }
 /**
  * PRD §6.5.2 problem/issue taxonomy — configurable vocabulary, starter set fixed.

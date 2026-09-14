@@ -78,6 +78,18 @@ exports.PERMISSIONS = {
     // Multi-Tenancy
     tenantRead: 'tenant.read',
     tenantManage: 'tenant.manage',
+    // Phase 2 Factory, Supply Chain & Logistics (PRD §18)
+    productionRead: 'production.read',
+    productionManage: 'production.manage',
+    inventoryRead: 'inventory.read',
+    inventoryManage: 'inventory.manage',
+    ordersRead: 'orders.read',
+    ordersManage: 'orders.manage',
+    dispatchRead: 'dispatch.read',
+    dispatchManage: 'dispatch.manage',
+    deliveryRead: 'delivery.read',
+    deliveryExecute: 'delivery.execute',
+    exceptionsManage: 'exceptions.manage',
 };
 /** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
 /** @type {PermissionCode[]} */
@@ -147,6 +159,18 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.hrmsAuditRead,
         exports.PERMISSIONS.tenantRead,
         exports.PERMISSIONS.tenantManage,
+        // Phase 2 Factory, Supply Chain & Logistics
+        exports.PERMISSIONS.productionRead,
+        exports.PERMISSIONS.productionManage,
+        exports.PERMISSIONS.inventoryRead,
+        exports.PERMISSIONS.inventoryManage,
+        exports.PERMISSIONS.ordersRead,
+        exports.PERMISSIONS.ordersManage,
+        exports.PERMISSIONS.dispatchRead,
+        exports.PERMISSIONS.dispatchManage,
+        exports.PERMISSIONS.deliveryRead,
+        exports.PERMISSIONS.deliveryExecute,
+        exports.PERMISSIONS.exceptionsManage,
     ],
     MANAGER: [
         exports.PERMISSIONS.employeeRead,
@@ -198,6 +222,17 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.hrmsPayrollApprove,
         exports.PERMISSIONS.hrmsPayrollRead,
         exports.PERMISSIONS.hrmsKpiConfigure,
+        // Phase 2 Factory, Supply Chain & Logistics
+        exports.PERMISSIONS.productionRead,
+        exports.PERMISSIONS.productionManage,
+        exports.PERMISSIONS.inventoryRead,
+        exports.PERMISSIONS.inventoryManage,
+        exports.PERMISSIONS.ordersRead,
+        exports.PERMISSIONS.ordersManage,
+        exports.PERMISSIONS.dispatchRead,
+        exports.PERMISSIONS.dispatchManage,
+        exports.PERMISSIONS.deliveryRead,
+        exports.PERMISSIONS.exceptionsManage,
         // NOTE: Manager does NOT receive auditRead or hrmsAuditRead (§5.2)
     ],
     AGENT: [
@@ -235,6 +270,11 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.hrmsPayrollProcess,
         exports.PERMISSIONS.payrollRead,
         exports.PERMISSIONS.hrmsRead,
+        // Phase 2 operations
+        exports.PERMISSIONS.productionRead,
+        exports.PERMISSIONS.inventoryRead,
+        exports.PERMISSIONS.ordersRead,
+        exports.PERMISSIONS.dispatchRead,
         // Self-service only
         exports.PERMISSIONS.attendanceRead,
         exports.PERMISSIONS.attendanceMark,
@@ -249,6 +289,12 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
     ],
     DELIVERY: [
         exports.PERMISSIONS.hrmsRead,
+        // Phase 2 delivery execution & field lead capture
+        exports.PERMISSIONS.customerRead,
+        exports.PERMISSIONS.customerCreate,
+        exports.PERMISSIONS.leadCreate,
+        exports.PERMISSIONS.deliveryRead,
+        exports.PERMISSIONS.deliveryExecute,
         // Self-service only
         exports.PERMISSIONS.attendanceRead,
         exports.PERMISSIONS.attendanceMark,

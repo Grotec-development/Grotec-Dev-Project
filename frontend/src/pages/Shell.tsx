@@ -23,6 +23,12 @@ import {
   Menu,
   X,
   Briefcase,
+  ShoppingCart,
+  Boxes,
+  Factory,
+  Truck,
+  Navigation,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
 import { cx } from '../components/ui';
@@ -100,6 +106,16 @@ const MANAGER_HIDDEN_NAV = new Set([
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/team', label: 'Settings & Team', icon: Settings, permission: 'employee.read' },
   { to: '/audit', label: 'Audit Trail', icon: ScrollText, permission: 'audit.read' },
+];
+
+// Phase 2 Factory, Supply Chain & Logistics items (PRD §18)
+const SUPPLY_CHAIN_NAV_ITEMS: NavItem[] = [
+  { to: '/orders', label: 'Sales Orders', icon: ShoppingCart, permission: 'orders.read' },
+  { to: '/inventory', label: 'Inventory Ledger', icon: Boxes, permission: 'inventory.read' },
+  { to: '/factory', label: 'Factory & Batches', icon: Factory, permission: 'production.read' },
+  { to: '/dispatch', label: 'Dispatch Manifests', icon: Truck, permission: 'dispatch.read' },
+  { to: '/delivery', label: 'Field Delivery', icon: Navigation, permission: 'delivery.execute' },
+  { to: '/exceptions', label: 'Exception Centre', icon: AlertTriangle, permission: 'exceptions.manage' },
 ];
 
 function getHrmsNavItems(roleCode: string | undefined, hasPermission: (perm: string) => boolean): NavItem[] {
@@ -257,6 +273,12 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
     '/hrms/payroll': { title: 'Payroll Runs', description: 'Monthly payroll generation and slips.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations' }, { label: 'Payroll' }] },
     '/hrms/payslips': { title: payslipsTitle, description: payslipsDesc, crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations' }, { label: payslipsTitle }] },
     '/hrms/kpi': { title: kpiTitle, description: kpiDesc, crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations' }, { label: kpiTitle }] },
+    '/orders': { title: 'Sales Orders & Invoicing', description: 'Customer sales orders, fulfillment tracking, and GST tax invoicing.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Sales Orders' }] },
+    '/inventory': { title: 'Inventory Ledger', description: 'Multi-state warehouse & vehicle stock tracking with movements audit trail.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Inventory' }] },
+    '/factory': { title: 'Factory & Production', description: 'Production batches, formulations, and finished goods register.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Factory' }] },
+    '/dispatch': { title: 'Dispatch & Fleet Manifests', description: 'Trip planning, loading bay verification, and closure reconciliation.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Dispatch' }] },
+    '/delivery': { title: 'Field Delivery App', description: 'Driver stop execution, digital Proof of Delivery (POD), and field farmer intake.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Delivery' }] },
+    '/exceptions': { title: 'Exception Centre', description: 'In-flight quantity adjustments, manager reviews, and invoice revisions.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Exceptions' }] },
     '/restricted': { title: 'Access Restricted', description: 'You do not have permission to view this section.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Restricted' }] },
   };
 
@@ -382,6 +404,7 @@ export function Shell() {
       (!i.permission || hasPermission(i.permission)),
   );
   const hrmsVisible = isAgent ? [] : getHrmsNavItems(user.roleCode, hasPermission);
+  const supplyVisible = isAgent ? [] : SUPPLY_CHAIN_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
   const adminVisible = ADMIN_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
 
   const handleCrmItemClick = () => {
@@ -478,6 +501,16 @@ export function Shell() {
               items={crmVisible}
               isExpanded={isNavExpanded}
               onItemClick={handleCrmItemClick}
+            />
+          )}
+
+          {/* Phase 2: Factory, Supply Chain & Logistics */}
+          {supplyVisible.length > 0 && (
+            <NavGroup
+              title="Supply Chain"
+              items={supplyVisible}
+              isExpanded={isNavExpanded}
+              onItemClick={() => setMobileMenuOpen(false)}
             />
           )}
 

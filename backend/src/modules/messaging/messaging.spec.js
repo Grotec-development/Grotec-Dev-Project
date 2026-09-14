@@ -73,6 +73,19 @@ describe('Messaging Providers & Integration', () => {
             expect(status.configured).toBe(false);
             expect(status.connected).toBe(false);
         });
+
+        it('truthfully reports FAILED status in production when unconfigured', async () => {
+            const origEnv = process.env.NODE_ENV;
+            try {
+                process.env.NODE_ENV = 'production';
+                const provider = new SmtpEmailProvider({ host: '' });
+                const res = await provider.send({ to: 'test@example.com', subject: 'Test', body: 'Test' });
+                expect(res.status).toBe(MessageStatus.FAILED);
+                expect(res.error).toContain('not configured');
+            } finally {
+                process.env.NODE_ENV = origEnv;
+            }
+        });
     });
 
     describe('MessagingRegistry', () => {

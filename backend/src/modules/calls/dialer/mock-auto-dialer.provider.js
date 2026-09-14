@@ -44,35 +44,11 @@ let MockAutoDialerProvider = class MockAutoDialerProvider {
         return Promise.resolve({ providerCallId, status: CallStatus.DIALING });
     }
     getStatus(providerCallId) {
-        let call = this.calls.get(providerCallId);
-        if (!call && providerCallId.startsWith('mock_')) {
-            call = {
-                providerCallId,
-                status: CallStatus.CONNECTED,
-                connectedAt: new Date(),
-                endedAt: null,
-                disconnectReason: null,
-                timers: [],
-                ended: false,
-            };
-            this.calls.set(providerCallId, call);
-        }
+        const call = this.calls.get(providerCallId);
         return Promise.resolve(call ? this.snapshot(call) : null);
     }
     endCall(providerCallId) {
-        let call = this.calls.get(providerCallId);
-        if (!call && providerCallId.startsWith('mock_')) {
-            call = {
-                providerCallId,
-                status: CallStatus.CONNECTED,
-                connectedAt: new Date(),
-                endedAt: null,
-                disconnectReason: null,
-                timers: [],
-                ended: false,
-            };
-            this.calls.set(providerCallId, call);
-        }
+        const call = this.calls.get(providerCallId);
         if (!call || call.ended)
             return Promise.resolve(call ? this.snapshot(call) : null);
         call.ended = true;

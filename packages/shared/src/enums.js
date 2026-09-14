@@ -118,6 +118,15 @@ export const AuditEntityType = {
   OUTBOUND_MESSAGE: 'OUTBOUND_MESSAGE',
   CUSTOMER_NOTE: 'CUSTOMER_NOTE',
   REFERRAL: 'REFERRAL',
+  PRODUCT: 'PRODUCT',
+  PRODUCTION_BATCH: 'PRODUCTION_BATCH',
+  INVENTORY_STOCK: 'INVENTORY_STOCK',
+  SALES_ORDER: 'SALES_ORDER',
+  INVOICE: 'INVOICE',
+  VEHICLE: 'VEHICLE',
+  TRIP: 'TRIP',
+  TRIP_STOP: 'TRIP_STOP',
+  QUANTITY_EXCEPTION: 'QUANTITY_EXCEPTION',
 };
 
 export const AuditAction = {
@@ -180,6 +189,19 @@ export const AuditAction = {
   PAYROLL_PUBLISHED: 'payroll.published',
   // Referrals (Step 3B)
   REFERRAL_CREATED: 'referral.created',
+  // Phase 2 Factory, Supply Chain & Logistics (PRD §18)
+  BATCH_PRODUCED: 'production.batch_produced',
+  STOCK_ADJUSTED: 'inventory.stock_adjusted',
+  ORDER_PLACED: 'order.placed',
+  ORDER_APPROVED: 'order.approved',
+  ORDER_CANCELLED: 'order.cancelled',
+  TRIP_DISPATCHED: 'trip.dispatched',
+  DELIVERY_COMPLETED: 'delivery.completed',
+  EXCEPTION_REQUESTED: 'exception.requested',
+  EXCEPTION_APPROVED: 'exception.approved',
+  EXCEPTION_REJECTED: 'exception.rejected',
+  INVOICE_REVISED: 'invoice.revised',
+  TRIP_CLOSED: 'trip.closed',
 };
 
 export const PAGINATION = {
@@ -277,3 +299,79 @@ export const OutboxStatus = {
   PROCESSED: 'PROCESSED',
   FAILED: 'FAILED',
 };
+
+/** PRD §18.1 Multi-state inventory tracking */
+export const StockState = {
+  PRODUCED: 'PRODUCED',
+  AVAILABLE: 'AVAILABLE',
+  ALLOCATED: 'ALLOCATED',
+  LOADED: 'LOADED',
+  DELIVERED: 'DELIVERED',
+  REMAINING_IN_VEHICLE: 'REMAINING_IN_VEHICLE',
+  RETURNED: 'RETURNED',
+  REALLOCATED: 'REALLOCATED',
+};
+
+/** PRD §18.3 Dispatch / Trip lifecycle */
+export const TripStatus = {
+  DRAFT: 'DRAFT',
+  PLANNED: 'PLANNED',
+  LOADING: 'LOADING',
+  LOADED: 'LOADED',
+  DISPATCHED: 'DISPATCHED',
+  IN_TRANSIT: 'IN_TRANSIT',
+  DELIVERING: 'DELIVERING',
+  RECONCILIATION: 'RECONCILIATION',
+  CLOSED: 'CLOSED',
+};
+
+/** PRD §18.3 Individual Delivery Stop lifecycle */
+export const DeliveryStatus = {
+  PLANNED: 'PLANNED',
+  EN_ROUTE: 'EN_ROUTE',
+  ARRIVED: 'ARRIVED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  PARTIAL: 'PARTIAL',
+  POSTPONED: 'POSTPONED',
+  FAILED: 'FAILED',
+};
+
+/** PRD §18.2 Dynamic Quantity Exception lifecycle */
+export const QuantityExceptionStatus = {
+  REQUESTED: 'REQUESTED',
+  UNDER_REVIEW: 'UNDER_REVIEW',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  REVISED: 'REVISED',
+  APPLIED: 'APPLIED',
+};
+
+/** PRD §18.1 Sales Order lifecycle */
+export const OrderStatus = {
+  DRAFT: 'DRAFT',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  CONFIRMED: 'CONFIRMED',
+  ALLOCATED: 'ALLOCATED',
+  DISPATCHED: 'DISPATCHED',
+  DELIVERED: 'DELIVERED',
+  CANCELLED: 'CANCELLED',
+};
+
+/** PRD §18.1 Invoice lifecycle */
+export const InvoiceStatus = {
+  DRAFT: 'DRAFT',
+  ISSUED: 'ISSUED',
+  REVISED: 'REVISED',
+  PAID: 'PAID',
+};
+
+/** Standard unit of measure for agro products */
+export const UnitOfMeasure = {
+  KG: 'KG',
+  LTR: 'LTR',
+  BAG: 'BAG',
+  PACKET: 'PACKET',
+  BOTTLE: 'BOTTLE',
+};
+

@@ -85,11 +85,24 @@ export class WhatsAppProvider {
                     };
                 }
             } catch (err) {
-                this.logger.warn(`WhatsApp network error: ${err?.message}. Falling back to simulated delivery.`);
+                this.logger.error(`WhatsApp network error: ${err?.message}`);
+                return {
+                    providerMessageId: simulatedId,
+                    status: MessageStatus.FAILED,
+                    error: `WhatsApp network error: ${err?.message}`,
+                };
             }
         }
 
-        // Simulated WhatsApp delivery
+        if (process.env.NODE_ENV === 'production') {
+            return {
+                providerMessageId: simulatedId,
+                status: MessageStatus.FAILED,
+                error: 'WhatsApp Business API is not configured with valid API credentials in production',
+            };
+        }
+
+        // Simulated WhatsApp delivery (development / test only)
         this.logger.log(`[Simulated WhatsApp] -> +${normalizedTo}: ${body ? body.slice(0, 100) : `Template: ${templateName}`}`);
         return {
             providerMessageId: simulatedId,

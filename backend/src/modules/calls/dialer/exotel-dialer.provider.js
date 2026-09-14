@@ -130,36 +130,12 @@ export class ExotelDialerProvider {
     }
 
     async getStatus(providerCallId) {
-        let call = this.calls.get(providerCallId);
-        if (!call && providerCallId.startsWith('exo_')) {
-            call = {
-                providerCallId,
-                status: CallStatus.CONNECTED,
-                connectedAt: new Date(),
-                endedAt: null,
-                disconnectReason: null,
-                timers: [],
-                ended: false,
-            };
-            this.calls.set(providerCallId, call);
-        }
+        const call = this.calls.get(providerCallId);
         return call ? this.snapshot(call) : null;
     }
 
     async endCall(providerCallId) {
-        let call = this.calls.get(providerCallId);
-        if (!call && providerCallId.startsWith('exo_')) {
-            call = {
-                providerCallId,
-                status: CallStatus.CONNECTED,
-                connectedAt: new Date(),
-                endedAt: null,
-                disconnectReason: null,
-                timers: [],
-                ended: false,
-            };
-            this.calls.set(providerCallId, call);
-        }
+        const call = this.calls.get(providerCallId);
         if (!call || call.ended) {
             return call ? this.snapshot(call) : null;
         }

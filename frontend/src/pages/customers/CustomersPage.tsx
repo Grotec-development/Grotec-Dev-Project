@@ -11,22 +11,6 @@ import { Alert, Button, Card, EmptyState, Input, Select, StatusBadge, Table, Tab
 import { NewCustomerModal } from './NewCustomerModal';
 import { ImportCustomersModal } from './ImportCustomersModal';
 
-// Mock auxiliary data for columns in PDF that might be unpopulated in raw dev DB
-const DISTRICT_MAP: Record<string, { district: string; taluk: string; crops: string; rm: string; lastContact: string }> = {
-  'Rajendran K.': { district: 'Dharmapuri', taluk: 'Palacode', crops: 'Tomato, Brinjal', rm: 'Karthik R.', lastContact: 'Yesterday' },
-  'Murugan V.': { district: 'Trichy', taluk: 'Lalgudi', crops: 'Paddy, Sugarcane', rm: 'Suresh M.', lastContact: '2 days ago' },
-  'Chinnasamy A.': { district: 'Erode', taluk: 'Gobichetti...', crops: 'Turmeric, Banana', rm: 'Karthik R.', lastContact: '3 days ago' },
-  'Senthil Kumar': { district: 'Coimbatore', taluk: 'Pollachi', crops: 'Coconut, Cocoa', rm: 'Vijay P.', lastContact: '1 week ago' },
-  'Ramanathan M.': { district: 'Tanjore', taluk: 'Orathanadu', crops: 'Paddy, Blackgram', rm: 'Selvam S.', lastContact: '2 weeks ago' },
-  'Anbarasan S.': { district: 'Salem', taluk: 'Attur', crops: 'Tapioca, Maize', rm: 'Suresh M.', lastContact: 'Today' },
-  'Ganesan P.': { district: 'Pudukkottai', taluk: 'Alangudi', crops: 'Paddy, Groundnut', rm: 'Selvam S.', lastContact: '3 weeks ago' },
-  'Thangavel R.': { district: 'Namakkal', taluk: 'Rasipuram', crops: 'Poultry, Maize', rm: 'Vijay P.', lastContact: '4 weeks ago' },
-  'Velusamy K.': { district: 'Karur', taluk: 'Kulithalai', crops: 'Banana, Betel', rm: 'Karthik R.', lastContact: '1 month ago' },
-  'Kaliappan S.': { district: 'Theni', taluk: 'Uthamapalayam', crops: 'Grapes, Cardamom', rm: 'Vijay P.', lastContact: 'Today' },
-  'Muthusamy G.': { district: 'Dindigul', taluk: 'Oddanchatram', crops: 'Onion, Chilli', rm: 'Suresh M.', lastContact: '5 days ago' },
-  'Soundararajan V.': { district: 'Tiruppur', taluk: 'Dharapuram', crops: 'Cotton, Maize', rm: 'Selvam S.', lastContact: '6 days ago' },
-};
-
 export function CustomersPage() {
   const { hasPermission, user } = useAuth();
   const queryClient = useQueryClient();
@@ -51,27 +35,43 @@ export function CustomersPage() {
   const canCreate = hasPermission('customer.create');
   const canImport = (user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || hasPermission('customer.import')) && canCreate;
 
-  // Augmented farmer list matching exact PDF columns
+  // Real farmer list populated directly from live database records
   const farmerList = useMemo(() => {
     if (!data?.items) return [];
-    return data.items.map((item, index) => {
-      const mock = DISTRICT_MAP[item.fullName] || {
-        district: ['Dharmapuri', 'Trichy', 'Erode', 'Salem', 'Tanjore'][index % 5],
-        taluk: ['Palacode', 'Lalgudi', 'Gobichetti', 'Attur', 'Orathanadu'][index % 5],
-        crops: ['Tomato, Brinjal', 'Paddy, Sugarcane', 'Turmeric, Banana', 'Cotton, Maize', 'Coconut, Cocoa'][index % 5],
-        rm: ['Karthik R.', 'Suresh M.', 'Vijay P.', 'Selvam S.'][index % 4],
-        lastContact: ['Today', 'Yesterday', '2 days ago', '1 week ago', '3 weeks ago'][index % 5],
-      };
+    return data.items.map((item) => {
+      let formattedContact = '—';
+      if (item.lastContactAt) {
+        try {
+          const date = new Date(item.lastContactAt);
+          const diffMs = Date.now() - date.getTime();
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          if (diffDays === 0) formattedContact = 'Today';
+          else if (diffDays === 1) formattedContact = 'Yesterday';
+          else if (diffDays < 7) formattedContact = `${diffDays} days ago`;
+          else if (diffDays < 30) formattedContact = `${Math.floor(diffDays / 7)}w ago`;
+          else formattedContact = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        } catch {
+          formattedContact = '—';
+        }
+      }
       return {
         ...item,
-        district: mock.district,
-        taluk: mock.taluk,
-        crops: mock.crops,
-        rm: mock.rm,
-        lastContact: mock.lastContact,
+        district: item.district || '—',
+        taluk: item.taluk || '—',
+        crops: item.crops || '—',
+        rm: item.rm || 'Unassigned',
+        lastContact: formattedContact,
       };
     });
   }, [data]);
+
+  const filteredFarmerList = useMemo(() => {
+    return farmerList.filter((f) => {
+      if (district && f.district !== district) return false;
+      if (crop && !f.crops.toLowerCase().includes(crop.toLowerCase())) return false;
+      return true;
+    });
+  }, [farmerList, district, crop]);
 
   const hasActiveFilters = Boolean(q || district || crop || (status && status !== 'ACTIVE'));
   const activeFilterText = [
@@ -217,7 +217,7 @@ export function CustomersPage() {
                 </tr>
               </THead>
               <tbody className="divide-y divide-slate-100">
-                {farmerList.length === 0 ? (
+                {filteredFarmerList.length === 0 ? (
                   <tr>
                     <TD colSpan={8} className="py-10">
                       <EmptyState
@@ -242,7 +242,7 @@ export function CustomersPage() {
                     </TD>
                   </tr>
                 ) : (
-                  farmerList.map((farmer) => (
+                  filteredFarmerList.map((farmer) => (
                     <tr key={farmer.id} className="hover:bg-slate-50/70 transition-colors">
                       <TD>
                         <Link

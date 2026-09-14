@@ -24,6 +24,12 @@ import { PayslipsPage } from './pages/hrms/PayslipsPage';
 import { KpiPage } from './pages/hrms/KpiPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ActionCenterPage } from './pages/ActionCenterPage';
+import { OrdersPage } from './pages/orders/OrdersPage';
+import { InventoryPage } from './pages/inventory/InventoryPage';
+import { FactoryPage } from './pages/factory/FactoryPage';
+import { DispatchPage } from './pages/dispatch/DispatchPage';
+import { DeliveryMobilePage } from './pages/delivery/DeliveryMobilePage';
+import { ExceptionCentrePage } from './pages/exceptions/ExceptionCentrePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -59,6 +65,13 @@ export const router = createBrowserRouter([
       { path: 'hrms/kpi', element: <KpiPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'restricted', element: <RestrictedPage /> },
+      // Phase 2 Factory, Supply Chain & Delivery
+      { path: 'orders', element: <OrdersPage /> },
+      { path: 'inventory', element: <InventoryPage /> },
+      { path: 'factory', element: <FactoryPage /> },
+      { path: 'dispatch', element: <DispatchPage /> },
+      { path: 'delivery', element: <DeliveryMobilePage /> },
+      { path: 'exceptions', element: <ExceptionCentrePage /> },
     ],
   },
   // Wildcard — proper 404 page instead of silently redirecting to login

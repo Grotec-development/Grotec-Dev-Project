@@ -196,6 +196,23 @@ let KpiService = class KpiService {
         });
         const completedFollowUps = followUps.filter((f) => f.status === 'COMPLETED').length;
         const crmDiscipline = followUps.length > 0 ? Number(((completedFollowUps / followUps.length) * 100).toFixed(1)) : 100;
+
+        // Sales revenue from confirmed/delivered orders in period (PRD Phase 2 integration)
+        let totalRevenue = 0;
+        try {
+            const salesOrders = await this.prisma.salesOrder.findMany({
+                where: {
+                    createdById: employeeId,
+                    status: { not: 'CANCELLED' },
+                    orderDate: { gte: startDate, lte: endDate },
+                },
+                select: { totalAmount: true },
+            });
+            totalRevenue = salesOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+        } catch {
+            totalRevenue = 0;
+        }
+
         const actualValues = {
             CRM_CALLS_DIALED: callsDialed,
             CRM_CALLS_CONNECTED: callsConnected,
@@ -203,8 +220,8 @@ let KpiService = class KpiService {
             CRM_CONVERSION_RATE: conversionRate,
             ATTENDANCE: attendanceRate,
             CRM_DISCIPLINE: crmDiscipline,
-            TOTAL_REVENUE: null,
-            revenueStatus: 'PENDING_SOURCE_PHASE_2',
+            TOTAL_REVENUE: totalRevenue,
+            revenueStatus: 'ACTIVE',
         };
         const targetMap = {};
         const weightMap = {};

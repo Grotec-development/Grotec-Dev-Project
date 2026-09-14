@@ -75,6 +75,18 @@ export const PERMISSIONS = {
   // Multi-Tenancy
   tenantRead: 'tenant.read',
   tenantManage: 'tenant.manage',
+  // Phase 2 Factory, Supply Chain & Logistics (PRD §18)
+  productionRead: 'production.read',
+  productionManage: 'production.manage',
+  inventoryRead: 'inventory.read',
+  inventoryManage: 'inventory.manage',
+  ordersRead: 'orders.read',
+  ordersManage: 'orders.manage',
+  dispatchRead: 'dispatch.read',
+  dispatchManage: 'dispatch.manage',
+  deliveryRead: 'delivery.read',
+  deliveryExecute: 'delivery.execute',
+  exceptionsManage: 'exceptions.manage',
 };
 
 /** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
@@ -147,6 +159,18 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.hrmsAuditRead,
     PERMISSIONS.tenantRead,
     PERMISSIONS.tenantManage,
+    // Phase 2 Factory, Supply Chain & Logistics
+    PERMISSIONS.productionRead,
+    PERMISSIONS.productionManage,
+    PERMISSIONS.inventoryRead,
+    PERMISSIONS.inventoryManage,
+    PERMISSIONS.ordersRead,
+    PERMISSIONS.ordersManage,
+    PERMISSIONS.dispatchRead,
+    PERMISSIONS.dispatchManage,
+    PERMISSIONS.deliveryRead,
+    PERMISSIONS.deliveryExecute,
+    PERMISSIONS.exceptionsManage,
   ],
   MANAGER: [
     PERMISSIONS.employeeRead,
@@ -198,6 +222,17 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.hrmsPayrollApprove,
     PERMISSIONS.hrmsPayrollRead,
     PERMISSIONS.hrmsKpiConfigure,
+    // Phase 2 Factory, Supply Chain & Logistics
+    PERMISSIONS.productionRead,
+    PERMISSIONS.productionManage,
+    PERMISSIONS.inventoryRead,
+    PERMISSIONS.inventoryManage,
+    PERMISSIONS.ordersRead,
+    PERMISSIONS.ordersManage,
+    PERMISSIONS.dispatchRead,
+    PERMISSIONS.dispatchManage,
+    PERMISSIONS.deliveryRead,
+    PERMISSIONS.exceptionsManage,
     // NOTE: Manager does NOT receive auditRead or hrmsAuditRead (§5.2)
   ],
   AGENT: [
@@ -235,6 +270,11 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.hrmsPayrollProcess,
     PERMISSIONS.payrollRead,
     PERMISSIONS.hrmsRead,
+    // Phase 2 operations
+    PERMISSIONS.productionRead,
+    PERMISSIONS.inventoryRead,
+    PERMISSIONS.ordersRead,
+    PERMISSIONS.dispatchRead,
     // Self-service only
     PERMISSIONS.attendanceRead,
     PERMISSIONS.attendanceMark,
@@ -249,6 +289,12 @@ export const PROPOSED_ROLE_PERMISSIONS = {
   ],
   DELIVERY: [
     PERMISSIONS.hrmsRead,
+    // Phase 2 delivery execution & field lead capture
+    PERMISSIONS.customerRead,
+    PERMISSIONS.customerCreate,
+    PERMISSIONS.leadCreate,
+    PERMISSIONS.deliveryRead,
+    PERMISSIONS.deliveryExecute,
     // Self-service only
     PERMISSIONS.attendanceRead,
     PERMISSIONS.attendanceMark,

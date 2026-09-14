@@ -67,11 +67,24 @@ export class ExotelSmsProvider {
                     };
                 }
             } catch (err) {
-                this.logger.warn(`Exotel SMS network failure: ${err?.message}. Falling back to simulated delivery.`);
+                this.logger.error(`Exotel SMS network failure: ${err?.message}`);
+                return {
+                    providerMessageId: simulatedId,
+                    status: MessageStatus.FAILED,
+                    error: `Exotel SMS network failure: ${err?.message}`,
+                };
             }
         }
 
-        // Simulated SMS delivery
+        if (process.env.NODE_ENV === 'production') {
+            return {
+                providerMessageId: simulatedId,
+                status: MessageStatus.FAILED,
+                error: 'Exotel SMS service is not configured with valid API credentials in production',
+            };
+        }
+
+        // Simulated SMS delivery (development / test only)
         this.logger.log(`[Simulated Exotel SMS] -> ${normalizedTo}: ${body.slice(0, 100)}`);
         return {
             providerMessageId: simulatedId,

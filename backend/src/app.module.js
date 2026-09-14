@@ -34,6 +34,14 @@ import { PayrollModule } from './modules/payroll/payroll.module';
 import { KpiModule } from './modules/kpi/kpi.module';
 import { HrmsDashboardModule } from './modules/hrms-dashboard/hrms-dashboard.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ProductsModule } from './modules/products/products.module';
+import { ProductionModule } from './modules/production/production.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { DispatchModule } from './modules/dispatch/dispatch.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
+import { ExceptionsModule } from './modules/exceptions/exceptions.module';
+
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -66,6 +74,14 @@ AppModule = __decorate([
             HrmsDashboardModule,
             NotificationsModule,
             HealthModule,
+            // Phase 2 Factory, Supply Chain & Logistics
+            ProductsModule,
+            ProductionModule,
+            InventoryModule,
+            OrdersModule,
+            DispatchModule,
+            DeliveryModule,
+            ExceptionsModule,
         ],
         providers: [
             { provide: APP_GUARD, useClass: AuthGuard },
@@ -74,3 +90,4 @@ AppModule = __decorate([
     })
 ], AppModule);
 export { AppModule };
+

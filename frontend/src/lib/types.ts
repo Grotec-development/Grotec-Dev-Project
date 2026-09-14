@@ -22,6 +22,12 @@ export interface CustomerSummary {
   status: 'ACTIVE' | 'INACTIVE';
   primaryPhone: string | null;
   phoneCount: number;
+  district?: string | null;
+  taluk?: string | null;
+  village?: string | null;
+  crops?: string | null;
+  rm?: string | null;
+  lastContactAt?: string | null;
   createdAt: string;
 }
 
