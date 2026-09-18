@@ -23,10 +23,10 @@ export function CustomersPage() {
   const [page, setPage] = useState(1);
 
   const { data, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ['customers', q, status],
+    queryKey: ['customers', q, status, page],
     queryFn: async () => {
       const res = await api.get<Page<CustomerSummary>>('/customers', {
-        params: { q: q || undefined, status: status || undefined, page: 1, pageSize: 50 },
+        params: { q: q || undefined, status: status || undefined, page, pageSize: 50 },
       });
       return res.data;
     },
@@ -274,7 +274,8 @@ export function CustomersPage() {
         {/* Pagination Footer matching PDF: Showing 1-12 of 2,847 farmers | Previous 1 2 3 Next */}
         <div className="flex flex-wrap items-center justify-between border-t border-slate-200/90 bg-slate-50/40 px-4 py-3 text-xs text-slate-500">
           <span>
-            Showing 1–{farmerList.length} of {Math.max(data?.total ?? 0, 2847).toLocaleString('en-IN')} farmers
+            Showing {farmerList.length ? (page - 1) * 50 + 1 : 0}–{(page - 1) * 50 + farmerList.length} of{' '}
+            {(data?.total ?? 0).toLocaleString('en-IN')} farmers
           </span>
           <div className="flex items-center gap-1">
             <button

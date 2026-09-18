@@ -98,28 +98,30 @@ let InventoryService = class InventoryService {
             throw ApiError.badRequest('INVALID_QUANTITY', 'Adjustment quantity must be non-zero');
         }
 
+        const location = input.location || 'CENTRAL_WAREHOUSE';
+
         return this.prisma.$transaction(async (tx) => {
-            const stock = await tx.inventoryStock.upsert({
-                where: {
-                    productId_batchId_state_location: {
+            // Prisma's compound-unique input for productId_batchId_state_location requires
+            // a non-null batchId, so upsert can't be used when batchId is null. findFirst +
+            // create/update works for both the null and non-null batchId cases.
+            const existing = await tx.inventoryStock.findFirst({
+                where: { productId, batchId: batchId || null, state, location },
+            });
+            const stock = existing
+                ? await tx.inventoryStock.update({
+                    where: { id: existing.id },
+                    data: { quantity: { increment: qty } },
+                })
+                : await tx.inventoryStock.create({
+                    data: {
                         productId,
                         batchId: batchId || null,
                         state,
-                        location: input.location || 'CENTRAL_WAREHOUSE',
+                        location,
+                        quantity: Math.max(0, qty),
+                        tenantId: actor.tenantId || null,
                     },
-                },
-                update: {
-                    quantity: { increment: qty },
-                },
-                create: {
-                    productId,
-                    batchId: batchId || null,
-                    state,
-                    location: input.location || 'CENTRAL_WAREHOUSE',
-                    quantity: Math.max(0, qty),
-                    tenantId: actor.tenantId || null,
-                },
-            });
+                });
 
             await tx.inventoryMovement.create({
                 data: {

@@ -13,7 +13,8 @@ import {
   Printer,
   ChevronRight,
 } from 'lucide-react';
-import { api } from '../../lib/api';
+import { api, errorMessage } from '../../lib/api';
+import { Alert } from '../../components/ui';
 
 export function OrdersPage() {
   const queryClient = useQueryClient();
@@ -367,6 +368,9 @@ export function OrdersPage() {
             </div>
 
             <form onSubmit={handleSubmitOrder} className="flex-1 overflow-y-auto p-6 space-y-5">
+              {createOrderMutation.isError ? (
+                <Alert tone="error">{errorMessage(createOrderMutation.error)}</Alert>
+              ) : null}
               {/* Customer Selector */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">

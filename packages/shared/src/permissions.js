@@ -266,6 +266,7 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.tenantRead,
   ],
   STAFF: [
+    PERMISSIONS.employeeRead,
     PERMISSIONS.hrmsEmployeeRead,
     PERMISSIONS.hrmsPayrollProcess,
     PERMISSIONS.payrollRead,

@@ -13,7 +13,8 @@ import {
   History,
   CheckCircle2,
 } from 'lucide-react';
-import { api } from '../../lib/api';
+import { api, errorMessage } from '../../lib/api';
+import { Alert } from '../../components/ui';
 
 export function InventoryPage() {
   const queryClient = useQueryClient();
@@ -358,6 +359,9 @@ export function InventoryPage() {
             </div>
 
             <form onSubmit={handleAdjustSubmit} className="space-y-4">
+              {adjustMutation.isError ? (
+                <Alert tone="error">{errorMessage(adjustMutation.error)}</Alert>
+              ) : null}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
                   Product *

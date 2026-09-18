@@ -174,25 +174,34 @@ let OrdersService = class OrdersService {
 
             // Allocate inventory stock
             for (const item of processedItems) {
-                await tx.inventoryStock.upsert({
+                // Prisma's compound-unique input for productId_batchId_state_location requires
+                // a non-null batchId, so upsert can't be used here (batchId is always null for
+                // unbatched warehouse stock). findFirst + create/update instead.
+                const existingStock = await tx.inventoryStock.findFirst({
                     where: {
-                        productId_batchId_state_location: {
-                            productId: item.productId,
-                            batchId: null,
-                            state: StockState.ALLOCATED,
-                            location: 'CENTRAL_WAREHOUSE',
-                        },
-                    },
-                    update: { quantity: { increment: item.approvedQty } },
-                    create: {
                         productId: item.productId,
                         batchId: null,
                         state: StockState.ALLOCATED,
                         location: 'CENTRAL_WAREHOUSE',
-                        quantity: item.approvedQty,
-                        tenantId: actor.tenantId || null,
                     },
                 });
+                if (existingStock) {
+                    await tx.inventoryStock.update({
+                        where: { id: existingStock.id },
+                        data: { quantity: { increment: item.approvedQty } },
+                    });
+                } else {
+                    await tx.inventoryStock.create({
+                        data: {
+                            productId: item.productId,
+                            batchId: null,
+                            state: StockState.ALLOCATED,
+                            location: 'CENTRAL_WAREHOUSE',
+                            quantity: item.approvedQty,
+                            tenantId: actor.tenantId || null,
+                        },
+                    });
+                }
 
                 await tx.inventoryMovement.create({
                     data: {

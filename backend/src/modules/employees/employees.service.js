@@ -842,5 +842,8 @@ EmployeesService = __decorate([
 ], EmployeesService);
 export { EmployeesService };
 function generateTemporaryPassword() {
-    return randomBytes(9).toString('base64url');
+    // base64url output isn't guaranteed to contain a digit, which the password DTO requires
+    // (Matches(/[0-9]/)) — append one explicitly so generated passwords always pass validation.
+    const digit = Math.floor(Math.random() * 10);
+    return randomBytes(9).toString('base64url') + digit;
 }
