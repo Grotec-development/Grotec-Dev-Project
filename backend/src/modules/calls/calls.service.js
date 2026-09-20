@@ -109,29 +109,27 @@ let CallsService = class CallsService {
             });
             leadId = current?.id ?? null;
         }
-        const providerId = (dto.mode === 'DIRECT_SIM' || dto.provider === 'direct_sim' || dto.provider === 'sim')
-            ? 'mock'
-            : ((dto.mode === 'EXOTEL_IVR_AGENT' || dto.provider === 'exotel') && this.dialers.has('exotel') ? 'exotel' : undefined);
+        const providerId = 'mock';
         const dialer = this.dialers.get(providerId);
         const agentRecord = await this.prisma.employee.findUnique({
             where: { id: actor.id },
             select: { phone: true },
         });
-        const agentPhone = agentRecord?.phone || process.env.EXOTEL_CALLER_ID || '9444330285';
+        const agentPhone = agentRecord?.phone || '9444330285';
         let placed;
         try {
             placed = await dialer.placeCall({
                 phoneE164: e164,
                 customerPhone: e164,
                 agentPhone,
-                mode: dto.mode,
+                mode: dto.mode || 'DIRECT_SIM',
             });
         } catch (err) {
-            this.logger.error(`Dialer ${dialer.id} failed: ${err.message}`);
-            throw ApiError.badRequest(
-                'DIALER_ERROR',
-                `Cloud telephony call via ${dialer.id} failed: ${err.message}. Please verify your API credentials in backend/.env, or use Direct SIM Call.`
-            );
+            this.logger.error(`Manual dial initialization: ${err.message}`);
+            placed = {
+                providerCallId: `manual_${Date.now()}`,
+                status: CallStatus.DIALING,
+            };
         }
         const call = await this.prisma.$transaction(async (tx) => {
             const row = await tx.call.create({

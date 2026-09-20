@@ -101,6 +101,21 @@ let ReportsController = class ReportsController {
         res?.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         return csv;
     }
+
+    // -------------------------------------------------------------------------
+    // AGENT PERFORMANCE ANALYTICS (Breaks, Calls, Quality, Up Time)
+    // -------------------------------------------------------------------------
+
+    async getAgentPerformance(actor, query) {
+        return this.reports.getAgentPerformance(actor, query || {});
+    }
+
+    async exportAgentPerformance(actor, query, res) {
+        const { filename, csv } = await this.reports.exportAgentPerformanceCsv(actor, query || {});
+        res?.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res?.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return csv;
+    }
 };
 
 __decorate([
@@ -207,6 +222,27 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "exportLeaderboard", null);
+
+__decorate([
+    Get('agent-performance'),
+    RequirePermission(PERMISSIONS.callRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "getAgentPerformance", null);
+
+__decorate([
+    Get('agent-performance/export'),
+    RequirePermission(PERMISSIONS.callRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query()),
+    __param(2, Res({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "exportAgentPerformance", null);
 
 ReportsController = __decorate([
     Controller('reports'),

@@ -82,6 +82,8 @@ const AGENT_PRIMARY_NAV = new Set([
  * APIs and permissions are untouched, and the founder keeps direct-URL access.
  */
 const FOUNDER_HIDDEN_NAV = new Set([
+  '/agent',
+  '/calling',
   '/action-center',
   '/leads',
   '/knowledge-base',
@@ -252,8 +254,8 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
   const map: Record<string, PageMeta> = {
     '/': { title: 'Telecaller Workstation', description: 'Call queue, follow-ups, and farmer engagements.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Telecaller Workstation' }] },
     '/dashboard': { title: 'Telecaller Workstation', description: 'Call queue, follow-ups, and farmer engagements.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Telecaller Workstation' }] },
-    '/agent': { title: 'Agent Calling Workspace', description: 'Telecaller agent calling workspace — dial queue, Exotel IVRS cum Agent, dynamic farmer linking, and live outcomes.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }] },
-    '/calling': { title: 'Active Outbound Call', description: 'Live Exotel IVRS cum Agent outbound calling session in progress.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }, { label: 'Active Call' }] },
+    '/agent': { title: 'Agent Calling Workspace', description: 'Telecaller agent calling workspace — keypad phone dialing, Windows Phone Link, and live farmer note-taking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }] },
+    '/calling': { title: 'Active Outbound Call', description: 'Live outbound calling and customer note-taking session.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }, { label: 'Active Call' }] },
     '/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Action Center' }] },
     '/hrms/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations', href: '/hrms' }, { label: 'Action Center' }] },
     '/customers': { title: 'Farmer Directory', description: 'Farmer master — search by name, phone, district, or crop.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Farmer Directory' }] },

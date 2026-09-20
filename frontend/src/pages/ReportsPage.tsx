@@ -11,6 +11,9 @@ import {
   Award,
   RefreshCw,
   Search,
+  BarChart2,
+  Coffee,
+  ShieldCheck,
 } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
@@ -22,6 +25,8 @@ import type {
   FollowUpReportItem,
   CustomerReportItem,
   LeaderboardResponse,
+  AgentPerformanceResponse,
+  AgentPerformanceItem,
   Page,
 } from '../lib/types';
 
@@ -37,9 +42,22 @@ function triggerCsvDownload(csvData: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function formatSeconds(seconds: number): string {
+  if (!seconds || seconds <= 0) return '0s';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins === 0) return `${secs}s`;
+  if (secs === 0) return `${mins}m`;
+  return `${mins}m ${secs}s`;
+}
+
 export function ReportsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'calls' | 'followups' | 'farmers'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'performance' | 'leaderboard' | 'calls' | 'followups' | 'farmers'>('performance');
+
+  // Performance Analytics filters
+  const [performancePeriod, setPerformancePeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [performanceSearch, setPerformanceSearch] = useState<string>('');
 
   // Leaderboard filters
   const [leaderboardPeriod, setLeaderboardPeriod] = useState<'today' | 'week' | 'month'>('month');
@@ -62,6 +80,18 @@ export function ReportsPage() {
 
   const [downloading, setDownloading] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // 0. Agent Performance Query
+  const performanceQuery = useQuery({
+    queryKey: ['reports-agent-performance', performancePeriod],
+    queryFn: async () => {
+      const res = await api.get<AgentPerformanceResponse>('/reports/agent-performance', {
+        params: { period: performancePeriod },
+      });
+      return res.data;
+    },
+    enabled: activeTab === 'performance',
+  });
 
   // 1. Leaderboard Query
   const leaderboardQuery = useQuery({
@@ -133,7 +163,9 @@ export function ReportsPage() {
       const res = await api.get<string>(`/reports/${endpoint}`, {
         responseType: 'text',
         params:
-          endpoint === 'leaderboard/export'
+          endpoint === 'agent-performance/export'
+            ? { period: performancePeriod }
+            : endpoint === 'leaderboard/export'
             ? { period: leaderboardPeriod }
             : endpoint === 'calls/export'
             ? { status: callStatus || undefined, outcome: callOutcome || undefined }
@@ -172,6 +204,19 @@ export function ReportsPage() {
 
           {/* Tab buttons */}
           <div className="flex items-center gap-1.5 rounded-lg bg-slate-100 p-1 border border-slate-200/80">
+            <button
+              type="button"
+              onClick={() => setActiveTab('performance')}
+              className={cx(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
+                activeTab === 'performance'
+                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
+              )}
+            >
+              <BarChart2 className="h-3.5 w-3.5 text-blue-600" />
+              Agent Performance
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab('leaderboard')}
@@ -231,6 +276,306 @@ export function ReportsPage() {
           <Alert tone="error">
             {exportError}
           </Alert>
+        )}
+
+        {/* TAB 0: AGENT PERFORMANCE ANALYTICS */}
+        {activeTab === 'performance' && (
+          <div className="space-y-4">
+            {/* Top controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-600">Analytics Period:</span>
+                  <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setPerformancePeriod('today')}
+                      className={cx(
+                        'px-2.5 py-1 rounded font-medium transition',
+                        performancePeriod === 'today' ? 'bg-white font-bold text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      )}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPerformancePeriod('week')}
+                      className={cx(
+                        'px-2.5 py-1 rounded font-medium transition',
+                        performancePeriod === 'week' ? 'bg-white font-bold text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      )}
+                    >
+                      Past 7 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPerformancePeriod('month')}
+                      className={cx(
+                        'px-2.5 py-1 rounded font-medium transition',
+                        performancePeriod === 'month' ? 'bg-white font-bold text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      )}
+                    >
+                      Current Month
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={performanceSearch}
+                    onChange={(e) => setPerformanceSearch(e.target.value)}
+                    placeholder="Filter agent or code..."
+                    className="pl-8 pr-3 py-1 text-xs rounded-md border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 w-44"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isManagement && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => handleExport('agent-performance/export', `grotec_agent_performance_${performancePeriod}.csv`)}
+                    disabled={downloading === 'agent-performance/export'}
+                  >
+                    {downloading === 'agent-performance/export' ? (
+                      <span>Exporting...</span>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-1 text-emerald-700" />
+                        Export Performance CSV
+                      </>
+                    )}
+                  </Button>
+                )}
+                <Button size="xs" variant="ghost" onClick={() => void performanceQuery.refetch()}>
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Team Summary Cards */}
+            {performanceQuery.data?.teamSummary && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="p-3.5 rounded-lg border border-slate-200 bg-white shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider">Calls Dialed</span>
+                    <PhoneCall className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div className="text-xl font-black text-slate-900">
+                    {performanceQuery.data.teamSummary.totalCallsDialed}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-medium mt-0.5">
+                    {performanceQuery.data.teamSummary.totalCallsConnected} connected ({performanceQuery.data.teamSummary.teamConnectionRate}%)
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-lg border border-slate-200 bg-white shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider">Total Talk Time</span>
+                    <Clock className="h-4 w-4 text-sky-600" />
+                  </div>
+                  <div className="text-xl font-black text-slate-900">
+                    {formatSeconds(performanceQuery.data.teamSummary.totalTalkTimeSeconds)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Active telecalling voice time
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-lg border border-slate-200 bg-white shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider">Breaks Logged</span>
+                    <Coffee className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="text-xl font-black text-slate-900">
+                    {performanceQuery.data.teamSummary.totalBreakMinutes}m
+                  </div>
+                  <div className="text-[11px] text-amber-600 font-medium mt-0.5">
+                    Total team rest & meal breaks
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-lg border border-slate-200 bg-white shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider">Quality Score</span>
+                    <ShieldCheck className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div className="text-xl font-black text-slate-900">
+                    {performanceQuery.data.teamSummary.avgQualityScore}%
+                  </div>
+                  <div className="text-[11px] text-purple-600 font-medium mt-0.5">
+                    Documentation & follow-up adherence
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-lg border border-slate-200 bg-white shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider">Shift Uptime</span>
+                    <BarChart2 className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="text-xl font-black text-slate-900">
+                    {performanceQuery.data.teamSummary.totalUptimeHours} hrs
+                  </div>
+                  <div className="text-[11px] text-blue-600 font-medium mt-0.5">
+                    {performanceQuery.data.teamSummary.totalAgents} roster telecallers
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Agents Performance Table */}
+            <Card>
+              <CardHeader
+                title="Telecaller Performance Roster (Calls, Break Compliance, Call Quality, and Shift Uptime)"
+              />
+              <div className="overflow-x-auto">
+                {performanceQuery.isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Spinner label="Loading telecaller performance metrics..." />
+                  </div>
+                ) : (() => {
+                  const filteredAgents = (performanceQuery.data?.agents || []).filter((agent) => {
+                    if (!performanceSearch.trim()) return true;
+                    const query = performanceSearch.toLowerCase();
+                    return (
+                      agent.fullName.toLowerCase().includes(query) ||
+                      agent.employeeCode.toLowerCase().includes(query) ||
+                      agent.department.toLowerCase().includes(query)
+                    );
+                  });
+
+                  if (filteredAgents.length === 0) {
+                    return (
+                      <div className="py-12 text-center text-slate-500 text-xs">
+                        No telecaller performance records match the current filter.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <table className="min-w-full divide-y divide-slate-200 text-xs">
+                      <thead className="bg-slate-50 text-slate-600">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Agent</th>
+                          <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Calls (Dialed / Conn.)</th>
+                          <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Talk Time</th>
+                          <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Dispositions</th>
+                          <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Breaks Logged</th>
+                          <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Quality Score</th>
+                          <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Shift Uptime</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {filteredAgents.map((agent) => {
+                          const gradeTone =
+                            agent.quality.grade === 'EXCELLENT'
+                              ? 'green'
+                              : agent.quality.grade === 'GOOD'
+                              ? 'blue'
+                              : 'amber';
+
+                          return (
+                            <tr
+                              key={agent.agentId}
+                              className={cx(
+                                'hover:bg-slate-50/80 transition-colors',
+                                agent.isCurrentAgent && 'bg-emerald-50/40 font-medium'
+                              )}
+                            >
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div>
+                                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                      {agent.fullName}
+                                      {agent.isCurrentAgent && (
+                                        <span className="rounded bg-emerald-100 text-emerald-800 px-1 py-0.2 text-[9px] font-bold">
+                                          YOU
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 font-mono">
+                                      {agent.employeeCode} • {agent.department}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="font-bold text-slate-900">
+                                  {agent.calls.connected} <span className="font-normal text-slate-400">/ {agent.calls.dialed}</span>
+                                </div>
+                                <div className="text-[11px] text-emerald-600 font-semibold">
+                                  {agent.calls.connectionRate}% connect rate
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="font-bold text-slate-900">
+                                  {formatSeconds(agent.calls.totalTalkTimeSeconds)}
+                                </div>
+                                <div className="text-[11px] text-slate-500">
+                                  avg {formatSeconds(agent.calls.avgTalkTimeSeconds)} / call
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5 text-[11px]">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200/60" title="Interested">
+                                    ★ {agent.calls.dispositions.interested}
+                                  </span>
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-50 text-slate-600 border border-slate-200" title="Not Interested">
+                                    ✗ {agent.calls.dispositions.notInterested}
+                                  </span>
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200" title="Not Answered">
+                                    ⊘ {agent.calls.dispositions.notAnswered}
+                                  </span>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <Coffee className="h-3.5 w-3.5 text-amber-600" />
+                                  <span className="font-bold text-slate-900">{agent.breaks.totalMinutes}m</span>
+                                  <span className="text-[11px] text-slate-500">({agent.breaks.count} breaks)</span>
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  avg {agent.breaks.averageMinutes}m / break
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-sm text-slate-900">
+                                    {agent.quality.score}%
+                                  </span>
+                                  <Badge tone={gradeTone}>{agent.quality.grade}</Badge>
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                  Notes: {agent.quality.notesDocumentedRate}% • Substantive: {agent.quality.meaningfulDurationRate}%
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="font-bold text-slate-900">
+                                  {agent.uptime.uptimeHours} hrs
+                                </div>
+                                <div className="text-[11px] text-blue-600 font-semibold">
+                                  {agent.uptime.utilizationPercent}% utilization
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })()}
+              </div>
+            </Card>
+          </div>
         )}
 
         {/* TAB 1: LEADERBOARD */}

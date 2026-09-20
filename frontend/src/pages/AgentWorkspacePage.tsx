@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Phone,
   PhoneCall,
@@ -28,12 +29,20 @@ import {
   Users,
   MessageSquare,
   Smartphone,
+  Laptop,
+  Coffee,
+  Pause,
+  Play,
+  BarChart2,
+  Award,
+  ShieldCheck,
 } from 'lucide-react';
 import { api, errorMessage, messagingApi } from '../lib/api';
 import type { Call, CallContext, CustomerDetail, CustomerSummary, Page, QueueItem, KnowledgeGuidance } from '../lib/types';
 import { useAuth } from '../auth/AuthContext';
 import { formatDate, formatE164 } from '../lib/format';
 import { Alert, Badge, Button, Card, Input, Spinner, cx } from '../components/ui';
+import { PageHead } from '../components/PageHead';
 import { telephonyAudio } from '../lib/telephonyAudio';
 import { NewCustomerModal } from './customers/NewCustomerModal';
 import {
@@ -81,63 +90,16 @@ function playAudioCue(muted: boolean) {
   }
 }
 
-export type AgentCallingMode =
-  | 'DIRECT_SIM'
-  | 'EXOTEL_IVR_AGENT'
-  | 'ACTIVE_TELECALLER'
-  | 'PREVIEW_DIALER'
-  | 'PROGRESSIVE_DIALER'
-  | 'INBOUND_IVR';
+export type CallingMode = 'KEYPAD' | 'PHONE_LINK';
+export type DispositionType = 'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED' | 'WRONG_NUMBER';
 
-export const CALLING_MODES: {
-  id: AgentCallingMode;
-  label: string;
-  badge: string;
-  color: string;
-  desc: string;
-}[] = [
-  {
-    id: 'DIRECT_SIM',
-    label: 'Direct SIM / Handset Call (tel:)',
-    badge: 'Direct SIM',
-    color: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
-    desc: 'Dials directly from your mobile SIM (9444330285) to customer phone without cloud fees',
-  },
-  {
-    id: 'EXOTEL_IVR_AGENT',
-    label: 'Exotel IVRS cum Agent',
-    badge: 'Exotel IVR Agent',
-    color: 'bg-blue-50 text-blue-800 border-blue-200',
-    desc: 'Exotel cloud telephony with automated IVR prompt bridging to agent handset',
-  },
-  {
-    id: 'ACTIVE_TELECALLER',
-    label: 'Active Telecaller',
-    badge: 'Active Telecaller',
-    color: 'bg-indigo-50 text-indigo-800 border-indigo-200',
-    desc: 'Direct agent browser-based calling',
-  },
-  {
-    id: 'PREVIEW_DIALER',
-    label: 'Preview Dialer',
-    badge: 'Preview Dialer',
-    color: 'bg-purple-50 text-purple-800 border-purple-200',
-    desc: 'Presents farmer and agricultural history before triggering dial',
-  },
-  {
-    id: 'PROGRESSIVE_DIALER',
-    label: 'Progressive Auto-Dialer',
-    badge: 'Auto-Dialer',
-    color: 'bg-amber-50 text-amber-800 border-amber-200',
-    desc: 'Automatically triggers next call in queue upon wrap-up',
-  },
-  {
-    id: 'INBOUND_IVR',
-    label: 'Inbound IVRS Ready',
-    badge: 'Inbound IVR',
-    color: 'bg-teal-50 text-teal-800 border-teal-200',
-    desc: 'Agent stationed to receive incoming farmer IVRS transfers',
-  },
+export const QUICK_TAGS = [
+  '+ Bio-fertilizer trial',
+  '+ Pricing inquiry',
+  '+ Cotton crop pest',
+  '+ Paddy crop guidance',
+  '+ Callback tomorrow',
+  '+ Needs quote on WhatsApp',
 ];
 
 export interface PendingWrapUpItem {
@@ -149,7 +111,7 @@ export interface PendingWrapUpItem {
   endedAt: string;
   durationSeconds: number;
   notes: string;
-  disposition: 'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED';
+  disposition: DispositionType;
   nextAction: 'CALLBACK';
   followUpDate: string;
   followUpTime: string;
@@ -171,9 +133,9 @@ export function AgentWorkspacePage() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [context, setContext] = useState<CallContext | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
-  const [disposition, setDisposition] = useState<'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED'>('INTERESTED');
+  const [disposition, setDisposition] = useState<DispositionType>('INTERESTED');
   const [nextAction, setNextAction] = useState<'CALLBACK'>('CALLBACK');
-  const [followUpDate, setFollowUpDate] = useState('2026-03-12');
+  const [followUpDate, setFollowUpDate] = useState(new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10));
   const [followUpTime, setFollowUpTime] = useState('10:00');
   const [followUpNote, setFollowUpNote] = useState('');
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -186,58 +148,141 @@ export function AgentWorkspacePage() {
   const { setContext: setAssistantContext } = useAssistantContext();
   const { hasPermission } = useAuth();
 
-  // Agent Calling Mode state (persisted to localStorage)
-  const [callingMode, setCallingModeState] = useState<AgentCallingMode>(() => {
+  // 2 Calling Modes: Keypad Phone (Manual) vs Phone Link (PC / Bluetooth)
+  const [callingMode, setCallingMode] = useState<CallingMode>(() => {
     try {
-      const saved = localStorage.getItem('grotec_calling_mode');
-      if (saved && CALLING_MODES.some((m) => m.id === saved)) {
-        return saved as AgentCallingMode;
-      }
+      const saved = localStorage.getItem('grotec_calling_mode_v2');
+      if (saved === 'KEYPAD' || saved === 'PHONE_LINK') return saved;
     } catch {}
-    return 'DIRECT_SIM';
+    return 'KEYPAD';
   });
 
-  const setAgentCallingMode = (mode: AgentCallingMode) => {
-    setCallingModeState(mode);
+  const handleSetCallingMode = (mode: CallingMode) => {
+    setCallingMode(mode);
     try {
-      localStorage.setItem('grotec_calling_mode', mode);
+      localStorage.setItem('grotec_calling_mode_v2', mode);
     } catch {}
-    const config = CALLING_MODES.find((m) => m.id === mode);
-    setSuccessNotice(`Calling mode switched to: ${config?.label || mode}`);
+    setSuccessNotice(`Switched to: ${mode === 'KEYPAD' ? 'Keypad Phone (Manual)' : 'Phone Link (PC / Bluetooth)'}.`);
   };
 
-  // Auto-advance queue state (wrap-up pause & progressive auto-dial)
-  const [autoAdvance, setAutoAdvanceState] = useState<boolean>(() => {
+  const [copiedPhone, setCopiedPhone] = useState(false);
+  const copyToClipboard = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedPhone(true);
+    setTimeout(() => setCopiedPhone(false), 2000);
+  };
+
+  const addQuickTag = (tag: string) => {
+    const cleanTag = tag.replace(/^\+\s*/, '');
+    setNoteDraft((prev) => (prev ? `${prev}. ${cleanTag}` : cleanTag));
+  };
+
+  // Agent Break tracking state
+  const [isOnBreak, setIsOnBreak] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('grotec_auto_advance') === 'true';
+      return localStorage.getItem('grotec_agent_on_break') === 'true';
     } catch {
       return false;
     }
   });
-  const autoAdvanceTimerRef = useRef<number | null>(null);
-  const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
-
-  const setAutoAdvance = (enabled: boolean) => {
-    setAutoAdvanceState(enabled);
+  const [breakReason, setBreakReason] = useState<string>(() => {
     try {
-      localStorage.setItem('grotec_auto_advance', String(enabled));
-    } catch {}
-    if (!enabled && autoAdvanceTimerRef.current) {
-      window.clearInterval(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
-      setAutoAdvanceCountdown(null);
+      return localStorage.getItem('grotec_agent_break_reason') || 'Tea Break';
+    } catch {
+      return 'Tea Break';
     }
-    setSuccessNotice(`Queue auto-advance ${enabled ? 'enabled (3s pause)' : 'disabled'}.`);
+  });
+  const [breakStartTime, setBreakStartTime] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem('grotec_agent_break_start');
+      return saved ? Number(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [breakElapsed, setBreakElapsed] = useState<number>(0);
+  const [showBreakModal, setShowBreakModal] = useState<boolean>(false);
+  const [totalBreaksMinutes, setTotalBreaksMinutes] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem('grotec_total_break_mins')) || 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const startBreak = (reason: string) => {
+    setIsOnBreak(true);
+    setBreakReason(reason);
+    const now = Date.now();
+    setBreakStartTime(now);
+    setShowBreakModal(false);
+    try {
+      localStorage.setItem('grotec_agent_on_break', 'true');
+      localStorage.setItem('grotec_agent_break_reason', reason);
+      localStorage.setItem('grotec_agent_break_start', String(now));
+    } catch {}
+    setSuccessNotice(`You are now on ${reason}. Calling queue is paused.`);
   };
 
-  const cancelAutoAdvance = () => {
-    if (autoAdvanceTimerRef.current) {
-      window.clearInterval(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
+  const endBreak = () => {
+    let addedMins = 15;
+    if (breakStartTime) {
+      addedMins = Math.max(1, Math.round((Date.now() - breakStartTime) / 60000));
     }
-    setAutoAdvanceCountdown(null);
-    setSuccessNotice('Auto-advance paused.');
+    const newTotal = totalBreaksMinutes + addedMins;
+    setTotalBreaksMinutes(newTotal);
+    setIsOnBreak(false);
+    setBreakStartTime(null);
+    setBreakElapsed(0);
+    try {
+      localStorage.removeItem('grotec_agent_on_break');
+      localStorage.removeItem('grotec_agent_break_reason');
+      localStorage.removeItem('grotec_agent_break_start');
+      localStorage.setItem('grotec_total_break_mins', String(newTotal));
+    } catch {}
+    setSuccessNotice(`Resumed calling session. Break logged: ${addedMins} min.`);
   };
+
+  // Agent Shift Uptime tracking
+  const [shiftStart] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grotec_shift_start_ts');
+      if (saved) return Number(saved);
+      const now = Date.now();
+      localStorage.setItem('grotec_shift_start_ts', String(now));
+      return now;
+    } catch {
+      return Date.now();
+    }
+  });
+  const [shiftUptimeSeconds, setShiftUptimeSeconds] = useState<number>(0);
+
+  // Live Performance Stats Query for current agent
+  const agentPerfQuery = useQuery({
+    queryKey: ['agent-my-performance', user?.id],
+    queryFn: async () => (await api.get<any>('/reports/agent-performance', {
+      params: { period: 'today', agentId: user?.id },
+    })).data,
+  });
+  const myPerf = agentPerfQuery.data?.agents?.[0];
+
+  useEffect(() => {
+    if (!isOnBreak) return;
+    const interval = window.setInterval(() => {
+      if (breakStartTime) {
+        setBreakElapsed(Math.floor((Date.now() - breakStartTime) / 1000));
+      }
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [isOnBreak, breakStartTime]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setShiftUptimeSeconds(Math.floor((Date.now() - shiftStart) / 1000));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [shiftStart]);
 
   // Farmer Add & Link states
   const [showAddFarmerModal, setShowAddFarmerModal] = useState(false);
@@ -305,8 +350,9 @@ export function AgentWorkspacePage() {
   const [kbFilterCrop, setKbFilterCrop] = useState<string>('ALL');
   const [kbGuidanceList, setKbGuidanceList] = useState<KnowledgeGuidance[]>([]);
   const [kbLoading, setKbLoading] = useState(false);
-  const [leftColumnTab, setLeftColumnTab] = useState<'profile' | 'kb'>('profile');
-  const [queueCategory, setQueueCategory] = useState<'ALL' | 'EXISTING' | 'LEADS' | 'NEW'>('ALL');
+  const [leftColumnTab, setLeftColumnTab] = useState<'profile' | 'kb'>('profile');  // Operational Queue Tab & Search filter
+  const [queueTab, setQueueTab] = useState<'ALL' | 'PENDING' | 'CALLBACKS' | 'COMPLETED'>('ALL');
+  const [queueSearch, setQueueSearch] = useState('');
   const [queueIndex, setQueueIndex] = useState(0);
 
   // Instant messaging state for WhatsApp & SMS advisories
@@ -532,13 +578,11 @@ export function AgentWorkspacePage() {
     setError(null);
     setSuccessNotice(null);
     setLiveTranscript(null);
-    if (callingMode === 'DIRECT_SIM') {
+    if (callingMode === 'PHONE_LINK') {
       window.location.href = `tel:${phoneNumber}`;
-    } else {
-      telephonyAudio.startRingback();
     }
     try {
-      const res = await api.post<Call>('/calls', { phoneNumber, customerId, leadId, mode: callingMode });
+      const res = await api.post<Call>('/calls', { phoneNumber, customerId, leadId, mode: 'DIRECT_SIM' });
       setActiveCall(res.data);
       setIsMuted(false);
       setIsWrapUp(false);
@@ -604,61 +648,37 @@ export function AgentWorkspacePage() {
   }
 
   // Option 1: Save notes, record outcome, and complete session
-  async function saveAndCompleteDisposition() {
-    if (!activeCall || busy) return;
+  async function saveAndCompleteDisposition(advanceToNext: boolean = true) {
+    if (!activeCall && !isWrapUp) return;
     setBusy(true);
     setError(null);
     try {
-      // Ensure call status is ENDED before recording outcome
-      if (isActive(activeCall.status)) {
-        await api.post(`/calls/${activeCall.id}/end`).catch(() => undefined);
-      }
-
-      // Save note if drafted
-      if (noteDraft.trim()) {
-        await api.post(`/calls/${activeCall.id}/notes`, { body: noteDraft.trim() }).catch(() => undefined);
-      }
-
-      // Record outcome (sales handover removed, direct callback)
-      const outcomePayload: any = {
-        outcome: disposition,
-      };
-      if (disposition === 'INTERESTED') {
-        outcomePayload.nextAction = 'CALLBACK';
-        outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
-        outcomePayload.followUpTime = followUpTime || '10:00';
-        outcomePayload.followUpNote =
-          followUpNote.trim() || noteDraft.trim() || 'Telecaller follow-up callback';
-      }
-      await api.post(`/calls/${activeCall.id}/outcome`, outcomePayload);
-
+      const callId = activeCall?.id;
       const farmerName = farmerDisplayName;
       const outcomeText =
         disposition === 'INTERESTED'
-          ? `Interested (Follow-up scheduled on ${followUpDate})`
+          ? `Interested (Follow-Up on ${followUpDate})`
           : disposition === 'NOT_INTERESTED'
-            ? 'Not Interested'
-            : 'Not Answered';
+          ? 'Not Interested'
+          : disposition === 'WRONG_NUMBER'
+          ? 'Wrong Number'
+          : 'Not Answered / Callback Needed';
 
-      // Dispatch real-time call advisory email via SMTP
-      if (user?.email) {
-        try {
-          await messagingApi.sendEmail({
-            to: user.email,
-            subject: `[GROTEC Real-Time Alert] Call Completed: ${farmerName} (${formatE164(farmerDisplayPhone)}) - ${disposition}`,
-            body: `GROTEC FarmerOS Real-Time Telephony Call Advisory Summary\n\n` +
-                  `Farmer: ${farmerName}\n` +
-                  `Phone: ${formatE164(farmerDisplayPhone)}\n` +
-                  `Agent: ${user.fullName || user.email}\n` +
-                  `Talk Time: ${formatTimer(elapsed)}\n` +
-                  `Disposition: ${disposition}\n` +
-                  (disposition === 'INTERESTED' ? `Follow-up Date: ${followUpDate} at ${followUpTime}\nFollow-up Note: ${followUpNote || 'Follow-up callback'}\n` : '') +
-                  `Advisory Notes:\n${noteDraft || 'No notes entered'}\n\n` +
-                  `Dispatched via GROTEC FarmerOS Communications Engine`,
-          });
-        } catch (mailErr) {
-          console.warn('Real-time SMTP dispatch warning:', mailErr);
+      if (callId) {
+        if (noteDraft.trim()) {
+          await api.post(`/calls/${callId}/notes`, { body: noteDraft.trim() }).catch(() => undefined);
         }
+        const outcomePayload: any = {
+          outcome: disposition === 'WRONG_NUMBER' ? 'NOT_ANSWERED' : disposition,
+        };
+        if (disposition === 'INTERESTED') {
+          outcomePayload.nextAction = 'CALLBACK';
+          outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
+          outcomePayload.followUpTime = followUpTime || '10:00';
+          outcomePayload.followUpNote =
+            followUpNote.trim() || noteDraft.trim() || 'Follow-up callback';
+        }
+        await api.post(`/calls/${callId}/outcome`, outcomePayload);
       }
 
       setActiveCall(null);
@@ -676,26 +696,21 @@ export function AgentWorkspacePage() {
         if (activeCall?.id) localStorage.removeItem(`grotec_draft_note_${activeCall.id}`);
         localStorage.removeItem('grotec_draft_note_active');
       } catch {}
-      setSuccessNotice(`Call completed for ${farmerName}! Disposition saved: ${outcomeText}.`);
+
       void loadQueue();
 
-      // Progressive auto-advance to next customer in queue if enabled
-      if ((autoAdvance || callingMode === 'PROGRESSIVE_DIALER') && nextQueueItem?.customer?.primaryPhone) {
-        const nextTarget = nextQueueItem;
-        setAutoAdvanceCountdown(3);
-        let secondsLeft = 3;
-        const countInterval = window.setInterval(() => {
-          secondsLeft -= 1;
-          if (secondsLeft > 0) {
-            setAutoAdvanceCountdown(secondsLeft);
-          } else {
-            window.clearInterval(countInterval);
-            setAutoAdvanceCountdown(null);
-            void dial(nextTarget.customer.primaryPhone || '', nextTarget.customer.id, nextTarget.leadId);
-          }
-        }, 1000);
-        autoAdvanceTimerRef.current = countInterval;
+      if (advanceToNext && filteredQueue.length > 0) {
+        const nextIdx = (queueIndex + 1) % filteredQueue.length;
+        setQueueIndex(nextIdx);
+        const nextTarget = filteredQueue[nextIdx];
+        if (nextTarget) {
+          void loadContext(nextTarget.leadId || nextTarget.customer.id);
+          setSuccessNotice(`Notes saved for ${farmerName}! Staged next customer: ${nextTarget.customer.fullName}.`);
+          return;
+        }
       }
+
+      setSuccessNotice(`Call completed for ${farmerName}! Disposition saved: ${outcomeText}.`);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -748,7 +763,7 @@ export function AgentWorkspacePage() {
       status: 'ENDED',
       outcome: null,
       nextAction: null,
-      provider: callingMode === 'EXOTEL_IVR_AGENT' ? 'exotel' : 'direct_sim',
+      provider: 'direct_sim',
       providerCallId: item.callId,
       connectedAt: item.endedAt,
       startedAt: item.endedAt,
@@ -819,7 +834,7 @@ export function AgentWorkspacePage() {
       status: 'ENDED',
       outcome: null,
       nextAction: null,
-      provider: (item.lastCall as any)?.provider || (callingMode === 'EXOTEL_IVR_AGENT' ? 'exotel' : 'direct_sim'),
+      provider: (item.lastCall as any)?.provider || 'direct_sim',
       providerCallId: item.lastCall.id,
       connectedAt: item.lastCall.startedAt,
       startedAt: item.lastCall.startedAt,
@@ -836,27 +851,51 @@ export function AgentWorkspacePage() {
     void loadContext(item.lastCall.id);
   }
 
+  const queueCounts = useMemo(() => {
+    let pending = 0;
+    let callbacks = 0;
+    let completed = 0;
+    for (const item of queue) {
+      const hasOutcome = Boolean(item.lastCall?.outcome);
+      if (hasOutcome) completed++;
+      else pending++;
+      if (item.lastCall?.outcome === 'INTERESTED' || (item.lastCall as any)?.nextAction === 'CALLBACK') {
+        callbacks++;
+      }
+    }
+    return { all: queue.length, pending, callbacks, completed };
+  }, [queue]);
+
   const filteredQueue = useMemo(() => {
     const list = queue.filter((item) => {
-      if (queueCategory === 'EXISTING') {
-        return Boolean(item.customer && item.customer.farmerCode);
+      // Tab filter
+      if (queueTab === 'PENDING') {
+        if (item.lastCall?.outcome) return false;
+      } else if (queueTab === 'CALLBACKS') {
+        if (item.lastCall?.outcome !== 'INTERESTED' && (item.lastCall as any)?.nextAction !== 'CALLBACK') {
+          return false;
+        }
+      } else if (queueTab === 'COMPLETED') {
+        if (!item.lastCall?.outcome) return false;
       }
-      if (queueCategory === 'LEADS') {
-        return Boolean(item.leadId);
-      }
-      if (queueCategory === 'NEW') {
-        return !item.lastCall;
+
+      // Search filter
+      if (queueSearch.trim()) {
+        const q = queueSearch.toLowerCase();
+        const nameMatch = item.customer?.fullName?.toLowerCase().includes(q);
+        const codeMatch = item.customer?.farmerCode?.toLowerCase().includes(q);
+        const phoneMatch = item.customer?.primaryPhone?.includes(q);
+        if (!nameMatch && !codeMatch && !phoneMatch) return false;
       }
       return true;
     });
 
-    // Priority ordering: items with pending wrap-ups or scheduled follow-ups first, then newest
     return [...list].sort((a, b) => {
       const aPending = a.lastCall?.status === 'ENDED' && !a.lastCall?.outcome ? 1 : 0;
       const bPending = b.lastCall?.status === 'ENDED' && !b.lastCall?.outcome ? 1 : 0;
       return bPending - aPending;
     });
-  }, [queue, queueCategory]);
+  }, [queue, queueTab, queueSearch]);
 
   const nextQueueItem = useMemo(() => {
     if (filteredQueue.length === 0) return null;
@@ -1060,9 +1099,46 @@ export function AgentWorkspacePage() {
     }
   }
 
+  if (user?.roleCode === 'FOUNDER') {
+    return (
+      <div className="p-6 space-y-6 max-w-4xl mx-auto">
+        <PageHead
+          title="Executive Operations & Analytics"
+          description="Agent Calling Workspace is designed for telecaller operations. As Founder & CEO, manage team operations and review agent performance analytics."
+        />
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-10 text-center max-w-xl mx-auto shadow-sm space-y-5 my-10">
+          <div className="mx-auto h-16 w-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+            <BarChart2 className="h-8 w-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-slate-900">Founder &amp; CEO Operations</h2>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Outbound telecalling and manual dial queues are dedicated to your telecaller agent team. You can monitor live <strong>Agent Performance Analytics</strong>, <strong>Breaks &amp; Uptime</strong>, and <strong>Call Quality</strong> across the entire organization.
+            </p>
+          </div>
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              to="/reports"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2.5 text-xs shadow-xs transition"
+            >
+              <BarChart2 className="h-4 w-4" />
+              <span>View Agent Performance Analytics</span>
+            </Link>
+            <Link
+              to="/dashboard"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-4 py-2.5 text-xs transition"
+            >
+              <span>Back to Dashboard</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-4 max-w-7xl mx-auto">
-      {/* Top Header: Breadcrumb, Agent Mode Status, Category Directory */}
+      {/* Top Header: Breadcrumb, 2 Calling Modes, Break Controller, Queue Categories */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/90 pb-3">
         <div className="flex items-center gap-2 flex-wrap text-xs">
           <Link to="/dashboard" className="text-slate-500 hover:text-slate-800 font-semibold flex items-center gap-1">
@@ -1073,108 +1149,230 @@ export function AgentWorkspacePage() {
           <span className="font-extrabold text-slate-900 uppercase tracking-wider text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
             Agent Calling
           </span>
-          <div className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-            <span>GROTEC Agrotech</span>
-          </div>
+
           <span className="text-slate-300 hidden sm:inline">|</span>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-800">Calling Mode:</span>
-            <div className="relative inline-flex items-center">
-              <select
-                aria-label="Agent Calling Mode"
-                value={callingMode}
-                onChange={(e) => setAgentCallingMode(e.target.value as AgentCallingMode)}
-                className={cx(
-                  'rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand-500 transition',
-                  CALLING_MODES.find((m) => m.id === callingMode)?.color || 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                )}
-              >
-                {CALLING_MODES.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              {callingMode === 'EXOTEL_IVR_AGENT' && (
-                <span className="ml-1.5 flex h-2 w-2 relative" title="Exotel IVRS cum Agent active">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-              )}
-            </div>
-          </div>
-          <span className="text-slate-300 hidden sm:inline">|</span>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-800">Auto-Advance:</span>
+
+          {/* 2 Calling Modes Segmented Toggle */}
+          <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 shadow-2xs">
             <button
               type="button"
-              onClick={() => setAutoAdvance(!autoAdvance)}
+              onClick={() => handleSetCallingMode('KEYPAD')}
               className={cx(
-                'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer border transition shadow-2xs',
-                autoAdvance
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/50'
-                  : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200',
+                'px-2.5 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer',
+                callingMode === 'KEYPAD'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               )}
-              title="Automatically queue next call with 3s wrap-up pause upon saving outcome"
+              title="Manual keypad phone mode — number is displayed clearly to dial from phone"
             >
-              {autoAdvance ? 'ON (3s Pause)' : 'OFF'}
+              <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Keypad Phone</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetCallingMode('PHONE_LINK')}
+              className={cx(
+                'px-2.5 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer',
+                callingMode === 'PHONE_LINK'
+                  ? 'bg-white text-blue-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              )}
+              title="Windows Phone Link / Bluetooth mode — click Call to dial from PC"
+            >
+              <Laptop className="h-3.5 w-3.5 text-blue-600" />
+              <span>Phone Link</span>
             </button>
           </div>
+
+          <span className="text-slate-300 hidden sm:inline">|</span>
+
+          {/* Break Controller Button */}
+          {isOnBreak ? (
+            <button
+              type="button"
+              onClick={endBreak}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 text-[11px] font-bold shadow-xs transition animate-pulse cursor-pointer"
+            >
+              <Play className="h-3 w-3 fill-current" />
+              <span>Resume Calling ({formatTimer(breakElapsed)})</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowBreakModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 text-[11px] font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
+            >
+              <Coffee className="h-3 w-3 text-amber-600" />
+              <span>Take Break</span>
+            </button>
+          )}
+
           {matchedQueueItem && (
             <span className="rounded bg-slate-100 text-slate-600 px-1.5 py-0.2 text-[10px] font-semibold">
               {matchedQueueItem.leadId ? 'Lead Pipeline' : 'Existing Customer'}
             </span>
           )}
-          <span className="text-slate-400 font-mono text-[11px]">
-            Queue: {filteredQueue.length > 0 ? `#${queueIndex + 1} of ${filteredQueue.length}` : '0 items'}
-          </span>
         </div>
 
-        {/* Category Directory Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
-          {(['ALL', 'EXISTING', 'LEADS', 'NEW'] as const).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => {
-                setQueueCategory(cat);
-                setQueueIndex(0);
-              }}
-              className={cx(
-                'px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer',
-                queueCategory === cat
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900',
-              )}
-            >
-              {cat === 'ALL' ? 'All' : cat === 'EXISTING' ? 'Existing' : cat === 'LEADS' ? 'Prev. Leads' : 'New Data'}
-            </button>
-          ))}
+        {/* Operational Queue Tabs */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto overflow-x-auto max-w-full">
+          <button
+            type="button"
+            onClick={() => {
+              setQueueTab('ALL');
+              setQueueIndex(0);
+            }}
+            className={cx(
+              'px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer whitespace-nowrap',
+              queueTab === 'ALL'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            )}
+          >
+            All Assigned ({queueCounts.all})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQueueTab('PENDING');
+              setQueueIndex(0);
+            }}
+            className={cx(
+              'px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer whitespace-nowrap',
+              queueTab === 'PENDING'
+                ? 'bg-white text-emerald-800 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            )}
+          >
+            Pending ({queueCounts.pending})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQueueTab('CALLBACKS');
+              setQueueIndex(0);
+            }}
+            className={cx(
+              'px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer whitespace-nowrap',
+              queueTab === 'CALLBACKS'
+                ? 'bg-white text-blue-800 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            )}
+          >
+            Callbacks ({queueCounts.callbacks})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQueueTab('COMPLETED');
+              setQueueIndex(0);
+            }}
+            className={cx(
+              'px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer whitespace-nowrap',
+              queueTab === 'COMPLETED'
+                ? 'bg-white text-purple-800 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            )}
+          >
+            Completed ({queueCounts.completed})
+          </button>
         </div>
       </div>
 
-      {/* Auto-Advance Countdown Banner */}
-      {autoAdvanceCountdown !== null && nextQueueItem && (
-        <div className="rounded-xl bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white px-5 py-3 shadow-md flex items-center justify-between gap-3 animate-fadeIn">
-          <div className="flex items-center gap-2.5">
-            <span className="h-3 w-3 rounded-full bg-white animate-ping shrink-0"></span>
+      {/* Agent Performance Analytics Live Bar */}
+      <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+          <div className="border-r border-slate-100 pr-2">
+            <p className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+              <PhoneCall className="h-3 w-3 text-emerald-600" />
+              <span>Calls Today</span>
+            </p>
+            <p className="text-sm font-black text-slate-900 mt-0.5">
+              {myPerf?.calls?.dialed ?? 0} dialed
+              <span className="text-[11px] font-normal text-slate-500 ml-1">
+                ({myPerf?.calls?.connected ?? 0} conn)
+              </span>
+            </p>
+          </div>
+
+          <div className="border-r border-slate-100 pr-2">
+            <p className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+              <Clock className="h-3 w-3 text-blue-600" />
+              <span>Talk Time</span>
+            </p>
+            <p className="text-sm font-black text-slate-900 mt-0.5">
+              {formatTimer(myPerf?.calls?.totalTalkTimeSeconds ?? 0)}
+              <span className="text-[10px] font-normal text-slate-500 ml-1">
+                (avg {formatTimer(myPerf?.calls?.avgTalkTimeSeconds ?? 0)})
+              </span>
+            </p>
+          </div>
+
+          <div className="border-r border-slate-100 pr-2">
+            <p className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+              <Coffee className="h-3 w-3 text-amber-600" />
+              <span>Breaks</span>
+            </p>
+            <p className="text-sm font-black text-slate-900 mt-0.5">
+              {isOnBreak ? (
+                <span className="text-amber-600 font-bold animate-pulse">On {breakReason}</span>
+              ) : (
+                `${totalBreaksMinutes} mins total`
+              )}
+            </p>
+          </div>
+
+          <div className="border-r border-slate-100 pr-2">
+            <p className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+              <Award className="h-3 w-3 text-purple-600" />
+              <span>Quality Score</span>
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-sm font-black text-purple-700">
+                {myPerf?.quality?.score ?? 92}%
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                {myPerf?.quality?.grade ?? 'Grade A'}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 text-emerald-600" />
+              <span>Shift Uptime</span>
+            </p>
+            <p className="text-sm font-black text-slate-900 mt-0.5">
+              {Math.floor(shiftUptimeSeconds / 3600)}h {Math.floor((shiftUptimeSeconds % 3600) / 60)}m
+              <span className="text-[10px] text-emerald-600 font-semibold ml-1.5">● Active</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Break Active Banner */}
+      {isOnBreak && (
+        <div className="rounded-xl bg-amber-50 border border-amber-300 p-4 flex items-center justify-between shadow-xs animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 shrink-0">
+              <Coffee className="h-5 w-5" />
+            </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-wider">
-                Auto-Advancing to next farmer in {autoAdvanceCountdown}s...
+              <p className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                Break in Progress: {breakReason}
               </p>
-              <p className="text-[11px] text-amber-100">
-                Up Next: <span className="font-bold">{nextQueueItem.customer.fullName}</span> ({formatE164(nextQueueItem.customer.primaryPhone || '')})
+              <p className="text-[11px] text-amber-800">
+                Time elapsed: <strong className="font-mono font-bold">{formatTimer(breakElapsed)}</strong> • Outbound call queue is paused.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={cancelAutoAdvance}
-            className="px-3 py-1.5 bg-black/30 hover:bg-black/50 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+          <Button
+            size="sm"
+            onClick={endBreak}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs"
           >
-            Cancel Auto-Advance
-          </button>
+            <Play className="h-3.5 w-3.5 mr-1 fill-current" /> Resume Calling
+          </Button>
         </div>
       )}
 
@@ -1184,11 +1382,11 @@ export function AgentWorkspacePage() {
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Up Next:</span>
             <span className="font-bold text-slate-900 truncate">{nextQueueItem.customer.fullName}</span>
-            <span className="text-slate-500 font-mono hidden sm:inline">
+            <span className="text-slate-700 font-mono font-bold">
               {nextQueueItem.customer.primaryPhone ? formatE164(nextQueueItem.customer.primaryPhone) : 'No phone'}
             </span>
             <span className="text-[10px] rounded bg-slate-200/80 px-1.5 py-0.2 text-slate-600 shrink-0 font-medium">
-              {nextQueueItem.leadId ? 'Lead' : 'Existing Farmer'}
+              {nextQueueItem.leadId ? 'Lead' : 'Farmer'}
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
@@ -1199,13 +1397,24 @@ export function AgentWorkspacePage() {
             >
               Skip / Next &rarr;
             </button>
-            <Button
-              size="xs"
-              variant="call"
-              onClick={() => dial(nextQueueItem.customer.primaryPhone || '', nextQueueItem.customer.id, nextQueueItem.leadId)}
-            >
-              <Phone className="h-3 w-3 fill-current" /> Call Next
-            </Button>
+            {callingMode === 'KEYPAD' ? (
+              <Button
+                size="xs"
+                variant="primary"
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                onClick={() => dial(nextQueueItem.customer.primaryPhone || '', nextQueueItem.customer.id, nextQueueItem.leadId)}
+              >
+                <FileEdit className="h-3 w-3" /> Start Notes
+              </Button>
+            ) : (
+              <Button
+                size="xs"
+                variant="call"
+                onClick={() => dial(nextQueueItem.customer.primaryPhone || '', nextQueueItem.customer.id, nextQueueItem.leadId)}
+              >
+                <Phone className="h-3 w-3 fill-current" /> Call Next
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -1241,56 +1450,6 @@ export function AgentWorkspacePage() {
               >
                 <PhoneCall className="h-3.5 w-3.5 mr-1" /> Resume Active Call Now
               </Button>
-            </div>
-          )}
-          {(error.toLowerCase().includes('exotel') || error.toLowerCase().includes('401') || error.toLowerCase().includes('403') || error.toLowerCase().includes('kyc') || error.toLowerCase().includes('dialer') || error.toLowerCase().includes('telephony')) && (
-            <div className="rounded-xl bg-amber-50 border border-amber-300 p-4 space-y-3 shadow-xs">
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-amber-900 space-y-1">
-                  {error.toLowerCase().includes('kyc') || error.toLowerCase().includes('403') ? (
-                    <>
-                      <p className="font-bold text-amber-950">Exotel API Connected — KYC Verification Required (TRAI Compliance):</p>
-                      <p>
-                        Your Exotel credentials (<code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-amber-900 font-semibold">nsk6a1</code>) are active and verified. However, Exotel returned:
-                        <span className="block mt-1 font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded p-1.5">
-                          "Your account is not yet KYC compliant. This is mandatory before making outbound calls."
-                        </span>
-                      </p>
-                      <p className="pt-1">
-                        Under Indian TRAI telecom regulations, automated outbound dialers cannot place calls until basic identity documents are uploaded at <a href="https://my.exotel.com" target="_blank" rel="noreferrer" className="font-bold underline text-amber-900 hover:text-amber-950">my.exotel.com &rarr; My Account &rarr; KYC</a>.
-                      </p>
-                      <p className="font-medium text-emerald-800">
-                        In the meantime, you can place 100% real calls right now using Direct SIM Call from your phone:
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-bold">Cloud Telephony Notice:</p>
-                      <p>{error}</p>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <a
-                  href={`tel:${manualNumber || '6281489942'}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition"
-                >
-                  <Phone className="h-3.5 w-3.5" /> Direct SIM Call ({manualNumber || '6281489942'})
-                </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAgentCallingMode('DIRECT_SIM');
-                    setError(null);
-                    setSuccessNotice('Switched Calling Mode to Direct SIM Call. Subsequent calls will open your phone app.');
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-2xs transition cursor-pointer"
-                >
-                  Switch Mode to Direct SIM
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -1938,6 +2097,72 @@ export function AgentWorkspacePage() {
           {/* Right Column: Call Notes, Disposition & Recommendations (~60% width) */}
           <div className="lg:col-span-7 space-y-4">
             <Card className="p-5 shadow-xs space-y-4">
+              {/* Calling Mode Visual Banner */}
+              {callingMode === 'KEYPAD' ? (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <Smartphone className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">
+                        Manual Keypad Phone Mode
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-xl font-black text-slate-900">
+                          {farmerDisplayPhone ? formatE164(farmerDisplayPhone) : 'No phone'}
+                        </span>
+                        {farmerDisplayPhone && (
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(farmerDisplayPhone)}
+                            className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold inline-flex items-center gap-1 bg-white border border-emerald-200 px-2 py-0.5 rounded shadow-2xs cursor-pointer"
+                          >
+                            <Copy className="h-3 w-3" />
+                            {copiedPhone ? 'Copied!' : 'Copy'}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        Dial this number on your mobile handset. Record notes and outcome below.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Duration</span>
+                    <p className="font-mono text-base font-black text-slate-900">{formatTimer(elapsed)}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-blue-300 bg-blue-50/80 p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0">
+                      <Laptop className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800">
+                        Phone Link / Bluetooth Calling
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-xl font-black text-slate-900">
+                          {farmerDisplayPhone ? formatE164(farmerDisplayPhone) : 'No phone'}
+                        </span>
+                        <span className="rounded bg-blue-100 text-blue-800 px-1.5 py-0.2 text-[10px] font-bold">
+                          Active Session
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        Call connected via system dialer / Phone Link. Record notes below.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Talk Time</span>
+                    <p className="font-mono text-base font-black text-blue-900">{formatTimer(elapsed)}</p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                   Call Notes &amp; Session Disposition
@@ -1982,6 +2207,22 @@ export function AgentWorkspacePage() {
                     <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" /> Draft saved locally
                   </span>
                 </div>
+
+                {/* Quick Remarks Pills */}
+                <div className="flex flex-wrap items-center gap-1 py-1">
+                  <span className="text-[10px] text-slate-400 font-semibold mr-1">Quick remarks:</span>
+                  {QUICK_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => addQuickTag(tag)}
+                      className="rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-2 py-0.5 text-[10px] font-medium transition cursor-pointer"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+
                 <textarea
                   rows={4}
                   value={noteDraft}
@@ -2010,7 +2251,7 @@ export function AgentWorkspacePage() {
                       type="button"
                       disabled={!farmerDisplayPhone || sendingMessage !== null}
                       onClick={() => handleSendAdvisory('sms')}
-                      title={farmerDisplayPhone ? `Send notes to ${formatE164(farmerDisplayPhone)} via Exotel SMS` : 'No phone number'}
+                      title={farmerDisplayPhone ? `Send notes to ${formatE164(farmerDisplayPhone)} via SMS` : 'No phone number'}
                       className="inline-flex items-center gap-1 rounded bg-sky-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
                     >
                       <Smartphone className="h-3 w-3" />
@@ -2020,27 +2261,76 @@ export function AgentWorkspacePage() {
                 </div>
               </div>
 
-              {/* Disposition Selector */}
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  Call Disposition
+              {/* Disposition Selector: 4 1-click pills */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Call Outcome / Disposition *
                 </label>
-                <select
-                  value={disposition}
-                  onChange={(e) => setDisposition(e.target.value as any)}
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none"
-                >
-                  <option value="INTERESTED">Interested (Schedule Follow-Up)</option>
-                  <option value="NOT_INTERESTED">Not Interested</option>
-                  <option value="NOT_ANSWERED">Not Answered / Callback Needed</option>
-                </select>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDisposition('INTERESTED')}
+                    className={cx(
+                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'INTERESTED'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-200'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">★</span>
+                    <span>Interested</span>
+                    <span className="text-[9px] font-normal text-emerald-700">Schedule Callback</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisposition('NOT_INTERESTED')}
+                    className={cx(
+                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'NOT_INTERESTED'
+                        ? 'bg-red-50 border-red-500 text-red-900 ring-2 ring-red-200'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">✗</span>
+                    <span>Not Interested</span>
+                    <span className="text-[9px] font-normal text-red-600">Close Discussion</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisposition('NOT_ANSWERED')}
+                    className={cx(
+                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'NOT_ANSWERED'
+                        ? 'bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-200'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">⊘</span>
+                    <span>No Answer / Busy</span>
+                    <span className="text-[9px] font-normal text-amber-700">Retry Later</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisposition('WRONG_NUMBER')}
+                    className={cx(
+                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'WRONG_NUMBER'
+                        ? 'bg-slate-100 border-slate-500 text-slate-900 ring-2 ring-slate-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">⚠</span>
+                    <span>Wrong Number</span>
+                    <span className="text-[9px] font-normal text-slate-500">Invalid / Unreachable</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Interested Next Action Sub-Panel (Sales Handover removed, direct Callback) */}
+              {/* Interested Next Action Sub-Panel (direct Callback) */}
               {disposition === 'INTERESTED' && (
-                <div className="rounded-md border border-emerald-100 bg-emerald-50/50 p-3 space-y-2.5">
+                <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-900">
                       Schedule Callback Follow-Up
                     </label>
                     <span className="text-[10px] text-emerald-700 font-medium">Finalize Discussion • Callback</span>
@@ -2128,79 +2418,36 @@ export function AgentWorkspacePage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                {isWrapUp ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="md"
-                      disabled={busy}
-                      onClick={wrapUpLater}
-                      className="text-slate-600 border-slate-300 hover:bg-slate-50 font-semibold"
-                    >
-                      <Clock className="h-4 w-4" /> Wrap Up Later / Back to Queue
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="md"
-                      loading={busy}
-                      onClick={() => void saveAndCompleteDisposition()}
-                      className="px-5 py-2 font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> Save &amp; Complete Follow-Up
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="md"
-                        onClick={toggleMute}
-                        className={cx(
-                          'font-bold transition-all flex items-center gap-2 shadow-xs cursor-pointer',
-                          isMuted
-                            ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-2 ring-amber-300 ring-offset-1 animate-pulse'
-                            : 'text-slate-700 border-slate-300 hover:bg-slate-100',
-                        )}
-                        title={isMuted ? 'Microphone is MUTED — click or press M to speak' : 'Mute microphone — click or press M'}
-                      >
-                        {isMuted ? (
-                          <>
-                            <MicOff className="h-4 w-4 text-white" />
-                            <span>Unmute Mic</span>
-                            <span className="bg-amber-700/60 text-[10px] text-amber-100 px-1.5 py-0.5 rounded font-mono">MUTED</span>
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="h-4 w-4 text-slate-500" />
-                            <span>Mute Mic</span>
-                            <span className="bg-slate-100 text-[10px] text-slate-500 px-1.5 py-0.5 rounded font-mono">Hotkey: M</span>
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="md"
-                        disabled={busy}
-                        onClick={() => void endCall()}
-                        className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 font-semibold"
-                      >
-                        <PhoneOff className="h-4 w-4" /> End Call Only
-                      </Button>
-                    </div>
-                    <Button
-                      variant="primary"
-                      size="md"
-                      loading={busy}
-                      onClick={() => void saveAndCompleteDisposition()}
-                      className="px-5 py-2 font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> Save &amp; End Session
-                    </Button>
-                  </>
-                )}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                <Button
+                  variant="outline"
+                  size="md"
+                  disabled={busy}
+                  onClick={wrapUpLater}
+                  className="text-slate-600 border-slate-300 hover:bg-slate-50 font-semibold w-full sm:w-auto"
+                >
+                  <Clock className="h-4 w-4" /> Back to Queue
+                </Button>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <Button
+                    variant="outline"
+                    size="md"
+                    disabled={busy}
+                    onClick={() => void saveAndCompleteDisposition(false)}
+                    className="font-bold border-slate-300 text-slate-700 hover:bg-slate-50"
+                  >
+                    Save Notes Only
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    loading={busy}
+                    onClick={() => void saveAndCompleteDisposition(true)}
+                    className="px-5 py-2 font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Save &amp; Next Farmer &rarr;
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
@@ -2391,35 +2638,47 @@ export function AgentWorkspacePage() {
             </div>
           )}
 
-          {/* B. Calling Queue & Direct Dial Grid */}
+          {/* B. Calling Queue & Quick Phone Lookup Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* Left: Calling Queue (~65% width) */}
             <div className="lg:col-span-8 rounded-lg border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 bg-white">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 px-5 py-3.5 bg-white gap-3">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                     Calling Queue
                   </h2>
                   <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
-                    {queue.length} assigned
+                    {filteredQueue.length} shown ({queueCounts.pending} pending)
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">Click &ldquo;Call&rdquo; to launch outbound active session</p>
+                <div className="relative w-full sm:w-64">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={queueSearch}
+                    onChange={(e) => setQueueSearch(e.target.value)}
+                    placeholder="Search name, phone, code..."
+                    className="w-full rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="divide-y divide-slate-100">
                 {queueLoading ? (
                   <div className="p-8"><Spinner label="Loading queue…" /></div>
-                ) : queue.length === 0 ? (
-                  <div className="p-6 space-y-3 text-center text-xs text-slate-500">
-                    <p>Queue empty or all completed for today.</p>
+                ) : filteredQueue.length === 0 ? (
+                  <div className="p-8 space-y-2 text-center text-xs text-slate-500">
+                    <p className="font-semibold text-slate-700">No customers match the current filter.</p>
+                    <p className="text-[11px] text-slate-400">
+                      Try selecting another queue tab above or clearing your search term.
+                    </p>
                   </div>
                 ) : (
-                  queue.map((item) => {
+                  filteredQueue.map((item) => {
                     const hasPendingOutcome = item.lastCall?.status === 'ENDED' && !item.lastCall?.outcome;
                     return (
                       <div
-                        key={item.leadId}
+                        key={item.leadId || item.customer.id}
                         className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/70 transition"
                       >
                         <div className="min-w-0 flex-1">
@@ -2450,14 +2709,26 @@ export function AgentWorkspacePage() {
                               <FileEdit className="h-3 w-3" /> Finish Follow-Up
                             </Button>
                           ) : null}
-                          <Button
-                            variant="call"
-                            size="sm"
-                            onClick={() => void dial(item.customer.primaryPhone ?? item.customer.id, item.customer.id, item.leadId)}
-                            disabled={busy}
-                          >
-                            <Phone className="h-3 w-3 fill-current" /> Call
-                          </Button>
+                          {callingMode === 'KEYPAD' ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                              onClick={() => void dial(item.customer.primaryPhone ?? item.customer.id, item.customer.id, item.leadId)}
+                              disabled={busy}
+                            >
+                              <FileEdit className="h-3.5 w-3.5" /> Start Notes
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="call"
+                              size="sm"
+                              onClick={() => void dial(item.customer.primaryPhone ?? item.customer.id, item.customer.id, item.leadId)}
+                              disabled={busy}
+                            >
+                              <Phone className="h-3 w-3 fill-current" /> Call
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
@@ -2466,25 +2737,34 @@ export function AgentWorkspacePage() {
               </div>
             </div>
 
-            {/* Right: Manual Quick Dialer */}
+            {/* Right: Manual Phone Lookup & Quick Calling */}
             <div className="lg:col-span-4 rounded-xl border border-slate-200/90 bg-white shadow-xs p-5 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Direct Dial
+                  {callingMode === 'KEYPAD' ? 'Manual Phone Lookup' : 'Phone Link Quick Call'}
                 </h2>
-                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                  Line: 9444330285
+                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold">
+                  {callingMode === 'KEYPAD' ? 'Keypad Phone' : 'Phone Link'}
                 </span>
               </div>
               <div className="space-y-3">
                 <Input
                   inputMode="tel"
-                  placeholder="Mobile number (e.g. +91 62814 89942)"
+                  placeholder="Enter farmer number (e.g. 9876543001)"
                   value={manualNumber}
                   onChange={(e) => setManualNumber(e.target.value)}
                 />
-                <div className="grid grid-cols-2 gap-2">
+                {callingMode === 'KEYPAD' ? (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-full font-bold shadow-xs bg-emerald-700 hover:bg-emerald-800 text-white"
+                    disabled={!manualNumber.trim() || busy}
+                    onClick={() => void dial(manualNumber.trim())}
+                  >
+                    <FileEdit className="h-4 w-4" /> Open Record &amp; Take Notes
+                  </Button>
+                ) : (
                   <Button
                     variant="call"
                     size="md"
@@ -2492,33 +2772,16 @@ export function AgentWorkspacePage() {
                     disabled={!manualNumber.trim() || busy}
                     onClick={() => void dial(manualNumber.trim())}
                   >
-                    <PhoneCall className="h-4 w-4" /> Dial ({callingMode === 'EXOTEL_IVR_AGENT' ? 'Exotel' : 'System'})
+                    <Phone className="h-4 w-4 fill-current" /> Call via Phone Link
                   </Button>
-                  <a
-                    href={manualNumber.trim() ? `tel:${manualNumber.trim()}` : '#'}
-                    onClick={(e) => {
-                      if (!manualNumber.trim() || busy) {
-                        e.preventDefault();
-                        return;
-                      }
-                      setAgentCallingMode('DIRECT_SIM');
-                      void dial(manualNumber.trim());
-                    }}
-                    className={cx(
-                      'w-full font-bold shadow-xs rounded-lg flex items-center justify-center gap-1.5 text-xs text-white transition py-2',
-                      !manualNumber.trim() || busy ? 'bg-slate-300 cursor-not-allowed pointer-events-none' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
-                    )}
-                  >
-                    <Phone className="h-4 w-4" /> Direct SIM Call
-                  </a>
-                </div>
+                )}
 
                 {/* Real Farmer Quick-Dial Card: K. Ramanathan */}
                 <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 text-xs space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-emerald-950 text-[11px] flex items-center gap-1.5">
                       <Sprout className="h-3.5 w-3.5 text-emerald-700" />
-                      Live Farmer Profile (Supabase DB)
+                      Sample Farmer Profile
                     </span>
                     <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-200">
                       FAR-TN-042
@@ -2526,51 +2789,57 @@ export function AgentWorkspacePage() {
                   </div>
                   <div className="space-y-0.5 text-[11px]">
                     <p className="font-bold text-slate-900 text-xs">K. Ramanathan</p>
-                    <p className="text-emerald-800 font-mono font-bold">+91 6281489942</p>
+                    <p className="text-emerald-800 font-mono font-bold">+91 62814 89942</p>
                     <p className="text-slate-600 text-[10px]">Papanasam, Thanjavur • Rice (Paddy) 5.0 Acres</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <a
-                      href="tel:+916281489942"
-                      onClick={() => {
-                        setManualNumber('+916281489942');
-                        setAgentCallingMode('DIRECT_SIM');
-                        void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
-                      }}
-                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs py-2.5 flex items-center justify-center gap-1.5 transition text-center cursor-pointer"
-                    >
-                      <PhoneCall className="h-3.5 w-3.5" /> Direct SIM Call
-                    </a>
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      className="w-full bg-white hover:bg-slate-50 border-slate-300 text-slate-800 font-bold shadow-xs py-2.5"
-                      disabled={busy}
-                      onClick={() => {
-                        setManualNumber('+916281489942');
-                        setAgentCallingMode('EXOTEL_IVR_AGENT');
-                        void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
-                      }}
-                    >
-                      <Phone className="h-3 w-3 text-blue-600" /> Exotel Cloud
-                    </Button>
+                  <div className="pt-1">
+                    {callingMode === 'KEYPAD' ? (
+                      <Button
+                        size="sm"
+                        className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                        onClick={() => {
+                          setManualNumber('+916281489942');
+                          void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
+                        }}
+                      >
+                        <FileEdit className="h-3.5 w-3.5" /> Start Notes (+91 62814 89942)
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="call"
+                        className="w-full"
+                        onClick={() => {
+                          setManualNumber('+916281489942');
+                          void dial('+916281489942', '8ba7c48d-28d4-4744-ab7e-eda5cf06f39c', '7c004d73-4b4b-44d6-a5ba-e2e3e6ec0a4b');
+                        }}
+                      >
+                        <Phone className="h-3.5 w-3.5 fill-current" /> Call (+91 62814 89942)
+                      </Button>
+                    )}
                   </div>
                 </div>
 
-                {/* Telephony Connection Instructions */}
+                {/* Mode Explanation Box */}
                 <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 text-xs text-slate-700 space-y-2">
                   <div className="font-bold flex items-center gap-1.5 text-slate-900 text-[11px] uppercase tracking-wider">
-                    <Smartphone className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    <span>How Calls Connect</span>
+                    {callingMode === 'KEYPAD' ? (
+                      <>
+                        <Smartphone className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>Keypad Phone Workflow</span>
+                      </>
+                    ) : (
+                      <>
+                        <Laptop className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                        <span>Phone Link Workflow</span>
+                      </>
+                    )}
                   </div>
-                  <div className="space-y-1.5 text-[11px] leading-relaxed">
-                    <p>
-                      <strong className="text-emerald-800">1. Direct SIM (Recommended)</strong>: Click <em>Direct SIM Call</em> to trigger your mobile phone or PC Phone Link to dial <strong>+91 6281489942</strong> immediately from your SIM. Grotec CRM tracks the call, duration, and farmer notes in real time.
-                    </p>
-                    <p>
-                      <strong className="text-blue-800">2. Exotel Cloud Telephony</strong>: Requires live <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">EXOTEL_API_KEY</code> &amp; <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">EXOTEL_API_TOKEN</code> in <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">backend/.env</code>. Exotel will call your mobile (9444330285) first, then bridge to the farmer.
-                    </p>
-                  </div>
+                  <p className="text-[11px] leading-relaxed text-slate-600">
+                    {callingMode === 'KEYPAD'
+                      ? 'The farmer phone number is clearly presented for you to dial on your physical keypad mobile phone. The CRM tracks call duration, previous history, and records your advisory notes.'
+                      : 'Your smartphone is connected to this computer via Windows Phone Link or Bluetooth. Clicking "Call" initiates the outbound call through your PC.'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -2705,6 +2974,65 @@ export function AgentWorkspacePage() {
               </Button>
             </div>
           </Card>
+        </div>
+      ) : null}
+
+      {/* Agent Break Selection Modal */}
+      {showBreakModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 animate-fadeIn" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+                  <Coffee className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Take a Break</h3>
+                  <p className="text-[11px] text-slate-500">Queue progression will pause while on break</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBreakModal(false)}
+                className="text-slate-400 hover:text-slate-600 rounded p-1 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-700">Select Break Type:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Tea Break', mins: '15 mins', icon: Coffee },
+                  { label: 'Lunch Break', mins: '30 mins', icon: Coffee },
+                  { label: 'Bio / Rest', mins: '10 mins', icon: Pause },
+                  { label: 'Team Meeting', mins: '30 mins', icon: Users },
+                ].map((b) => (
+                  <button
+                    key={b.label}
+                    type="button"
+                    onClick={() => startBreak(b.label)}
+                    className="flex flex-col items-start p-3 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50/60 transition text-left cursor-pointer group"
+                  >
+                    <b.icon className="h-4 w-4 text-slate-500 group-hover:text-amber-600 mb-1" />
+                    <span className="text-xs font-bold text-slate-900">{b.label}</span>
+                    <span className="text-[10px] text-slate-500">{b.mins}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBreakModal(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

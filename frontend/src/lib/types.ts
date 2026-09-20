@@ -428,3 +428,61 @@ export interface LeaderboardResponse {
   currentAgentRank: number | null;
   leaderboard: LeaderboardAgentItem[];
 }
+
+export interface AgentPerformanceItem {
+  agentId: string;
+  employeeCode: string;
+  fullName: string;
+  department: string;
+  roleCode: string;
+  isCurrentAgent: boolean;
+  calls: {
+    dialed: number;
+    connected: number;
+    connectionRate: number;
+    totalTalkTimeSeconds: number;
+    avgTalkTimeSeconds: number;
+    dispositions: {
+      interested: number;
+      notInterested: number;
+      notAnswered: number;
+    };
+  };
+  breaks: {
+    count: number;
+    totalMinutes: number;
+    averageMinutes: number;
+  };
+  uptime: {
+    totalMinutes: number;
+    uptimeHours: number;
+    activeHandlingMinutes: number;
+    idleMinutes: number;
+    utilizationPercent: number;
+  };
+  quality: {
+    score: number;
+    grade: 'EXCELLENT' | 'GOOD' | 'NEEDS_REVIEW';
+    notesDocumentedRate: number;
+    meaningfulDurationRate: number;
+    followUpComplianceRate: number;
+  };
+}
+
+export interface AgentPerformanceResponse {
+  period: 'today' | 'week' | 'month' | 'custom';
+  startDate: string;
+  endDate: string;
+  teamSummary: {
+    totalAgents: number;
+    totalCallsDialed: number;
+    totalCallsConnected: number;
+    teamConnectionRate: number;
+    totalTalkTimeSeconds: number;
+    avgQualityScore: number;
+    totalBreakMinutes: number;
+    totalUptimeMinutes: number;
+    totalUptimeHours: number;
+  };
+  agents: AgentPerformanceItem[];
+}

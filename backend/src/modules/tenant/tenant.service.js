@@ -48,7 +48,7 @@ let TenantService = class TenantService {
             theme: 'default',
             timezone: 'Asia/Kolkata',
             features: {
-              exotelCalling: true,
+              manualCalling: true,
               whatsappAdvisory: true,
               smtpNotifications: true,
               hrmsIntegrated: true,

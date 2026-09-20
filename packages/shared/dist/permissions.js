@@ -266,6 +266,7 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.tenantRead,
     ],
     STAFF: [
+        exports.PERMISSIONS.employeeRead,
         exports.PERMISSIONS.hrmsEmployeeRead,
         exports.PERMISSIONS.hrmsPayrollProcess,
         exports.PERMISSIONS.payrollRead,

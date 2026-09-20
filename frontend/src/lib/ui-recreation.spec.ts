@@ -233,6 +233,7 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
   ]);
 
   const FOUNDER_HIDDEN_NAV = new Set([
+    '/agent',
     '/action-center',
     '/leads',
     '/knowledge-base',
@@ -282,14 +283,14 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
     ]);
   });
 
-  it('preserves FOUNDER navigation unchanged', () => {
+  it('removes Agent Mode from FOUNDER navigation and preserves Dashboard and Farmers', () => {
     const allPerms = ['customer.read', 'call.read', 'relationship.read', 'lead.read', 'assistant.use', 'crop.read'];
     const visible = filterNav('FOUNDER', allPerms);
     const labels = visible.map((i) => i.label);
 
+    expect(labels).not.toContain('Agent Mode');
     expect(labels).toEqual([
       'Dashboard',
-      'Agent Mode',
       'Farmers',
     ]);
   });

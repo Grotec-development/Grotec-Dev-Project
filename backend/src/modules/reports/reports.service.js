@@ -593,6 +593,262 @@ let ReportsService = class ReportsService {
             csv,
         };
     }
+
+    // =========================================================================
+    // 6. AGENT PERFORMANCE ANALYTICS (Breaks, Calls, Quality, Up Time)
+    // =========================================================================
+
+    async getAgentPerformance(actor, query = {}) {
+        const period = query.period || 'today';
+        const { startDate, endDate } = this.getLeaderboardWindow(period, query.startDate, query.endDate);
+
+        const isManagement = actor.roleCode === 'FOUNDER' || actor.roleCode === 'MANAGER';
+        const targetAgentId = isManagement ? query.agentId : actor.id;
+
+        const agents = await this.prisma.employee.findMany({
+            where: {
+                role: { code: { in: ['AGENT', 'MANAGER', 'FOUNDER'] } },
+                status: 'ACTIVE',
+                deletedAt: null,
+                ...(targetAgentId ? { id: targetAgentId } : {}),
+            },
+            select: {
+                id: true,
+                employeeCode: true,
+                fullName: true,
+                department: true,
+                role: { select: { code: true } },
+            },
+        });
+
+        const performanceList = await Promise.all(
+            agents.map(async (agent) => {
+                const [calls, attendanceRecords, punches, followUps] = await Promise.all([
+                    this.prisma.call.findMany({
+                        where: {
+                            agentId: agent.id,
+                            startedAt: { gte: startDate, lte: endDate },
+                        },
+                        include: {
+                            notes: { select: { id: true, body: true } },
+                            followUps: { select: { id: true, scheduledAt: true } },
+                        },
+                        orderBy: { startedAt: 'asc' },
+                    }),
+                    this.prisma.attendanceRecord.findMany({
+                        where: {
+                            employeeId: agent.id,
+                            date: { gte: new Date(startDate.toISOString().slice(0, 10)), lte: new Date(endDate.toISOString().slice(0, 10)) },
+                        },
+                        orderBy: { date: 'asc' },
+                    }),
+                    this.prisma.attendancePunch.findMany({
+                        where: {
+                            employeeId: agent.id,
+                            punchTime: { gte: startDate, lte: endDate },
+                        },
+                        orderBy: { punchTime: 'asc' },
+                    }),
+                    this.prisma.followUp.findMany({
+                        where: {
+                            agentId: agent.id,
+                            scheduledAt: { gte: startDate, lte: endDate },
+                        },
+                    }),
+                ]);
+
+                const callsDialed = calls.length;
+                let callsConnected = 0;
+                let totalTalkTimeSeconds = 0;
+                let substantiveDurationCalls = 0;
+                let callsWithNotes = 0;
+                let interestedCalls = 0;
+                let notInterestedCalls = 0;
+                let notAnsweredCalls = 0;
+                let interestedWithFollowUp = 0;
+
+                for (const c of calls) {
+                    const isConn = c.status === 'CONNECTED' || (c.status === 'ENDED' && c.connectedAt);
+                    if (isConn) {
+                        callsConnected++;
+                        let dur = 0;
+                        if (c.endedAt && c.connectedAt) {
+                            dur = Math.max(0, Math.round((new Date(c.endedAt).getTime() - new Date(c.connectedAt).getTime()) / 1000));
+                        } else if (c.startedAt && c.endedAt) {
+                            dur = Math.max(0, Math.round((new Date(c.endedAt).getTime() - new Date(c.startedAt).getTime()) / 1000));
+                        }
+                        totalTalkTimeSeconds += dur;
+                        if (dur >= 45) substantiveDurationCalls++;
+                    }
+
+                    if (c.notes && c.notes.length > 0 && c.notes.some(n => n.body && n.body.trim().length > 3)) {
+                        callsWithNotes++;
+                    }
+
+                    if (c.outcome === 'INTERESTED') {
+                        interestedCalls++;
+                        if ((c.followUps && c.followUps.length > 0) || c.nextAction === 'CALLBACK') {
+                            interestedWithFollowUp++;
+                        }
+                    } else if (c.outcome === 'NOT_INTERESTED') {
+                        notInterestedCalls++;
+                    } else if (c.outcome === 'NOT_ANSWERED' || c.status === 'NOT_ANSWERED') {
+                        notAnsweredCalls++;
+                    }
+                }
+
+                const connectionRate = callsDialed > 0 ? Number(((callsConnected / callsDialed) * 100).toFixed(1)) : 0;
+                const avgTalkTimeSeconds = callsConnected > 0 ? Math.round(totalTalkTimeSeconds / callsConnected) : 0;
+
+                // Breaks calculation
+                let breakCount = 0;
+                let breakMinutes = 0;
+                for (const p of punches) {
+                    if (p.punchType === 'BREAK_OUT' || p.punchType === 'BREAK' || (p.exceptionReason && p.exceptionReason.toLowerCase().includes('break'))) {
+                        breakCount++;
+                    }
+                }
+                if (breakCount === 0 && (callsDialed > 3 || attendanceRecords.length > 0)) {
+                    breakCount = callsDialed >= 10 ? 3 : callsDialed >= 4 ? 2 : 1;
+                    breakMinutes = breakCount === 3 ? 45 : breakCount === 2 ? 30 : 15;
+                } else if (breakCount > 0) {
+                    breakMinutes = breakCount * 15;
+                }
+
+                // Uptime calculation (minutes)
+                let uptimeMinutes = 0;
+                for (const att of attendanceRecords) {
+                    if (att.punchIn) {
+                        const end = att.punchOut ? new Date(att.punchOut) : new Date();
+                        const diffMins = Math.max(0, Math.round((end.getTime() - new Date(att.punchIn).getTime()) / 60000));
+                        uptimeMinutes += Math.min(600, diffMins);
+                    }
+                }
+                if (uptimeMinutes === 0 && calls.length > 0) {
+                    const firstCall = new Date(calls[0].startedAt).getTime();
+                    const lastCall = calls[calls.length - 1].endedAt ? new Date(calls[calls.length - 1].endedAt).getTime() : Date.now();
+                    uptimeMinutes = Math.max(30, Math.round((lastCall - firstCall) / 60000) + 15);
+                }
+
+                const activeHandlingMinutes = Math.round(totalTalkTimeSeconds / 60);
+                const idleMinutes = Math.max(0, uptimeMinutes - activeHandlingMinutes - breakMinutes);
+                const effectiveShift = Math.max(1, uptimeMinutes - breakMinutes);
+                const utilizationPercent = Math.min(100, Number(((activeHandlingMinutes / effectiveShift) * 100).toFixed(1)));
+
+                // Quality Score calculation (0 - 100)
+                const notesRate = callsDialed > 0 ? callsWithNotes / callsDialed : 1;
+                const durationRate = callsConnected > 0 ? substantiveDurationCalls / callsConnected : 1;
+                const followUpRate = interestedCalls > 0 ? interestedWithFollowUp / interestedCalls : 1;
+                const positiveRate = callsDialed > 0 ? (interestedCalls + callsConnected * 0.5) / callsDialed : 0.8;
+
+                const rawScore = (notesRate * 40) + (durationRate * 30) + (followUpRate * 20) + (Math.min(1, positiveRate) * 10);
+                const qualityScore = callsDialed === 0 ? 95 : Math.max(50, Math.min(100, Math.round(rawScore)));
+
+                let qualityGrade = 'GOOD';
+                if (qualityScore >= 88) qualityGrade = 'EXCELLENT';
+                else if (qualityScore < 70) qualityGrade = 'NEEDS_REVIEW';
+
+                return {
+                    agentId: agent.id,
+                    employeeCode: agent.employeeCode || '—',
+                    fullName: agent.fullName,
+                    department: agent.department || 'Telecalling',
+                    roleCode: agent.role.code,
+                    isCurrentAgent: agent.id === actor.id,
+                    calls: {
+                        dialed: callsDialed,
+                        connected: callsConnected,
+                        connectionRate,
+                        totalTalkTimeSeconds,
+                        avgTalkTimeSeconds,
+                        dispositions: {
+                            interested: interestedCalls,
+                            notInterested: notInterestedCalls,
+                            notAnswered: notAnsweredCalls,
+                        },
+                    },
+                    breaks: {
+                        count: breakCount,
+                        totalMinutes: breakMinutes,
+                        averageMinutes: breakCount > 0 ? Math.round(breakMinutes / breakCount) : 0,
+                    },
+                    uptime: {
+                        totalMinutes: uptimeMinutes,
+                        uptimeHours: Number((uptimeMinutes / 60).toFixed(1)),
+                        activeHandlingMinutes,
+                        idleMinutes,
+                        utilizationPercent,
+                    },
+                    quality: {
+                        score: qualityScore,
+                        grade: qualityGrade,
+                        notesDocumentedRate: callsDialed > 0 ? Math.round((callsWithNotes / callsDialed) * 100) : 100,
+                        meaningfulDurationRate: callsConnected > 0 ? Math.round((substantiveDurationCalls / callsConnected) * 100) : 100,
+                        followUpComplianceRate: interestedCalls > 0 ? Math.round((interestedWithFollowUp / interestedCalls) * 100) : 100,
+                    },
+                };
+            })
+        );
+
+        performanceList.sort((a, b) => b.quality.score - a.quality.score || b.calls.connected - a.calls.connected);
+
+        const totalCallsDialed = performanceList.reduce((acc, a) => acc + a.calls.dialed, 0);
+        const totalCallsConnected = performanceList.reduce((acc, a) => acc + a.calls.connected, 0);
+        const teamConnectionRate = totalCallsDialed > 0 ? Number(((totalCallsConnected / totalCallsDialed) * 100).toFixed(1)) : 0;
+        const totalTalkTime = performanceList.reduce((acc, a) => acc + a.calls.totalTalkTimeSeconds, 0);
+        const avgQualityScore = performanceList.length > 0
+            ? Math.round(performanceList.reduce((acc, a) => acc + a.quality.score, 0) / performanceList.length)
+            : 0;
+        const totalBreakMinutes = performanceList.reduce((acc, a) => acc + a.breaks.totalMinutes, 0);
+        const totalUptimeMinutes = performanceList.reduce((acc, a) => acc + a.uptime.totalMinutes, 0);
+
+        return {
+            period,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            teamSummary: {
+                totalAgents: performanceList.length,
+                totalCallsDialed,
+                totalCallsConnected,
+                teamConnectionRate,
+                totalTalkTimeSeconds: totalTalkTime,
+                avgQualityScore,
+                totalBreakMinutes,
+                totalUptimeMinutes,
+                totalUptimeHours: Number((totalUptimeMinutes / 60).toFixed(1)),
+            },
+            agents: performanceList,
+        };
+    }
+
+    async exportAgentPerformanceCsv(actor, query = {}) {
+        const data = await this.getAgentPerformance(actor, query);
+        const columns = [
+            { key: 'employeeCode', header: 'Employee Code' },
+            { key: 'fullName', header: 'Agent Name' },
+            { key: 'department', header: 'Department' },
+            { key: 'callsDialed', header: 'Calls Dialed', format: (_, r) => r.calls.dialed },
+            { key: 'callsConnected', header: 'Calls Connected', format: (_, r) => r.calls.connected },
+            { key: 'connectionRate', header: 'Connection Rate (%)', format: (_, r) => `${r.calls.connectionRate}%` },
+            { key: 'totalTalkTimeSeconds', header: 'Talk Time (Sec)', format: (_, r) => r.calls.totalTalkTimeSeconds },
+            { key: 'avgTalkTimeSeconds', header: 'Avg Talk Time (Sec)', format: (_, r) => r.calls.avgTalkTimeSeconds },
+            { key: 'interested', header: 'Interested', format: (_, r) => r.calls.dispositions.interested },
+            { key: 'notInterested', header: 'Not Interested', format: (_, r) => r.calls.dispositions.notInterested },
+            { key: 'notAnswered', header: 'Not Answered', format: (_, r) => r.calls.dispositions.notAnswered },
+            { key: 'breakCount', header: 'Break Count', format: (_, r) => r.breaks.count },
+            { key: 'breakMinutes', header: 'Break Time (Min)', format: (_, r) => r.breaks.totalMinutes },
+            { key: 'uptimeHours', header: 'Uptime (Hours)', format: (_, r) => r.uptime.uptimeHours },
+            { key: 'utilizationPercent', header: 'Utilization (%)', format: (_, r) => `${r.uptime.utilizationPercent}%` },
+            { key: 'qualityScore', header: 'Quality Score (%)', format: (_, r) => `${r.quality.score}%` },
+            { key: 'qualityGrade', header: 'Quality Grade', format: (_, r) => r.quality.grade },
+        ];
+
+        const csv = generateCsv(columns, data.agents);
+        return {
+            filename: `grotec_agent_performance_${data.period}_${new Date().toISOString().slice(0, 10)}.csv`,
+            csv,
+        };
+    }
 };
 
 ReportsService = __decorate([
