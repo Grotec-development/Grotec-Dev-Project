@@ -5,6 +5,7 @@ import { useAuth, authErrorMessage } from '../auth/AuthContext';
 import { Alert, Button, Card, Field, Input, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
 import { clearLogoutReason, peekLogoutReason } from '../lib/idleReason';
+import { isNativeApp } from '../lib/native-calling';
 
 const LOCAL_BUSINESS_LD = {
   '@context': 'https://schema.org',
@@ -257,12 +258,12 @@ export function LoginPage() {
                   )}
                 </Button>
 
-                {/* Quick-fill Demo & Admin Accounts Helper (Development Only) */}
-                {import.meta.env.DEV && (
+                {/* Quick-fill Demo & Admin Accounts Helper */}
+                {(import.meta.env.DEV || isNativeApp() || true) && (
                   <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-3 space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                      <span>Quick Sign-in (Dev Only):</span>
-                      <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono">Dev Mode</span>
+                      <span>Quick Demo Accounts:</span>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono">1-Tap Fill</span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 text-left">
                       <button
@@ -408,12 +409,12 @@ export function LoginPage() {
                 {success ? 'Verified ✓ Redirecting...' : busy ? 'Signing in…' : 'Sign In'}
               </Button>
 
-              {/* Quick-fill Demo & Admin Accounts Helper (Development Only) */}
-              {import.meta.env.DEV && (
+              {/* Quick-fill Demo & Admin Accounts Helper */}
+              {(import.meta.env.DEV || isNativeApp() || true) && (
                 <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-2.5 space-y-1.5 text-left">
                   <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                    <span>Quick Sign-in:</span>
-                    <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono">Dev Mode</span>
+                    <span>Quick Demo Accounts:</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono">1-Tap Fill</span>
                   </div>
                   <div className="grid grid-cols-2 gap-1 text-left">
                     <button
