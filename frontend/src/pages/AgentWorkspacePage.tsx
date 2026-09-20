@@ -44,6 +44,7 @@ import { formatDate, formatE164 } from '../lib/format';
 import { Alert, Badge, Button, Card, Input, Spinner, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
 import { telephonyAudio } from '../lib/telephonyAudio';
+import { isNativeApp, initiateDirectCall, subscribeToCallState, requestCallingPermissions } from '../lib/native-calling';
 import { NewCustomerModal } from './customers/NewCustomerModal';
 import {
   SOIL_TYPE_MAX_LENGTH,
@@ -483,6 +484,19 @@ export function AgentWorkspacePage() {
     }
   };
 
+  // Initialize native permissions & telephony listeners if running as mobile/tablet app
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    void requestCallingPermissions();
+    const unsubscribe = subscribeToCallState((callState) => {
+      if (callState === 'IDLE' && activeCall && !isWrapUp) {
+        setIsWrapUp(true);
+        telephonyAudio.stopRingback();
+      }
+    });
+    return () => unsubscribe();
+  }, [activeCall, isWrapUp]);
+
   // Status polling while the call is live
   // Status polling while the call is live (1000ms for fast real-time updates)
   useEffect(() => {
@@ -578,8 +592,10 @@ export function AgentWorkspacePage() {
     setError(null);
     setSuccessNotice(null);
     setLiveTranscript(null);
-    if (callingMode === 'PHONE_LINK') {
-      window.location.href = `tel:${phoneNumber}`;
+    if (isNativeApp()) {
+      await initiateDirectCall(phoneNumber);
+    } else if (callingMode === 'PHONE_LINK') {
+      await initiateDirectCall(phoneNumber);
     }
     try {
       const res = await api.post<Call>('/calls', { phoneNumber, customerId, leadId, mode: 'DIRECT_SIM' });
@@ -1152,37 +1168,44 @@ export function AgentWorkspacePage() {
 
           <span className="text-slate-300 hidden sm:inline">|</span>
 
-          {/* 2 Calling Modes Segmented Toggle */}
-          <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => handleSetCallingMode('KEYPAD')}
-              className={cx(
-                'px-2.5 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer',
-                callingMode === 'KEYPAD'
-                  ? 'bg-white text-emerald-800 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              )}
-              title="Manual keypad phone mode — number is displayed clearly to dial from phone"
-            >
-              <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Keypad Phone</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSetCallingMode('PHONE_LINK')}
-              className={cx(
-                'px-2.5 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer',
-                callingMode === 'PHONE_LINK'
-                  ? 'bg-white text-blue-800 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              )}
-              title="Windows Phone Link / Bluetooth mode — click Call to dial from PC"
-            >
-              <Laptop className="h-3.5 w-3.5 text-blue-600" />
-              <span>Phone Link</span>
-            </button>
-          </div>
+          {/* Calling Mode: Native Direct In-App for Mobile/Tablet or 2-mode Toggle for Desktop */}
+          {isNativeApp() ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">
+              <Smartphone className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Direct In-App Calling (SIM)</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleSetCallingMode('KEYPAD')}
+                className={cx(
+                  'px-2.5 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer',
+                  callingMode === 'KEYPAD'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                )}
+                title="Manual keypad phone mode — number is displayed clearly to dial from phone"
+              >
+                <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Keypad Phone</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetCallingMode('PHONE_LINK')}
+                className={cx(
+                  'px-2.5 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer',
+                  callingMode === 'PHONE_LINK'
+                    ? 'bg-white text-blue-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                )}
+                title="Windows Phone Link / Bluetooth mode — click Call to dial from PC"
+              >
+                <Laptop className="h-3.5 w-3.5 text-blue-600" />
+                <span>Phone Link</span>
+              </button>
+            </div>
+          )}
 
           <span className="text-slate-300 hidden sm:inline">|</span>
 
@@ -1495,7 +1518,7 @@ export function AgentWorkspacePage() {
             <span className="text-emerald-300/60 hidden sm:inline">|</span>
             <div className="flex items-center gap-2 text-xs font-semibold">
               <span className="text-slate-200">
-                Agent <span className="font-mono text-white font-bold">9444330285</span> ➔ Farmer <span className="font-bold text-white">{farmerDisplayName}</span> (<span className="font-mono text-emerald-200">{formatE164(farmerDisplayPhone)}</span>)
+                Connected ➔ Farmer <span className="font-bold text-white">{farmerDisplayName}</span> (<span className="font-mono text-emerald-200">{formatE164(farmerDisplayPhone)}</span>)
               </span>
             </div>
             {isMuted && (
@@ -1586,12 +1609,12 @@ export function AgentWorkspacePage() {
                   {farmerCrops || 'Rice (Paddy)'}
                 </span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed flex items-center gap-2">
-                <span>Agent Caller ID: <strong className="text-white font-mono">9444330285</strong></span>
-                <span>→</span>
-                <span>Customer: <strong className="text-emerald-400 font-mono">{formatE164(farmerDisplayPhone)}</strong></span>
-                <span className="text-slate-400">({activeCall?.provider?.toUpperCase() || 'DIRECT_SIM'})</span>
-              </p>
+              <div>
+                <p className="text-xs text-slate-300 flex items-center gap-1.5 flex-wrap">
+                  <span>Customer: <strong className="text-emerald-400 font-mono">{formatE164(farmerDisplayPhone)}</strong></span>
+                  <span className="text-slate-400">({isNativeApp() ? 'Direct SIM' : callingMode === 'PHONE_LINK' ? 'Phone Link' : 'Keypad'})</span>
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">

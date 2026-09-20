@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GROTEC FarmerOS</string>
+    <string name="title_activity_main">GROTEC FarmerOS</string>
+    <string name="package_name">in.grotec.farmeros</string>
+    <string name="custom_url_scheme">in.grotec.farmeros</string>
+</resources>
