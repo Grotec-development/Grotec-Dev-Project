@@ -24,8 +24,20 @@ export function clearTenantId(): void {
   localStorage.removeItem(TENANT_KEY);
 }
 
-export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') || '/api/v1';
+import { isNativeApp } from './native-calling';
+
+export const CLOUD_BACKEND_API = 'https://grotec-dev-project.onrender.com/api/v1';
+
+export const API_BASE_URL: string = (() => {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
+  if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
+    return envUrl;
+  }
+  if (isNativeApp()) {
+    return CLOUD_BACKEND_API;
+  }
+  return envUrl || '/api/v1';
+})();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
