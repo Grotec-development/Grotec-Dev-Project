@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ShieldCheck, Lock, CheckCircle2, Loader2, ArrowRight, Sprout } from 'lucide-react';
+import { ShieldCheck, Lock, CheckCircle2, Loader2, ArrowRight, Sprout, Eye, EyeOff } from 'lucide-react';
 import { useAuth, authErrorMessage } from '../auth/AuthContext';
 import { Alert, Button, Card, Field, Input, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
@@ -46,6 +46,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,11 +79,11 @@ export function LoginPage() {
     setError(null);
 
     const targetEmail = (creds?.email ?? email).trim();
-    const targetPass = creds?.password ?? password;
+    const targetPass = (creds?.password ?? password).trim();
 
     if (!validateEmail(targetEmail)) return;
     if (!targetPass) {
-      setError('Employee ID or password is incorrect');
+      setError('Please enter your password');
       return;
     }
 
@@ -93,9 +94,18 @@ export function LoginPage() {
       setTimeout(() => {
         navigate(location.state?.from ?? '/', { replace: true });
       }, 500);
-    } catch {
-      // Security-compliant: always generic error, never leak which field failed
-      setError('Employee ID or password is incorrect');
+    } catch (err: any) {
+      if (err?.code === 'ERR_NETWORK' || err?.message?.includes('Network Error') || !err?.response) {
+        setError('Cannot connect to server. Please check your internet connection.');
+      } else if (err?.response?.status === 401) {
+        setError('Employee ID or password is incorrect. Please check your spelling.');
+      } else if (err?.response?.data?.error?.message) {
+        setError(err.response.data.error.message);
+      } else if (err?.response?.data?.message) {
+        setError(Array.isArray(err.response.data.message) ? err.response.data.message.join(', ') : err.response.data.message);
+      } else {
+        setError('Login failed. Please verify your credentials.');
+      }
       setBusy(false);
     }
   }
@@ -225,16 +235,26 @@ export function LoginPage() {
                       Forgot password?
                     </a>
                   </div>
-                  <Input
-                    type="password"
-                    autoComplete="current-password"
-                    disabled={busy || success}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="py-2 text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-brand-600 transition-all duration-200"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      disabled={busy || success}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="py-2 pr-10 text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-brand-600 transition-all duration-200"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Primary Full-Width Forest Green Button with Gradient Shimmer & Tactile Hover */}
@@ -258,8 +278,8 @@ export function LoginPage() {
                   )}
                 </Button>
 
-                {/* Quick-fill Demo & Admin Accounts Helper */}
-                {(import.meta.env.DEV || isNativeApp() || true) && (
+                {/* Quick-fill Demo & Admin Accounts Helper (Dev Only) */}
+                {import.meta.env.DEV && (
                   <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-3 space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
                       <span>Quick Demo Accounts:</span>
@@ -390,15 +410,25 @@ export function LoginPage() {
                     Forgot password?
                   </a>
                 </div>
-                <Input
-                  type="password"
-                  disabled={busy || success}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="py-2 text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-brand-600 transition-all"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    disabled={busy || success}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="py-2 pr-10 text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-brand-600 transition-all"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button
@@ -409,8 +439,8 @@ export function LoginPage() {
                 {success ? 'Verified ✓ Redirecting...' : busy ? 'Signing in…' : 'Sign In'}
               </Button>
 
-              {/* Quick-fill Demo & Admin Accounts Helper */}
-              {(import.meta.env.DEV || isNativeApp() || true) && (
+              {/* Quick-fill Demo & Admin Accounts Helper (Dev Only) */}
+              {import.meta.env.DEV && (
                 <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-2.5 space-y-1.5 text-left">
                   <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
                     <span>Quick Demo Accounts:</span>

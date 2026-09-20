@@ -33,10 +33,17 @@ export const API_BASE_URL: string = (() => {
   if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
     return envUrl;
   }
-  if (isNativeApp()) {
-    return CLOUD_BACKEND_API;
+  // If running in local Vite development against local backend server, use relative proxy
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    (window.location.port === '5173' || window.location.port === '3000')
+  ) {
+    return '/api/v1';
   }
-  return envUrl || '/api/v1';
+  // Mobile app (Capacitor/Android/iOS), Vercel production web, or standalone installs:
+  // Route to the live cloud backend API on Render
+  return CLOUD_BACKEND_API;
 })();
 
 export const api = axios.create({

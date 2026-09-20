@@ -28,7 +28,7 @@ echo ""
 
 echo "▶ Step 1: Building production web assets..."
 cd "$PROJECT_ROOT"
-npm run build:frontend
+VITE_API_BASE_URL="https://grotec-dev-project.onrender.com/api/v1" npm run build:frontend
 
 echo ""
 echo "▶ Step 2: Synchronizing web assets with Capacitor Android..."
@@ -49,17 +49,19 @@ if [ -d "$ANDROID_DIR" ]; then
     
     APK_PATH="$ANDROID_DIR/app/build/outputs/apk/debug/app-debug.apk"
     if [ -f "$APK_PATH" ]; then
+      cp "$APK_PATH" "$PROJECT_ROOT/grotec-farmeros.apk"
+      cp "$APK_PATH" "$FRONTEND_DIR/public/grotec-farmeros.apk"
       echo ""
       echo "=========================================================="
       echo "🎉 SUCCESS! Android APK generated successfully:"
-      echo "   $APK_PATH"
+      echo "   $PROJECT_ROOT/grotec-farmeros.apk"
       echo "=========================================================="
       echo ""
       echo "To install on an Android phone or tablet:"
       echo "  1. Connect your phone via USB with USB Debugging enabled, and run:"
       echo "     adb install -r \"$APK_PATH\""
-      echo "  2. Or transfer \"$APK_PATH\" to your phone via Google Drive, WhatsApp, or Bluetooth,"
-      echo "     and tap to install!"
+      echo "  2. Or download directly over Wi-Fi from:"
+      echo "     http://<YOUR_LOCAL_IP>:8080/grotec-farmeros.apk"
       echo ""
       exit 0
     fi

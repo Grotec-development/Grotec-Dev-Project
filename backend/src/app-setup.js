@@ -18,14 +18,19 @@ export async function configureApp(app, options = {}) {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-    // Local development hosts, used ONLY when CORS_ORIGINS is not configured.
-    // Replaces the previous `origin: true` fallback, which reflected back any
-    // requesting origin while credentials were enabled. An explicit CORS_ORIGINS
-    // list always takes precedence; the production allow-list policy is a
-    // separate, later step.
-    const LOCAL_DEV_ORIGINS = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+    const ALLOWED_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$|^capacitor:\/\/localhost$/;
     app.enableCors({
-        origin: origins.length > 0 ? origins : LOCAL_DEV_ORIGINS,
+        origin: (requestOrigin, callback) => {
+            if (!requestOrigin) return callback(null, true);
+            if (
+                ALLOWED_ORIGIN_REGEX.test(requestOrigin) ||
+                origins.includes(requestOrigin) ||
+                origins.some((o) => requestOrigin.startsWith(o))
+            ) {
+                return callback(null, true);
+            }
+            return callback(null, false);
+        },
         credentials: true,
         methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
         allowedHeaders: [

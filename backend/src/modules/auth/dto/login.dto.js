@@ -11,7 +11,8 @@ import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 export class LoginDto {
 }
 __decorate([
-    IsEmail(),
+    IsString(),
+    MinLength(1),
     MaxLength(255),
     __metadata("design:type", String)
 ], LoginDto.prototype, "email", void 0);

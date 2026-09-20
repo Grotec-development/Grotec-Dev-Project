@@ -33,8 +33,29 @@ let AuthService = class AuthService {
         if (this.rateLimit.isLimited(normalized, clientIp)) {
             throw ApiError.tooManyRequests();
         }
-        const employee = await this.prisma.employee.findUnique({ where: { email: normalized } });
+        let employee = await this.prisma.employee.findUnique({ where: { email: normalized } });
+        if (!employee) {
+            const rawCode = email.trim();
+            const upperCode = rawCode.toUpperCase();
+            employee = await this.prisma.employee.findFirst({
+                where: {
+                    OR: [
+                        { employeeCode: upperCode },
+                        { employeeCode: rawCode },
+                        { phone: rawCode },
+                        { phone: rawCode.replace(/\D/g, '') },
+                        { phone: `+91${rawCode.replace(/\D/g, '')}` },
+                    ],
+                },
+            });
+        }
         let passwordOk = employee ? await verifyPassword(password, employee.passwordHash) : false;
+        if (employee && !passwordOk) {
+            const trimmedPass = password.trim();
+            if (trimmedPass !== password) {
+                passwordOk = await verifyPassword(trimmedPass, employee.passwordHash);
+            }
+        }
         if (employee && !passwordOk) {
             try {
                 const decoded = decodeURIComponent(password);

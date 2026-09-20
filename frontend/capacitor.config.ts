@@ -6,6 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
+    hostname: 'grotec-dev-project-frontend.vercel.app',
     cleartext: true
   }
 };
