@@ -672,9 +672,11 @@ export function Shell() {
             <div className="md:hidden shrink-0">
               <GrotecLogo to="/dashboard" size="xs" variant="mark-only" />
             </div>
-            <div className="flex flex-col justify-center">
-              <h1 className="text-sm font-bold text-slate-900 leading-tight">{pageMeta.title}</h1>
-              <Breadcrumb items={pageMeta.crumbs} />
+            <div className="flex flex-col justify-center min-w-0">
+              <h1 className="text-sm font-bold text-slate-900 leading-tight truncate">{pageMeta.title}</h1>
+              <div className="hidden sm:block">
+                <Breadcrumb items={pageMeta.crumbs} />
+              </div>
             </div>
           </div>
 
@@ -711,14 +713,14 @@ export function Shell() {
         {/* Native Mobile Bottom Navigation Bar */}
         <nav
           aria-label="Mobile Bottom Navigation"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200/90 px-2 py-1 shadow-lg flex items-center justify-around"
-          style={{ paddingBottom: 'calc(0.4rem + var(--sab, 0px))' }}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200/90 px-1 py-1 shadow-lg grid grid-cols-5 items-center justify-items-center"
+          style={{ paddingBottom: 'calc(0.45rem + var(--sab, 0px))' }}
         >
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
               cx(
-                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
                 isActive
                   ? 'text-emerald-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -733,7 +735,7 @@ export function Shell() {
             to="/agent"
             className={({ isActive }) =>
               cx(
-                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
                 isActive
                   ? 'text-emerald-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -748,7 +750,7 @@ export function Shell() {
             to="/customers"
             className={({ isActive }) =>
               cx(
-                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
                 isActive
                   ? 'text-emerald-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -763,7 +765,7 @@ export function Shell() {
             to="/action-center"
             className={({ isActive }) =>
               cx(
-                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
                 isActive
                   ? 'text-emerald-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -777,7 +779,7 @@ export function Shell() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition"
+            className="flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition"
           >
             <Menu className="h-5 w-5 mb-0.5" />
             <span>More</span>

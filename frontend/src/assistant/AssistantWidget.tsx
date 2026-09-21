@@ -67,11 +67,11 @@ export function AssistantWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-20 md:bottom-5 right-4 md:right-5 z-30 flex flex-col items-end gap-2.5">
       {open ? (
         <section
           aria-label="Ask Grotec Assistant"
-          className="flex h-[30rem] w-[min(24rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          className="flex h-[26rem] sm:h-[30rem] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
         >
           {/* Header */}
           <header className="flex items-center justify-between gap-2 bg-emerald-800 px-4 py-3 text-white">
@@ -171,10 +171,10 @@ export function AssistantWidget() {
         type="button"
         onClick={() => setOpen((value) => !value)}
         title="Crop Advisory"
-        className="flex items-center gap-2 rounded-full bg-emerald-800 hover:bg-emerald-900 py-2.5 pl-3.5 pr-4 text-white shadow-md transition-colors text-xs font-semibold"
+        className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-emerald-800 hover:bg-emerald-900 py-2 px-3 sm:py-2.5 sm:pl-3.5 sm:pr-4 text-white shadow-xl transition-all text-xs font-semibold active:scale-95"
       >
-        <Sprout className="h-4 w-4 text-emerald-200" />
-        <span>Crop Advisory</span>
+        <Sprout className="h-4 w-4 text-emerald-200 shrink-0" />
+        <span className="font-semibold">Crop Advisory</span>
       </button>
     </div>
   );

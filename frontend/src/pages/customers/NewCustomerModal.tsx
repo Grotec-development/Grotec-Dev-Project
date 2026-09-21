@@ -5,6 +5,7 @@ import { api, errorMessage } from '../../lib/api';
 import type { CustomerDetail } from '../../lib/types';
 import { Alert, Button, Card, Field, Input, Select, cx } from '../../components/ui';
 import { duplicateMatch } from './CustomersPage';
+import { LocationSelector } from '../../components/LocationSelector';
 
 interface PhoneRow {
   key: number;
@@ -35,12 +36,12 @@ export function NewCustomerModal({
   const [soilType, setSoilType] = useState('');
   const [phones, setPhones] = useState<PhoneRow[]>([{ key: nextKey++, number: initialPhone ?? '', kind: 'MOBILE', isPrimary: true }]);
 
-  // Farm Location fields
+  // Farm Location fields (defaulting to Tamil Nadu / Dharmapuri agricultural zone)
   const [village, setVillage] = useState('');
   const [taluk, setTaluk] = useState('');
-  const [district, setDistrict] = useState('');
+  const [district, setDistrict] = useState('Dharmapuri');
   const [state, setState] = useState('Tamil Nadu');
-  const [pincode, setPincode] = useState('');
+  const [pincode, setPincode] = useState('636701');
 
   // Crop & Agricultural fields
   const [availableCrops, setAvailableCrops] = useState<CropOption[]>([]);
@@ -224,50 +225,30 @@ export function NewCustomerModal({
 
           {/* Farm Location */}
           <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
-            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
-              <MapPin className="h-3.5 w-3.5 text-emerald-700" />
-              <span>Farm Location</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <Field label="Village">
-                <Input
-                  value={village}
-                  onChange={(e) => setVillage(e.target.value)}
-                  placeholder="e.g. Papanasam"
-                />
-              </Field>
-              <Field label="Taluk">
-                <Input
-                  value={taluk}
-                  onChange={(e) => setTaluk(e.target.value)}
-                  placeholder="e.g. Papanasam"
-                />
-              </Field>
-              <Field label="District">
-                <Input
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  placeholder="e.g. Thanjavur"
-                />
-              </Field>
-              <Field label="State">
-                <Input
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="e.g. Tamil Nadu"
-                />
-              </Field>
-              <div className="col-span-2 sm:col-span-1">
-                <Field label="Pincode">
-                  <Input
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    placeholder="e.g. 614205"
-                    maxLength={10}
-                  />
-                </Field>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
+                <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Farm Location / Zone</span>
               </div>
+              <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Official Taluka Master
+              </span>
             </div>
+
+            <LocationSelector
+              state={state}
+              district={district}
+              taluk={taluk}
+              village={village}
+              pincode={pincode}
+              onChange={(patch) => {
+                if (patch.state !== undefined) setState(patch.state);
+                if (patch.district !== undefined) setDistrict(patch.district);
+                if (patch.taluk !== undefined) setTaluk(patch.taluk);
+                if (patch.village !== undefined) setVillage(patch.village);
+                if (patch.pincode !== undefined) setPincode(patch.pincode);
+              }}
+            />
           </div>
 
           {/* Cultivating Crop Details */}

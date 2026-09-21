@@ -3,6 +3,7 @@ import { api, errorMessage } from '../../lib/api';
 import { formatE164 } from '../../lib/format';
 import type { CustomerDetail } from '../../lib/types';
 import { Alert, Button, Input } from '../../components/ui';
+import { LocationSelector } from '../../components/LocationSelector';
 import {
   EMPTY_LOCATION_DRAFT,
   buildAddPhonePayload,
@@ -100,28 +101,23 @@ export function FarmerQuickEdit({
 
       {/* Location — PATCH when one exists, POST for the farmer's first one */}
       <div>
-        <p className="text-[10px] font-bold uppercase text-slate-400">Location</p>
-        <div className="mt-1 grid grid-cols-2 gap-1.5">
-          {(['village', 'taluk', 'district', 'state'] as const).map((field) => (
-            <Input
-              key={field}
-              value={locationDraft[field]}
-              onChange={(e) => setLocationDraft((d) => ({ ...d, [field]: e.target.value }))}
-              placeholder={field[0].toUpperCase() + field.slice(1)}
-              aria-label={field}
-              disabled={pending !== null}
-            />
-          ))}
-          <Input
-            value={locationDraft.pincode}
-            onChange={(e) => setLocationDraft((d) => ({ ...d, pincode: e.target.value }))}
-            placeholder="Pincode"
-            aria-label="pincode"
-            maxLength={10}
-            disabled={pending !== null}
-          />
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-semibold">Location / Zone</p>
+          <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+            Taluka Master
+          </span>
         </div>
-        <div className="mt-1.5 flex items-center gap-2">
+        <LocationSelector
+          compact
+          state={locationDraft.state || 'Tamil Nadu'}
+          district={locationDraft.district}
+          taluk={locationDraft.taluk}
+          village={locationDraft.village}
+          pincode={locationDraft.pincode}
+          disabled={pending !== null}
+          onChange={(patch) => setLocationDraft((d) => ({ ...d, ...patch }))}
+        />
+        <div className="mt-2 flex items-center gap-2">
           <Button size="xs" onClick={saveLocation} disabled={pending !== null}>
             {pending === 'location' ? 'Saving…' : primaryLocation ? 'Save location' : 'Add location'}
           </Button>

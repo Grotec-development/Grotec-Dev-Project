@@ -132,7 +132,7 @@ export function DashboardPage() {
   }, []);
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+    <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-8 max-w-7xl mx-auto">
       {summaryQuery.isError ? (
         <Alert tone="error">
           <div className="flex items-center justify-between">
@@ -152,24 +152,24 @@ export function DashboardPage() {
          ============================================================ */}
 
       {/* Top Greeting Area */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/90 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/90 pb-3 sm:pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
               {user?.roleCode === 'FOUNDER' ? 'Founder Workspace' : user?.roleCode === 'MANAGER' ? 'Operations Manager' : 'Agent Mode'}
             </span>
             <span className="text-slate-300">•</span>
-            <span className="text-xs text-slate-500 font-medium">{todayFormatted}</span>
+            <span className="text-[11px] sm:text-xs text-slate-500 font-medium">{todayFormatted}</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+          <h1 className="text-lg sm:text-2xl font-black text-slate-900 mt-1">
             Welcome back, {user?.fullName || 'Telecaller'}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 leading-relaxed">
             Real-time farm advisory calls, farmer portfolio updates, and team productivity.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="hidden sm:flex items-center gap-2 rounded-lg bg-emerald-50/70 border border-emerald-200/80 px-3 py-1.5 text-xs font-semibold text-emerald-800">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Telephony System Ready</span>
@@ -177,7 +177,7 @@ export function DashboardPage() {
           {user?.roleCode !== 'FOUNDER' && (
             <Link
               to="/agent"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition"
             >
               <Phone className="h-3.5 w-3.5 fill-current" />
               <span>Open Agent Mode</span>
@@ -187,15 +187,15 @@ export function DashboardPage() {
       </div>
 
       {/* Primary KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* KPI 1: Today's Calls Progress (with Minimal Donut Chart) */}
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs flex items-center justify-between gap-3 hover:border-emerald-500 transition">
+        <div className="rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3 hover:border-emerald-500 transition">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Today&apos;s Progress
             </p>
             <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-slate-900 leading-none">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 leading-none">
                 {completedToday}
               </span>
               <span className="text-xs font-semibold text-slate-400">
@@ -209,7 +209,7 @@ export function DashboardPage() {
           </div>
 
           {/* Minimal Donut Ring */}
-          <div className="relative h-16 w-16 shrink-0 flex items-center justify-center">
+          <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 flex items-center justify-center">
             <svg viewBox="0 0 88 88" className="w-full h-full -rotate-90">
               <circle
                 cx="44"
