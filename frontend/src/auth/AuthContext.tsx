@@ -35,7 +35,7 @@ function sanitizeUser(raw: unknown): AppUser | null {
   if (!raw || typeof raw !== 'object') return null;
   const u = raw as Partial<AppUser>;
   const roleCode = u.roleCode ?? ('AGENT' as AppUser['roleCode']);
-  const defaultRolePerms = (PROPOSED_ROLE_PERMISSIONS[roleCode] ?? []) as AppUser['permissions'];
+  const defaultRolePerms = ((PROPOSED_ROLE_PERMISSIONS as Record<string, string[]>)[roleCode] ?? []) as AppUser['permissions'];
   const permissions = Array.isArray(u.permissions) && u.permissions.length > 0 ? u.permissions : defaultRolePerms;
 
   return {

@@ -42,6 +42,7 @@ import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { ExceptionsModule } from './modules/exceptions/exceptions.module';
 import { RelationshipModule } from './modules/relationship/relationship.module';
+import { SegmentsModule } from './modules/segments/segments.module';
 
 let AppModule = class AppModule {
 };
@@ -84,6 +85,7 @@ AppModule = __decorate([
             DeliveryModule,
             ExceptionsModule,
             RelationshipModule,
+            SegmentsModule,
         ],
         providers: [
             { provide: APP_GUARD, useClass: AuthGuard },

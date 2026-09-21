@@ -656,7 +656,7 @@ export function Shell() {
       </aside>
 
       {/* Main Content Area — Desktop offset matches compact icon rail w-16 to preserve wide workspace */}
-      <main className="md:ml-16 flex-1 bg-canvas min-h-screen transition-all">
+      <main className="md:ml-16 flex-1 bg-canvas min-h-screen pb-20 md:pb-0 transition-all">
         {/* Top Header Bar */}
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/90 bg-white/95 px-4 md:px-6 backdrop-blur shadow-xs">
           <div className="flex items-center gap-3">
@@ -707,6 +707,82 @@ export function Shell() {
           <Outlet />
           <AssistantWidget />
         </AssistantProvider>
+
+        {/* Native Mobile Bottom Navigation Bar */}
+        <nav
+          aria-label="Mobile Bottom Navigation"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200/90 px-2 py-1 shadow-lg flex items-center justify-around"
+          style={{ paddingBottom: 'calc(0.4rem + var(--sab, 0px))' }}
+        >
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              cx(
+                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                isActive
+                  ? 'text-emerald-700 font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              )
+            }
+          >
+            <LayoutDashboard className="h-5 w-5 mb-0.5" />
+            <span>Home</span>
+          </NavLink>
+
+          <NavLink
+            to="/agent"
+            className={({ isActive }) =>
+              cx(
+                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                isActive
+                  ? 'text-emerald-700 font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              )
+            }
+          >
+            <Phone className="h-5 w-5 mb-0.5" />
+            <span>Calling</span>
+          </NavLink>
+
+          <NavLink
+            to="/customers"
+            className={({ isActive }) =>
+              cx(
+                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                isActive
+                  ? 'text-emerald-700 font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              )
+            }
+          >
+            <Users className="h-5 w-5 mb-0.5" />
+            <span>Farmers</span>
+          </NavLink>
+
+          <NavLink
+            to="/action-center"
+            className={({ isActive }) =>
+              cx(
+                'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold transition',
+                isActive
+                  ? 'text-emerald-700 font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              )
+            }
+          >
+            <Briefcase className="h-5 w-5 mb-0.5" />
+            <span>Actions</span>
+          </NavLink>
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition"
+          >
+            <Menu className="h-5 w-5 mb-0.5" />
+            <span>More</span>
+          </button>
+        </nav>
       </main>
     </div>
   );

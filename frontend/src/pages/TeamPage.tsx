@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Edit2, Shield, Check, CheckSquare, Square } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import type { Employee, Page } from '../lib/types';
 import { ROLE_CODES, ROLE_LABELS } from '@grotec/shared';
 import { useAuth } from '../auth/AuthContext';
-import { Alert, Badge, Button, Card, CardHeader, Field, Input, Select, Spinner, Table, TD, TH, THead } from '../components/ui';
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, Select, Spinner, Table, TD, TH, THead, cx } from '../components/ui';
 import { formatDate } from '../lib/format';
 
 export function TeamPage() {
@@ -83,23 +83,28 @@ interface RoleOption {
   id: string;
   code: string;
   name: string;
-  permissions?: { code: string; module: string; description: string }[];
+  permissions?: { code: string; label?: string; category?: string; module?: string; description?: string }[];
 }
 
 /**
- * Read-only reference panel: which permissions each role currently carries.
- * Consumes the existing GET /roles endpoint (already returns nested
- * role -> permissions) — no backend change required.
+ * Interactive Roles & Permissions Configuration Panel:
+ * Allows Super Admin & Founders to dynamically assign permissions
+ * stored in the database without code changes or redeployment.
  */
 function RolesPermissionsCard() {
+  const { user } = useAuth();
+  const [editingRole, setEditingRole] = useState<RoleOption | null>(null);
+
   const { data, isError, error } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => (await api.get<RoleOption[]>('/roles')).data,
   });
 
+  const canEditPermissions = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
+
   return (
     <Card className="mt-6">
-      <CardHeader title="Roles & Permissions" />
+      <CardHeader title="Roles & Permissions Configuration" />
       {isError ? (
         <div className="px-5 py-4">
           <Alert tone="error">{errorMessage(error)}</Alert>
@@ -113,21 +118,35 @@ function RolesPermissionsCard() {
           {data.map((role) => {
             const grouped = new Map<string, { code: string; description: string }[]>();
             for (const perm of role.permissions ?? []) {
-              const list = grouped.get(perm.module) ?? [];
-              list.push({ code: perm.code, description: perm.description });
-              grouped.set(perm.module, list);
+              const moduleKey = perm.category || perm.module || 'General';
+              const list = grouped.get(moduleKey) ?? [];
+              list.push({ code: perm.code, description: perm.description || perm.label || perm.code });
+              grouped.set(moduleKey, list);
             }
             const total = role.permissions?.length ?? 0;
             return (
               <div key={role.id} className="px-5 py-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <Badge tone={role.code === 'FOUNDER' ? 'amber' : role.code === 'AGENT' ? 'green' : 'slate'}>
-                    {ROLE_LABELS[role.code as keyof typeof ROLE_LABELS] ?? role.name}
-                  </Badge>
-                  <span className="text-xs text-slate-400">
-                    {total} permission{total === 1 ? '' : 's'}
-                  </span>
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge tone={role.code === 'FOUNDER' || role.code === 'SUPER_ADMIN' ? 'amber' : role.code === 'AGENT' || role.code === 'FSE' ? 'green' : 'slate'}>
+                      {ROLE_LABELS[role.code as keyof typeof ROLE_LABELS] ?? role.name}
+                    </Badge>
+                    <span className="text-xs text-slate-400">
+                      {total} permission{total === 1 ? '' : 's'}
+                    </span>
+                  </div>
+
+                  {canEditPermissions && role.code !== 'SUPER_ADMIN' && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingRole(role)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 px-2.5 py-1 rounded-md transition"
+                    >
+                      <Edit2 className="h-3 w-3" /> Edit Permissions
+                    </button>
+                  )}
                 </div>
+
                 {grouped.size === 0 ? (
                   <p className="text-xs text-slate-400">No permissions granted.</p>
                 ) : (
@@ -136,7 +155,7 @@ function RolesPermissionsCard() {
                       .sort(([a], [b]) => a.localeCompare(b))
                       .map(([module, perms]) => (
                         <div key={module} className="flex flex-wrap items-baseline gap-1.5">
-                          <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                          <span className="w-28 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                             {module}
                           </span>
                           <div className="flex flex-wrap gap-1">
@@ -161,7 +180,190 @@ function RolesPermissionsCard() {
           })}
         </div>
       )}
+
+      {editingRole && (
+        <EditRolePermissionsModal
+          role={editingRole}
+          onClose={() => setEditingRole(null)}
+        />
+      )}
     </Card>
+  );
+}
+
+interface EditRolePermissionsModalProps {
+  role: RoleOption;
+  onClose: () => void;
+}
+
+function EditRolePermissionsModal({ role, onClose }: EditRolePermissionsModalProps) {
+  const queryClient = useQueryClient();
+  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(
+    () => new Set(role.permissions?.map((p) => p.code) ?? [])
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const permissionsQuery = useQuery({
+    queryKey: ['all-system-permissions'],
+    queryFn: async () => {
+      const res = await api.get<Array<{ id: string; code: string; label: string | null; category: string; description: string | null }>>('/roles/permissions');
+      return res.data;
+    },
+  });
+
+  const togglePermission = (code: string) => {
+    setSelectedCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
+
+  const toggleCategory = (categoryCodes: string[]) => {
+    setSelectedCodes((prev) => {
+      const next = new Set(prev);
+      const allSelected = categoryCodes.every((c) => next.has(c));
+      if (allSelected) {
+        categoryCodes.forEach((c) => next.delete(c));
+      } else {
+        categoryCodes.forEach((c) => next.add(c));
+      }
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.put(`/roles/${role.id}/permissions`, {
+        permissionCodes: Array.from(selectedCodes),
+      });
+      await queryClient.invalidateQueries({ queryKey: ['roles'] });
+      onClose();
+    } catch (err) {
+      setError(errorMessage(err) || 'Failed to update permissions');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Group permissions by category
+  const grouped = new Map<string, Array<{ code: string; label: string | null; description: string | null }>>();
+  for (const perm of permissionsQuery.data ?? []) {
+    const cat = perm.category || 'General';
+    const list = grouped.get(cat) ?? [];
+    list.push(perm);
+    grouped.set(cat, list);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
+      <Card className="w-full max-w-2xl max-h-[85vh] flex flex-col shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-emerald-600" />
+              Configure Permissions: {ROLE_LABELS[role.code as keyof typeof ROLE_LABELS] ?? role.name}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Select or remove permissions dynamically. Changes take effect on next login.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {error && <Alert tone="error">{error}</Alert>}
+
+          {permissionsQuery.isLoading ? (
+            <div className="py-12 text-center">
+              <Spinner label="Loading system permissions..." />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {[...grouped.entries()]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([category, perms]) => {
+                  const categoryCodes = perms.map((p) => p.code);
+                  const selectedCount = categoryCodes.filter((c) => selectedCodes.has(c)).length;
+                  const allSelected = selectedCount === categoryCodes.length;
+
+                  return (
+                    <div key={category} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
+                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            {category}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-400">
+                            ({selectedCount}/{categoryCodes.length})
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(categoryCodes)}
+                          className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+                        >
+                          {allSelected ? 'Deselect All' : 'Select All'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                        {perms.map((perm) => {
+                          const isChecked = selectedCodes.has(perm.code);
+                          return (
+                            <label
+                              key={perm.code}
+                              className={cx(
+                                'flex items-start gap-2 p-2 rounded-md border text-xs cursor-pointer transition',
+                                isChecked
+                                  ? 'bg-white border-emerald-300 text-emerald-900 shadow-2xs'
+                                  : 'bg-white/60 border-slate-200 text-slate-700 hover:bg-white'
+                              )}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => togglePermission(perm.code)}
+                                className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              <div>
+                                <div className="font-mono text-[11px] font-bold">{perm.code}</div>
+                                <div className="text-[11px] text-slate-500 leading-snug">
+                                  {perm.description || perm.label || ''}
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-slate-50">
+          <span className="text-xs text-slate-500 font-medium">
+            {selectedCodes.size} permission{selectedCodes.size === 1 ? '' : 's'} selected
+          </span>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleSave()} disabled={busy}>
+              {busy ? 'Saving...' : 'Save Permissions'}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }
 

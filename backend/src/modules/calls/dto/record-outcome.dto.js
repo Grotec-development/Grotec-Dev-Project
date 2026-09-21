@@ -7,34 +7,40 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { CALL_OUTCOMES } from '@grotec/shared';
+import { IsIn, IsNumber, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+
 /**
- * Records one of exactly three call outcomes (PRD §6.3.6). Outcome and
- * nextAction are separate fields (§11.1): nextAction is allowed only for
- * INTERESTED, where exactly one of CALLBACK | SALES is required (no default).
+ * Records call outcome with support for dynamic CallOutcomeMaster codes,
+ * next action, follow-up scheduling, and commercial opportunity fields.
  */
 export class RecordOutcomeDto {
 }
 __decorate([
-    IsIn([...CALL_OUTCOMES]),
-    __metadata("design:type", Object)
+    IsString(),
+    MinLength(1),
+    MaxLength(50),
+    __metadata("design:type", String)
 ], RecordOutcomeDto.prototype, "outcome", void 0);
+
 __decorate([
     IsOptional(),
     IsIn(['CALLBACK', 'SALES']),
     __metadata("design:type", Object)
 ], RecordOutcomeDto.prototype, "nextAction", void 0);
+
 __decorate([
     IsOptional(),
     Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'followUpDate must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], RecordOutcomeDto.prototype, "followUpDate", void 0);
+
 __decorate([
     IsOptional(),
     Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'followUpTime must be HH:mm' }),
     __metadata("design:type", String)
 ], RecordOutcomeDto.prototype, "followUpTime", void 0);
+
 __decorate([
     IsOptional(),
     IsString(),
@@ -42,3 +48,31 @@ __decorate([
     MaxLength(2000),
     __metadata("design:type", String)
 ], RecordOutcomeDto.prototype, "followUpNote", void 0);
+
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(200),
+    __metadata("design:type", String)
+], RecordOutcomeDto.prototype, "productInterest", void 0);
+
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(200),
+    __metadata("design:type", String)
+], RecordOutcomeDto.prototype, "cropInterest", void 0);
+
+__decorate([
+    IsOptional(),
+    Type(() => Number),
+    IsNumber(),
+    __metadata("design:type", Number)
+], RecordOutcomeDto.prototype, "expectedBookingAmount", void 0);
+
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(40),
+    __metadata("design:type", String)
+], RecordOutcomeDto.prototype, "callMode", void 0);

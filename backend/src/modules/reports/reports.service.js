@@ -849,6 +849,327 @@ let ReportsService = class ReportsService {
             csv,
         };
     }
+
+    // =========================================================================
+    // 5. FSE 360° BUSINESS FUNNEL (Section 8)
+    // =========================================================================
+
+    async getFseFunnel(actor, query = {}) {
+        let fseId = actor.roleCode === 'AGENT' ? actor.id : query.fseId || null;
+        const period = query.period || 'month';
+        const now = new Date();
+        let startDate = new Date();
+        let endDate = new Date();
+
+        if (period === 'today') {
+            startDate.setUTCHours(0, 0, 0, 0);
+            endDate.setUTCHours(23, 59, 59, 999);
+        } else if (period === 'week') {
+            startDate.setDate(now.getDate() - 7);
+            startDate.setUTCHours(0, 0, 0, 0);
+        } else if (period === 'month') {
+            startDate.setDate(now.getDate() - 30);
+            startDate.setUTCHours(0, 0, 0, 0);
+        } else if (query.startDate && query.endDate) {
+            startDate = new Date(query.startDate);
+            endDate = new Date(query.endDate);
+            if (typeof query.endDate === 'string' && query.endDate.length <= 10) {
+                endDate.setUTCHours(23, 59, 59, 999);
+            }
+        } else {
+            startDate.setDate(now.getDate() - 30);
+            startDate.setUTCHours(0, 0, 0, 0);
+        }
+
+        const agentWhere = fseId ? { agentId: fseId } : {};
+        const callWhere = {
+            ...agentWhere,
+            startedAt: { gte: startDate, lte: endDate },
+        };
+
+        const [
+            fseEmployee,
+            allFseList,
+            callAttempts,
+            connectedCalls,
+            callsWithNotesOrOutcome,
+            interestedCalls,
+            followUpsCount,
+            orders,
+            assignedFarmersCount,
+        ] = await Promise.all([
+            fseId ? this.prisma.employee.findUnique({ where: { id: fseId }, select: { id: true, fullName: true, employeeCode: true } }) : null,
+            this.prisma.employee.findMany({
+                where: { role: { code: { in: ['AGENT', 'FSE'] } }, status: 'ACTIVE' },
+                select: { id: true, fullName: true, employeeCode: true },
+                orderBy: { fullName: 'asc' },
+            }),
+            this.prisma.call.count({ where: callWhere }),
+            this.prisma.call.count({
+                where: {
+                    ...callWhere,
+                    OR: [
+                        { status: { in: ['CONNECTED', 'ENDED'] } },
+                        { connectedAt: { not: null } },
+                    ],
+                },
+            }),
+            this.prisma.call.count({
+                where: {
+                    ...callWhere,
+                    OR: [
+                        { notes: { some: {} } },
+                        { outcome: { not: null } },
+                        { outcomeCustom: { not: null } },
+                    ],
+                },
+            }),
+            this.prisma.call.count({
+                where: {
+                    ...callWhere,
+                    OR: [
+                        { outcome: 'INTERESTED' },
+                        { outcomeCustom: { in: ['INTERESTED', 'CALLBACK_REQUESTED', 'FOLLOW_UP_REQUIRED', 'CONVERTED_ORDER'] } },
+                    ],
+                },
+            }),
+            this.prisma.followUp.count({
+                where: {
+                    ...(fseId ? { agentId: fseId } : {}),
+                    createdAt: { gte: startDate, lte: endDate },
+                },
+            }),
+            this.prisma.salesOrder.findMany({
+                where: {
+                    ...(fseId ? { createdById: fseId } : {}),
+                    orderDate: { gte: startDate, lte: endDate },
+                },
+                select: { id: true, totalAmount: true, status: true, paymentStatus: true },
+            }),
+            this.prisma.leadOwnership.count({
+                where: {
+                    ...(fseId ? { employeeId: fseId } : {}),
+                    releasedAt: null,
+                },
+            }),
+        ]);
+
+        const qualityConversations = Math.max(callsWithNotesOrOutcome, interestedCalls);
+        const leads = interestedCalls;
+        const bookings = orders.length;
+        const bookingValue = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+        const dispatchedOrders = orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'DELIVERED');
+        const deliveredOrders = orders.filter((o) => o.status === 'DELIVERED');
+        const deliveredValue = deliveredOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+        const paidOrders = orders.filter((o) => o.paymentStatus === 'PAID');
+        const collections = paidOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+        const pendingReturns = orders.filter((o) => o.status === 'CANCELLED' || o.status === 'RETURNED').length;
+
+        const connectionRate = callAttempts > 0 ? Number(((connectedCalls / callAttempts) * 100).toFixed(1)) : 0;
+        const qualityRate = connectedCalls > 0 ? Number(((qualityConversations / connectedCalls) * 100).toFixed(1)) : 0;
+        const leadConversionRate = qualityConversations > 0 ? Number(((leads / qualityConversations) * 100).toFixed(1)) : 0;
+        const followUpRate = leads > 0 ? Number(((followUpsCount / leads) * 100).toFixed(1)) : 0;
+        const bookingRate = leads > 0 ? Number(((bookings / leads) * 100).toFixed(1)) : 0;
+        const deliveryRate = bookings > 0 ? Number(((deliveredOrders.length / bookings) * 100).toFixed(1)) : 0;
+        const collectionRate = deliveredValue > 0 ? Number(((collections / deliveredValue) * 100).toFixed(1)) : 0;
+
+        const funnelStages = [
+            { stage: 'Assigned Farmers', key: 'assignedFarmers', count: assignedFarmersCount, value: null, conversion: null },
+            { stage: 'Call Attempts', key: 'callAttempts', count: callAttempts, value: null, conversion: null },
+            { stage: 'Connected Calls', key: 'connectedCalls', count: connectedCalls, value: null, conversion: `${connectionRate}% of attempts` },
+            { stage: 'Quality Conversations', key: 'qualityConversations', count: qualityConversations, value: null, conversion: `${qualityRate}% of connected` },
+            { stage: 'Leads / Interest', key: 'leads', count: leads, value: null, conversion: `${leadConversionRate}% of quality` },
+            { stage: 'Follow-ups Scheduled', key: 'followUps', count: followUpsCount, value: null, conversion: `${followUpRate}% of leads` },
+            { stage: 'Bookings / Orders', key: 'bookings', count: bookings, value: bookingValue, conversion: `${bookingRate}% of leads` },
+            { stage: 'Dispatch in Progress', key: 'dispatch', count: dispatchedOrders.length, value: null, conversion: null },
+            { stage: 'Delivered Orders', key: 'delivery', count: deliveredOrders.length, value: deliveredValue, conversion: `${deliveryRate}% of bookings` },
+            { stage: 'Collections Completed', key: 'collections', count: paidOrders.length, value: collections, conversion: `${collectionRate}% of delivered` },
+            { stage: 'Pending / Returns', key: 'pendingReturns', count: pendingReturns, value: null, conversion: null },
+        ];
+
+        return {
+            period,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            fse: fseEmployee || { id: 'all', fullName: 'All FSEs (Team Aggregate)', employeeCode: 'TEAM' },
+            fseOptions: allFseList,
+            funnelStages,
+            metrics: {
+                assignedFarmers: assignedFarmersCount,
+                callAttempts,
+                connectedCalls,
+                qualityConversations,
+                leads,
+                followUps: followUpsCount,
+                bookings,
+                bookingValue,
+                deliveredCount: deliveredOrders.length,
+                deliveredValue,
+                collections,
+                pendingReturns,
+                rates: {
+                    connectionRate,
+                    qualityRate,
+                    leadConversionRate,
+                    bookingRate,
+                    deliveryRate,
+                    collectionRate,
+                },
+            },
+            observations: [
+                connectionRate < 45 ? 'Low call connection rate — consider adjusting dialling time windows for farmers.' : 'Healthy connection rate above 45% benchmark.',
+                qualityRate > 60 ? 'Strong call conversation depth with high engagement.' : 'Conversations dropping off quickly; recommend agronomic talking points review.',
+                bookings > 0 ? `Active sales conversion with ₹${bookingValue.toLocaleString('en-IN')} pipeline generated.` : 'No converted bookings recorded in this period.',
+            ],
+        };
+    }
+
+    // =========================================================================
+    // 6. DYNAMIC BUSINESS INTELLIGENCE FILTER ENGINE (Section 10)
+    // =========================================================================
+
+    async getDynamicBi(actor, query = {}) {
+        const { district, taluk, village, cropId, productId, bookingStatus, deliveryStatus, paymentStatus } = query;
+        let fseId = actor.roleCode === 'AGENT' ? actor.id : query.fseId || null;
+        const pagination = parsePagination(query.page, query.pageSize || 20);
+
+        const where = {};
+        if (fseId) where.createdById = fseId;
+        if (bookingStatus) where.status = bookingStatus;
+        if (paymentStatus) where.paymentStatus = paymentStatus;
+
+        if (district || taluk || village) {
+            where.customer = {
+                locations: {
+                    some: {
+                        deletedAt: null,
+                        ...(district ? { district: { equals: district, mode: 'insensitive' } } : {}),
+                        ...(taluk ? { taluk: { equals: taluk, mode: 'insensitive' } } : {}),
+                        ...(village ? { village: { equals: village, mode: 'insensitive' } } : {}),
+                    },
+                },
+            };
+        }
+
+        if (productId) {
+            where.items = {
+                some: { productId },
+            };
+        }
+
+        const { start, end } = parseDateRange(query);
+        if (start || end) {
+            where.orderDate = {};
+            if (start) where.orderDate.gte = start;
+            if (end) where.orderDate.lte = end;
+        }
+
+        const [totalCount, rawOrders, aggregateValue] = await Promise.all([
+            this.prisma.salesOrder.count({ where }),
+            this.prisma.salesOrder.findMany({
+                where,
+                skip: pagination.skip,
+                take: pagination.take,
+                orderBy: { orderDate: 'desc' },
+                include: {
+                    customer: {
+                        select: {
+                            id: true,
+                            farmerCode: true,
+                            fullName: true,
+                            phones: { where: { isPrimary: true, deletedAt: null }, take: 1 },
+                            locations: { where: { isPrimary: true, deletedAt: null }, take: 1 },
+                        },
+                    },
+                    createdBy: { select: { id: true, fullName: true, employeeCode: true } },
+                    items: {
+                        include: {
+                            product: { select: { id: true, name: true, sku: true } },
+                        },
+                    },
+                },
+            }),
+            this.prisma.salesOrder.aggregate({
+                where,
+                _sum: { totalAmount: true },
+            }),
+        ]);
+
+        const records = rawOrders.map((o) => {
+            const loc = o.customer.locations[0] || {};
+            const phone = o.customer.phones[0]?.phoneE164 || '';
+            const productNames = o.items.map((i) => i.product.name).join(', ');
+            const totalQty = o.items.reduce((sum, i) => sum + Number(i.approvedQty || i.originalQty || 0), 0);
+
+            return {
+                id: o.id,
+                orderNumber: o.orderNumber,
+                orderDate: o.orderDate.toISOString(),
+                farmerId: o.customer.farmerCode || o.customer.id.slice(0, 8),
+                farmerName: o.customer.fullName,
+                farmerPhone: phone,
+                village: loc.village || '—',
+                taluk: loc.taluk || '—',
+                district: loc.district || '—',
+                fseName: o.createdBy?.fullName || '—',
+                fseCode: o.createdBy?.employeeCode || '—',
+                products: productNames || 'General Order',
+                totalQuantity: totalQty,
+                totalAmount: Number(o.totalAmount || 0),
+                deliveryStatus: o.status,
+                paymentStatus: o.paymentStatus,
+            };
+        });
+
+        const totalAmountSum = Number(aggregateValue._sum.totalAmount || 0);
+
+        return {
+            total: totalCount,
+            page: pagination.page,
+            pageSize: pagination.pageSize,
+            totalPages: Math.ceil(totalCount / pagination.pageSize),
+            summary: {
+                totalOrders: totalCount,
+                totalValue: totalAmountSum,
+                avgOrderValue: totalCount > 0 ? Math.round(totalAmountSum / totalCount) : 0,
+            },
+            filtersApplied: {
+                district: district || null,
+                taluk: taluk || null,
+                village: village || null,
+                productId: productId || null,
+                bookingStatus: bookingStatus || null,
+                paymentStatus: paymentStatus || null,
+                fseId: fseId || null,
+            },
+            records,
+        };
+    }
+
+    async exportDynamicBiCsv(actor, query = {}) {
+        const result = await this.getDynamicBi(actor, { ...query, page: 1, pageSize: 5000 });
+        const columns = [
+            { key: 'orderNumber', header: 'Order #' },
+            { key: 'orderDate', header: 'Order Date', format: (d) => formatCsvDate(d) },
+            { key: 'farmerId', header: 'Farmer ID' },
+            { key: 'farmerName', header: 'Farmer Name' },
+            { key: 'farmerPhone', header: 'Phone' },
+            { key: 'village', header: 'Village' },
+            { key: 'taluk', header: 'Taluk' },
+            { key: 'district', header: 'District' },
+            { key: 'fseName', header: 'FSE' },
+            { key: 'products', header: 'Products' },
+            { key: 'totalQuantity', header: 'Total Quantity' },
+            { key: 'totalAmount', header: 'Total Amount (INR)' },
+            { key: 'deliveryStatus', header: 'Delivery Status' },
+            { key: 'paymentStatus', header: 'Payment Status' },
+        ];
+        const csv = generateCsv(columns, result.records);
+        return {
+            filename: `grotec_bi_query_${new Date().toISOString().slice(0, 10)}.csv`,
+            csv,
+        };
+    }
 };
 
 ReportsService = __decorate([

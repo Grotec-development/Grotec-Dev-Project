@@ -486,3 +486,132 @@ export interface AgentPerformanceResponse {
   };
   agents: AgentPerformanceItem[];
 }
+
+export interface FseFunnelStage {
+  stage: number;
+  name: string;
+  key: string;
+  count: number;
+  isAmount: boolean;
+}
+
+export interface FseFunnelAgentComparison {
+  agentId: string;
+  employeeCode: string;
+  fullName: string;
+  assigned: number;
+  attempts: number;
+  connected: number;
+  bookings: number;
+  bookingValue: number;
+  collections: number;
+}
+
+export interface FseFunnelResponse {
+  filters: {
+    fseId: string | null;
+    startDate: string;
+    endDate: string;
+  };
+  summary: {
+    assigned: number;
+    attempts: number;
+    connected: number;
+    qualityConversations: number;
+    leads: number;
+    followUps: number;
+    bookings: number;
+    bookingValue: number;
+    dispatches: number;
+    deliveries: number;
+    deliveredValue: number;
+    collections: number;
+    returns: number;
+  };
+  conversions: {
+    attemptRate: string;
+    connectRate: string;
+    qualityRate: string;
+    leadRate: string;
+    bookingRate: string;
+    dispatchRate: string;
+    deliveryRate: string;
+    collectionRate: string;
+    returnRate: string;
+  };
+  stages: FseFunnelStage[];
+  agentComparison?: FseFunnelAgentComparison[];
+}
+
+export interface DynamicBiSummary {
+  totalMatching: number;
+  uniqueFarmers: number;
+  totalBookingValue: number;
+  totalCollectedValue: number;
+}
+
+export interface DynamicBiItem {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  customer: {
+    id: string;
+    farmerCode: string | null;
+    fullName: string;
+    primaryPhone: string | null;
+    district: string | null;
+    taluk: string | null;
+    village: string | null;
+    crops: string | null;
+  };
+  items: Array<{
+    id: string;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>;
+  dispatches: Array<{
+    id: string;
+    dispatchNumber: string;
+    status: string;
+    deliveredAt: string | null;
+  }>;
+  paymentReceipts: Array<{
+    id: string;
+    receiptNumber: string;
+    amount: number;
+    status: string;
+  }>;
+}
+
+export interface DynamicBiResponse {
+  summary: DynamicBiSummary;
+  results: DynamicBiItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface FarmerSegmentItem {
+  id: string;
+  name: string;
+  description: string | null;
+  filterCriteria: {
+    district?: string;
+    taluk?: string;
+    village?: string;
+    crop?: string;
+    status?: string;
+    soilType?: string;
+    hasOrders?: boolean;
+    hasFollowUps?: boolean;
+  };
+  farmerCount: number;
+  lastEstimatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

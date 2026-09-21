@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GROTEC FarmerOS — Master Implementation & Delivery Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --primary: #134423;
+      --primary-dark: #0a2714;
+      --primary-light: #236338;
+      --emerald-50: #ecfdf5;
+      --emerald-100: #d1fae5;
+      --emerald-600: #059669;
+      --emerald-700: #047857;
+      --amber-50: #fffbeb;
+      --amber-500: #f59e0b;
+      --amber-700: #b45309;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1;
+      --slate-500: #64748b;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--slate-800);
+      background-color: #f1f5f9;
+      line-height: 1.55;
+      font-size: 13.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .document-container {
+      max-width: 900px;
+      margin: 30px auto;
+      background: #ffffff;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    /* Print Specific Formatting */
+    @media print {
+      body {
+        background: #ffffff;
+        font-size: 11.5pt;
+        line-height: 1.45;
+      }
+      .document-container {
+        max-width: 100%;
+        margin: 0;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      .avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 14mm 14mm 16mm 14mm;
+      }
+    }
+
+    /* Action bar for easy printing */
+    .action-bar {
+      background: var(--slate-900);
+      color: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .print-btn {
+      background: #10b981;
+      color: #ffffff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .print-btn:hover {
+      background: #059669;
+    }
+
+    /* Document Header & Cover */
+    .cover-banner {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #ffffff;
+      padding: 48px 40px;
+      position: relative;
+    }
+    .brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: #a7f3d0;
+      margin-bottom: 16px;
+    }
+    .cover-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .cover-subtitle {
+      font-size: 16px;
+      color: #a7f3d0;
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .metadata-item h4 {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .metadata-item p {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    /* Content Layout */
+    .content-body {
+      padding: 40px;
+    }
+
+    /* Typography */
+    h2.section-header {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary);
+      border-bottom: 2px solid var(--slate-200);
+      padding-bottom: 8px;
+      margin: 32px 0 16px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2.section-header:first-of-type {
+      margin-top: 0;
+    }
+    .section-num {
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 12px;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    h3.module-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--slate-900);
+      margin: 22px 0 10px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: var(--slate-700);
+    }
+
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 14px;
+      color: var(--slate-700);
+    }
+    li {
+      margin-bottom: 5px;
+    }
+
+    /* Highlights & Callout Boxes */
+    .callout {
+      background: var(--slate-50);
+      border-left: 4px solid var(--primary);
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    .callout strong {
+      color: var(--primary);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-live {
+      background: var(--emerald-100);
+      color: var(--emerald-700);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .badge-role {
+      background: var(--slate-100);
+      color: var(--slate-700);
+      border: 1px solid var(--slate-200);
+      padding: 2px 6px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    /* Tables */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px 0;
+      font-size: 12px;
+    }
+    table.data-table th, table.data-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--slate-200);
+    }
+    table.data-table th {
+      background: var(--slate-100);
+      color: var(--slate-700);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 10.5px;
+      letter-spacing: 0.05em;
+    }
+    table.data-table tr:hover {
+      background: #fafafa;
+    }
+
+    /* Visual Grid Cards */
+    .feature-card {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    .feature-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .feature-card h4 {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .feature-card p {
+      font-size: 12.5px;
+      margin-bottom: 8px;
+      color: var(--slate-600);
+    }
+
+    .key-points {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    .point-item {
+      background: var(--slate-50);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border-left: 2px solid var(--emerald-600);
+    }
+
+    /* Sign-off Block */
+    .signoff-box {
+      margin-top: 40px;
+      border: 1px solid var(--slate-300);
+      border-radius: 8px;
+      padding: 24px;
+      background: var(--slate-50);
+    }
+    .signoff-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 20px;
+    }
+    .signature-line {
+      border-bottom: 1px dashed var(--slate-400);
+      margin-top: 40px;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Print Button Bar (Hidden in Print) -->
+  <div class="action-bar no-print">
+    <div>
+      <strong>GROTEC FarmerOS</strong> — Executive Client Implementation Dossier
+    </div>
+    <button class="print-btn" onclick="window.print()">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+        <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+      </svg>
+      Print / Save as PDF
+    </button>
+  </div>
+
+  <div class="document-container">
+    
+    <!-- Cover Header -->
+    <header class="cover-banner">
+      <div class="brand-tag">Enterprise Software Delivery</div>
+      <h1 class="cover-title">GROTEC FarmerOS</h1>
+      <p class="cover-subtitle">Integrated Agro-Telecalling CRM, Supply Chain & Workforce HRMS Platform</p>
+      
+      <div class="metadata-grid">
+        <div class="metadata-item">
+          <h4>Client Organization</h4>
+          <p>GROTEC Organic Pvt Ltd</p>
+        </div>
+        <div class="metadata-item">
+          <h4>Platform Version</h4>
+          <p>FarmerOS v2.4 (Active)</p>
+        </div>
+        <div class="metadata-item">
+          <h4>Delivery Status</h4>
+          <p>100% Core Operational</p>
+        </div>
+        <div class="metadata-item">
+          <h4>Release Date</h4>
+          <p>September 2026</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-body">
+
+      <!-- Section 1 -->
+      <section>
+        <h2 class="section-header">
+          <span class="section-num">1</span> Executive Strategic Overview
+        </h2>
+        <p>
+          <strong>GROTEC FarmerOS</strong> is an internal enterprise operating system custom-engineered to eliminate operational silos across <strong>GROTEC Organic Private Limited</strong>. The platform unifies the entire agricultural commerce lifecycle: from high-volume farmer outreach and scientific advisory to factory batch production, warehouse inventory management, vehicle fleet dispatch, mobile field delivery with Proof-of-Delivery (POD), and comprehensive staff attendance and automated payroll.
+        </p>
+        <div class="callout">
+          <strong>Key Business Impact:</strong> Replaces disconnected spreadsheets, manual dialers, paper delivery challans, and fragmented biometric punches with a single, synchronized platform providing real-time operational truth.
+        </div>
+      </section>
+
+      <!-- Section 2 -->
+      <section>
+        <h2 class="section-header">
+          <span class="section-num">2</span> Architectural Foundation & Governance
+        </h2>
+        <p>
+          The platform is engineered on an enterprise multi-tenant foundation running PostgreSQL on Supabase, a modular NestJS API core, and a high-performance React Single Page Application.
+        </p>
+
+        <table class="data-table avoid-break">
+          <thead>
+            <tr>
+              <th>Role Tier</th>
+              <th>Target Persona</th>
+              <th>Core Operational Authority</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="status-badge badge-role">FOUNDER</span></td>
+              <td>Founder & Executive CEO</td>
+              <td>Complete strategic command, financial payroll locks, warehouse adjustments, and full system security audit logs.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-role">MANAGER</span></td>
+              <td>Operations / Telecalling Manager</td>
+              <td>Dispatch manifests, gate loadings, delivery exceptions, team attendance approvals, and monthly KPI reviews.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-role">AGENT</span></td>
+              <td>Telecaller / Agronomic Advisor</td>
+              <td>6 dialer modes, Farmer 360° registry, in-call crop advisory, callback scheduler, and self-service HRMS.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-role">STAFF</span></td>
+              <td>HR & Office Administration</td>
+              <td>Employee personnel files, compliance document vaults (Aadhaar, PAN), leave ledgers, and attendance monitoring.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-role">DELIVERY</span></td>
+              <td>Field Logistics Specialist</td>
+              <td>Mobile driver portal, turn-by-turn route navigation, digital touchscreen POD signature capture, and field lead capture.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Section 3: The 12 Live Modules -->
+      <section class="page-break">
+        <h2 class="section-header">
+          <span class="section-num">3</span> Detailed Functional Delivery: The 12 Live Modules
+        </h2>
+
+        <!-- Module 1 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 1: Executive Command Center & Dashboards</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Centralized operational telemetry giving leadership real-time visibility into outreach volume, conversion velocity, and team targets.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Visual Call Donut:</strong> Real-time completion gauge measuring dialed, connected, and completed calls against daily targets.</div>
+            <div class="point-item"><strong>7-Day Call Pulse:</strong> Historical daily histogram tracking organization-wide telecalling volume across the preceding week.</div>
+            <div class="point-item"><strong>Dynamic Leaderboard:</strong> Gamified rankings filterable by Today, Week, and Month recognizing top-performing telecallers.</div>
+            <div class="point-item"><strong>Role Viewports:</strong> Automatically personalizes UI for Founders (strategy), Managers (approvals), and Agents (work queues).</div>
+          </div>
+        </div>
+
+        <!-- Module 2 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 2: Farmer Master Directory & 360° Registry</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Proprietary agricultural customer relationship management establishing a permanent, deduplicated database of farmers and landholdings.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Unique Farmer IDs:</strong> Automated issuance of sequential identification codes (e.g. <code>G-FARM-XXXXX</code>).</div>
+            <div class="point-item"><strong>E.164 Phone Deduplication:</strong> Strict international phone validation preventing duplicate farmer records upon entry.</div>
+            <div class="point-item"><strong>Agronomic Land Profiles:</strong> Captures acreage, soil classification (Black, Red, Clay, Sandy), and irrigation types.</div>
+            <div class="point-item"><strong>Farmer 360° Profile:</strong> Tabbed ledger consolidating demographics, line-item order invoices, crop parcels, and past call notes.</div>
+          </div>
+        </div>
+
+        <!-- Module 3 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 3: High-Velocity Telecaller Workstation</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Purpose-built telecalling cockpit maximizing agent calling capacity, call note accuracy, and scheduled follow-up compliance.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>6 Calling Modes:</strong> Direct SIM, Exotel IVR, Active Telecaller, Preview Dialer, Progressive Dialer, and Inbound IVR.</div>
+            <div class="point-item"><strong>Acoustic Headset Feedback:</strong> Subtle audio frequency cues confirming mute/unmute status for headset reassurance.</div>
+            <div class="point-item"><strong>Strict 3-Way Outcomes:</strong> Standardized logging (Interested / Not Interested / Not Answered) decoupled from Next Action.</div>
+            <div class="point-item"><strong>Mid-Call Quick Edit:</strong> Update crop acreages, soil types, or secondary phone numbers on the fly without leaving the active call.</div>
+          </div>
+        </div>
+
+        <!-- Module 4 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 4: Crop Science Knowledge Base & AI Agronomist</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Empowers agents with scientifically verified advisory protocols for cash crops, linking problems directly to Grotec organic solutions.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Seeded Crop Matrix:</strong> Verified protocols for Paddy, Sugarcane, Cotton, Banana, Grapes, Groundnut, Mango, and Pulses.</div>
+            <div class="point-item"><strong>Exact Product Dosages:</strong> Direct application formulas for Bio Jeevan PF/TV, Asthra, Trishul, Sanjeevini Gel, and Ultra Action+.</div>
+            <div class="point-item"><strong>Problem Categorization:</strong> Curated taxonomy covering Pests, Diseases, Nutrient Deficiencies, and Yield Enhancers.</div>
+            <div class="point-item"><strong>In-Call AI Assistant:</strong> Natural language query drawer allowing agents to ask questions mid-call and receive instant dosage answers.</div>
+          </div>
+        </div>
+
+        <!-- Module 5 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 5: Sales Order Booking & Commercial Invoicing</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Converts interested farmers directly into booked commercial orders, eliminating friction between call centers and warehouses.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Multi-Product Entry:</strong> Fast line-item picker with real-time unit pricing and quantity calculation.</div>
+            <div class="point-item"><strong>Agricultural Payment Terms:</strong> Configurable support for Cash on Delivery (COD), UPI transfer, and Advance deposits.</div>
+            <div class="point-item"><strong>Commercial Invoicing:</strong> Automatically generates delivery slips and tax-ready invoices with 1-click browser printing.</div>
+            <div class="point-item"><strong>Purchase History Sync:</strong> Every completed order permanently links to the farmer's 360° profile.</div>
+          </div>
+        </div>
+
+        <!-- Module 6 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 6: Warehouse Inventory & Finished-Goods Ledger</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Real-time inventory ledger tracking stock across logistical stages, preventing stockouts and shrinkage.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>4-State Tracking:</strong> Segregates stock into Available, Allocated for Dispatch, In-Transit on Vehicles, and Damaged.</div>
+            <div class="point-item"><strong>Audited Stock Ledger:</strong> Permanent history of all additions, allocations, dispatches, and warehouse adjustments.</div>
+            <div class="point-item"><strong>Authorized Adjustments:</strong> Manager modal for physical stocktaking adjustments with mandatory reason logging.</div>
+            <div class="point-item"><strong>Category Segmentation:</strong> Organized by Bio-Fungicides, Bio-Pesticides, Plant Nutrients, and Yield Boosters.</div>
+          </div>
+        </div>
+
+        <!-- Module 7 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 7: Factory Production Batches & Formulation Register</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Certifies manufacturing output at the factory level, maintaining formulation traceability from vat to vehicle.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Batch Code Registry:</strong> Auto-generates certified batch numbers with production dates and formulation notes.</div>
+            <div class="point-item"><strong>Output Accounting:</strong> Tracks total units manufactured versus remaining balance as orders deplete the batch.</div>
+            <div class="point-item"><strong>Quality Compliance:</strong> Centralized log for batch quality checks, laboratory releases, and packaging validations.</div>
+            <div class="point-item"><strong>Inventory Auto-Credit:</strong> Completing a production run automatically adds available stock to the central warehouse ledger.</div>
+          </div>
+        </div>
+
+        <!-- Module 8 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 8: Fleet Dispatch Manifests & Vehicle Trip Logistics</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Organizes rural dispatching into structured delivery runs with driver assignments and gate verification checklists.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Route Manifests:</strong> Clusters confirmed orders into geographic delivery routes by district and taluk.</div>
+            <div class="point-item"><strong>Resource Allocation:</strong> Assigns delivery vehicles (registration, payload capacity), drivers, and helpers.</div>
+            <div class="point-item"><strong>Gate Verification Checklist:</strong> Pre-departure sign-off verifying physical package counts and carton seals.</div>
+            <div class="point-item"><strong>Odometer Auditing:</strong> Captures vehicle start and closing odometer readings to monitor fuel efficiency and transit time.</div>
+          </div>
+        </div>
+
+        <!-- Module 9 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 9: Mobile Field Delivery Portal & Digital Proof-of-Delivery</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Mobile-optimized field workstation empowering delivery drivers with digital route sheets and touchless delivery confirmation.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Smartphone Optimized:</strong> Lightweight responsive interface designed for field logistics in low-bandwidth areas.</div>
+            <div class="point-item"><strong>Turn-by-Turn Navigation:</strong> 1-tap Google Maps integration and direct farmer click-to-call button.</div>
+            <div class="point-item"><strong>Digital POD Capture:</strong> Touchscreen recipient signature capture and Cash/UPI payment collection verification.</div>
+            <div class="point-item"><strong>Field Lead Capture:</strong> Enables delivery drivers to register neighboring interested farmers as new CRM leads from the road.</div>
+          </div>
+        </div>
+
+        <!-- Module 10 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 10: Operations Exception & Discrepancy Resolution Centre</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Instant discrepancy resolution handling partial farmer acceptance or transit damage without accounting discrepancies.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>In-Flight Exception Logging:</strong> Driver submits immediate quantity adjustments directly from the field delivery screen.</div>
+            <div class="point-item"><strong>Manager Adjudication Queue:</strong> Centralized dashboard for operations managers to approve or reject adjustments with notes.</div>
+            <div class="point-item"><strong>Automated Recalibration:</strong> Approving an exception automatically recalculates the order invoice to the revised amount.</div>
+            <div class="point-item"><strong>Vehicle Stock Reconciliation:</strong> Rejected or damaged stock is automatically returned to vehicle inventory without manual entries.</div>
+          </div>
+        </div>
+
+        <!-- Module 11 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 11: Enterprise HRMS & Workforce Management Suite</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Comprehensive human resources management linking staff attendance, leave quotas, and KPI metrics directly to payroll.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Staff Directory & Vault:</strong> Employee profiles with reporting hierarchy and encrypted compliance document storage (Aadhaar, PAN).</div>
+            <div class="point-item"><strong>Biometric Attendance:</strong> Daily punch registers, shift calculations, late entry flags, and eSSL biometric hardware sync.</div>
+            <div class="point-item"><strong>Leave Management:</strong> Quotas for Casual, Sick, and Earned Leaves with employee self-service and manager approval chains.</div>
+            <div class="point-item"><strong>Automated Payroll Engine:</strong> Computes Basic, HRA, statutory deductions, attendance loss-of-pay, and advance recoveries.</div>
+            <div class="point-item"><strong>Salary Advance Ledger:</strong> Disburses employee advances and automatically recovers installments from monthly payroll runs.</div>
+            <div class="point-item"><strong>Weighted KPI Engine:</strong> Combines call volume, talk time, and punctuality into automated monthly scorecards with coaching notes.</div>
+          </div>
+        </div>
+
+        <!-- Module 12 -->
+        <div class="feature-card avoid-break">
+          <div class="feature-card-header">
+            <h4>Module 12: Business Intelligence, Analytics & Audit Trail</h4>
+            <span class="status-badge badge-live">100% Live</span>
+          </div>
+          <p>Comprehensive operational reporting and security governance providing immutable traceability across all platform events.</p>
+          <div class="key-points">
+            <div class="point-item"><strong>Operational Reports:</strong> Detailed reports for Agent Leaderboards, Call Activity Logs, Follow-Up Calendars, and Farmer Demographics.</div>
+            <div class="point-item"><strong>1-Click CSV Exports:</strong> Instant client-side CSV downloads on every report for spreadsheet modeling and board presentations.</div>
+            <div class="point-item"><strong>Immutable Audit Trail:</strong> Permanent security log capturing actor ID, timestamp, entity affected, and action details for every mutation.</div>
+            <div class="point-item"><strong>Role-Based Analytics:</strong> Narrows data visibility strictly by organizational hierarchy and departmental permissions.</div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Section 4: Credentials & Testing Verification -->
+      <section class="page-break">
+        <h2 class="section-header">
+          <span class="section-num">4</span> Verification & Pre-Configured Demonstration Accounts
+        </h2>
+        <p>
+          The system is fully seeded with realistic operational personas ready for client demonstration and user acceptance testing:
+        </p>
+
+        <table class="data-table avoid-break">
+          <thead>
+            <tr>
+              <th>Demonstration Role</th>
+              <th>Login Email</th>
+              <th>Password</th>
+              <th>Recommended Client Walkthrough Focus</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Founder & CEO</strong></td>
+              <td><code>grotecdatabase@gmail.com</code></td>
+              <td><code>Grotecdatabase123@</code></td>
+              <td>Executive Dashboard, Audit Trail, Payroll Locks, Exception Review</td>
+            </tr>
+            <tr>
+              <td><strong>Operations Manager</strong></td>
+              <td><code>manager@grotec.local</code></td>
+              <td><code>Grotecdatabase123@</code></td>
+              <td>Dispatch Manifests, Gate Checklists, Team Attendance, KPI Reviews</td>
+            </tr>
+            <tr>
+              <td><strong>Telecaller Agent</strong></td>
+              <td><code>agent@grotec.local</code></td>
+              <td><code>Grotecdatabase123@</code></td>
+              <td>Calling Workspace, 6 Dialer Modes, Agronomic AI Assistant, Callbacks</td>
+            </tr>
+            <tr>
+              <td><strong>HR & Office Staff</strong></td>
+              <td><code>staff@grotec.local</code></td>
+              <td><code>Grotecdatabase123@</code></td>
+              <td>Staff Directory, Document Vault, Leave Approval Ledger</td>
+            </tr>
+            <tr>
+              <td><strong>Field Delivery Specialist</strong></td>
+              <td><code>delivery@grotec.local</code></td>
+              <td><code>Grotecdatabase123@</code></td>
+              <td>Mobile Driver Portal, Digital Signature POD, Field Lead Capture</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Sign-off block -->
+        <div class="signoff-box avoid-break">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--slate-900); margin-bottom: 6px;">
+            Platform Delivery Acceptance & Sign-off
+          </h3>
+          <p style="font-size: 12px; color: var(--slate-600);">
+            By signing below, the client stakeholders confirm receipt of the platform delivery report and verify the functional operational readiness of the core modules described above.
+          </p>
+          <div class="signoff-grid">
+            <div>
+              <div class="signature-line"></div>
+              <p style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">GROTEC Organic Private Limited</p>
+              <p style="font-size: 11px; color: var(--slate-500);">Executive Stakeholder / Authorized Signatory</p>
+              <p style="font-size: 11px; color: var(--slate-500); margin-top: 4px;">Date: ____ / ____ / 2026</p>
+            </div>
+            <div>
+              <div class="signature-line"></div>
+              <p style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">Engineering & Delivery Team</p>
+              <p style="font-size: 11px; color: var(--slate-500);">Project Lead / Solutions Architect</p>
+              <p style="font-size: 11px; color: var(--slate-500); margin-top: 4px;">Date: ____ / ____ / 2026</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </div>
+
+</body>
+</html>

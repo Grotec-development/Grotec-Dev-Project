@@ -6,7 +6,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    hostname: 'grotec-dev-project-frontend.vercel.app',
+    // Live update source: APK loads directly from live hosted deployment.
+    // Pushing updates to your web hosting immediately updates the mobile app without reinstalling APK.
+    url: process.env.CAPACITOR_SERVER_URL || 'https://grotec-dev-project-frontend.vercel.app',
     cleartext: true
   }
 };

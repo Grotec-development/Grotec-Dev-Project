@@ -92,7 +92,7 @@ function playAudioCue(muted: boolean) {
 }
 
 export type CallingMode = 'KEYPAD' | 'PHONE_LINK';
-export type DispositionType = 'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED' | 'WRONG_NUMBER';
+export type DispositionType = 'INTERESTED' | 'NOT_INTERESTED' | 'NOT_ANSWERED' | 'WRONG_NUMBER' | (string & {});
 
 export const QUICK_TAGS = [
   '+ Bio-fertilizer trial',
@@ -134,11 +134,14 @@ export function AgentWorkspacePage() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [context, setContext] = useState<CallContext | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
-  const [disposition, setDisposition] = useState<DispositionType>('INTERESTED');
+  const [disposition, setDisposition] = useState<string>('INTERESTED');
   const [nextAction, setNextAction] = useState<'CALLBACK'>('CALLBACK');
   const [followUpDate, setFollowUpDate] = useState(new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10));
   const [followUpTime, setFollowUpTime] = useState('10:00');
   const [followUpNote, setFollowUpNote] = useState('');
+  const [productInterest, setProductInterest] = useState('');
+  const [cropInterest, setCropInterest] = useState('');
+  const [expectedBookingAmount, setExpectedBookingAmount] = useState('');
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -518,6 +521,46 @@ export function AgentWorkspacePage() {
     return () => window.clearInterval(id);
   }, [activeCall, context]);
 
+  // Cross-Device Concurrent Sync Engine (PC ⇄ Mobile Phone):
+  // Polls /calls/active every 2 seconds when no active call is present on this machine.
+  // When an agent starts a call on their phone, the PC workspace automatically detects it,
+  // opens the Farmer 360 call screen, loads agricultural context, and syncs the live timer.
+  // Conversely, if a call is started on PC, the mobile phone detects it immediately.
+  useEffect(() => {
+    if (activeCall && isActive(activeCall.status)) return;
+
+    const syncInterval = window.setInterval(() => {
+      void api
+        .get<Call | null>('/calls/active')
+        .then((res) => {
+          if (res.data) {
+            if (!activeCall || activeCall.id !== res.data.id) {
+              setActiveCall(res.data);
+              const callEnded = res.data.status === 'ENDED' || !isActive(res.data.status);
+              setIsWrapUp(callEnded);
+              setIsMinimized(false);
+              const startTime = res.data.connectedAt
+                ? new Date(res.data.connectedAt).getTime()
+                : new Date(res.data.startedAt).getTime();
+              const endTime = res.data.endedAt ? new Date(res.data.endedAt).getTime() : Date.now();
+              setElapsed(Math.max(0, Math.floor((endTime - startTime) / 1000)));
+              void loadContext(res.data.id);
+              if (!callEnded) {
+                setSuccessNotice(`Cross-Device Sync: Active call with ${res.data.phoneNumber} connected.`);
+              }
+            }
+          } else if (activeCall && !isWrapUp) {
+            setActiveCall(null);
+            setIsWrapUp(false);
+            void loadQueue();
+          }
+        })
+        .catch(() => undefined);
+    }, 2000);
+
+    return () => window.clearInterval(syncInterval);
+  }, [activeCall, isWrapUp]);
+
   // Elapsed timer while call is actively connected
   useEffect(() => {
     if (!activeCall || !isActive(activeCall.status)) return;
@@ -685,9 +728,20 @@ export function AgentWorkspacePage() {
           await api.post(`/calls/${callId}/notes`, { body: noteDraft.trim() }).catch(() => undefined);
         }
         const outcomePayload: any = {
-          outcome: disposition === 'WRONG_NUMBER' ? 'NOT_ANSWERED' : disposition,
+          outcome: disposition,
+          productInterest: productInterest.trim() || undefined,
+          cropInterest: cropInterest.trim() || undefined,
+          expectedBookingAmount: expectedBookingAmount ? Number(expectedBookingAmount) : undefined,
+          callMode: isNativeApp() ? 'NATIVE_SIM' : callingMode === 'PHONE_LINK' ? 'MANUAL_SIM' : 'BROWSER_DIALER',
         };
-        if (disposition === 'INTERESTED') {
+        const requiresFollowUp =
+          disposition === 'INTERESTED' ||
+          disposition === 'CALLBACK_REQUESTED' ||
+          disposition === 'FOLLOW_UP_REQUIRED' ||
+          disposition === 'COMPLAINT_SERVICE' ||
+          Boolean(followUpDate && followUpTime);
+
+        if (requiresFollowUp) {
           outcomePayload.nextAction = 'CALLBACK';
           outcomePayload.followUpDate = followUpDate || new Date().toISOString().slice(0, 10);
           outcomePayload.followUpTime = followUpTime || '10:00';
@@ -1153,7 +1207,7 @@ export function AgentWorkspacePage() {
   }
 
   return (
-    <div className="p-6 space-y-4 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Top Header: Breadcrumb, 2 Calling Modes, Break Controller, Queue Categories */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/90 pb-3">
         <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -1229,6 +1283,12 @@ export function AgentWorkspacePage() {
               <span>Take Break</span>
             </button>
           )}
+
+          {/* Real-Time Cross-Device PC ⇄ Mobile Sync Status */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold" title="PC Web and Mobile Phone are synced concurrently">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>PC ⇄ Mobile Live Sync Active</span>
+          </div>
 
           {matchedQueueItem && (
             <span className="rounded bg-slate-100 text-slate-600 px-1.5 py-0.2 text-[10px] font-semibold">
@@ -1477,6 +1537,27 @@ export function AgentWorkspacePage() {
           )}
         </div>
       ) : null}
+
+      {/* Mobile Incoming PC Dial Action Banner */}
+      {isNativeApp() && callActive && activeCall?.status !== 'CONNECTED' && (
+        <div className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 p-3.5 text-white shadow-lg flex items-center justify-between gap-3 animate-pulse border border-emerald-400">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-white/20 rounded-full">
+              <PhoneCall className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-bold">Active Call Triggered from PC</p>
+              <p className="text-[11px] text-emerald-100">Farmer: {farmerDisplayName} ({farmerDisplayPhone})</p>
+            </div>
+          </div>
+          <a
+            href={`tel:${farmerDisplayPhone}`}
+            className="px-3.5 py-1.5 bg-white text-emerald-800 font-bold text-xs rounded-lg shadow-md hover:bg-emerald-50 active:scale-95 transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <Phone className="h-3.5 w-3.5 fill-current" /> Tap to Dial SIM
+          </a>
+        </div>
+      )}
 
       {/* 2. Top Banner: Active Call (Dialing/Ringing vs Connected) OR Wrap-Up Amber */}
       {callActive && (
@@ -2284,17 +2365,17 @@ export function AgentWorkspacePage() {
                 </div>
               </div>
 
-              {/* Disposition Selector: 4 1-click pills */}
+              {/* Disposition Selector: Master Configurable Pills */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Call Outcome / Disposition *
+                  Call Outcome / Disposition Master *
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setDisposition('INTERESTED')}
                     className={cx(
-                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
                       disposition === 'INTERESTED'
                         ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-200'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -2302,27 +2383,69 @@ export function AgentWorkspacePage() {
                   >
                     <span className="text-sm">★</span>
                     <span>Interested</span>
-                    <span className="text-[9px] font-normal text-emerald-700">Schedule Callback</span>
+                    <span className="text-[9px] font-normal text-emerald-700">Callback Task</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDisposition('NOT_INTERESTED')}
+                    onClick={() => setDisposition('CONVERTED_ORDER')}
                     className={cx(
-                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
-                      disposition === 'NOT_INTERESTED'
-                        ? 'bg-red-50 border-red-500 text-red-900 ring-2 ring-red-200'
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'CONVERTED_ORDER'
+                        ? 'bg-teal-50 border-teal-500 text-teal-900 ring-2 ring-teal-200'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     )}
                   >
-                    <span className="text-sm">✗</span>
-                    <span>Not Interested</span>
-                    <span className="text-[9px] font-normal text-red-600">Close Discussion</span>
+                    <span className="text-sm">✓</span>
+                    <span>Order Placed</span>
+                    <span className="text-[9px] font-normal text-teal-700">Converted</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisposition('CALLBACK_REQUESTED')}
+                    className={cx(
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'CALLBACK_REQUESTED'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-200'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">☎</span>
+                    <span>Callback Req.</span>
+                    <span className="text-[9px] font-normal text-emerald-700">Scheduled Call</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisposition('FOLLOW_UP_REQUIRED')}
+                    className={cx(
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'FOLLOW_UP_REQUIRED'
+                        ? 'bg-blue-50 border-blue-500 text-blue-900 ring-2 ring-blue-200'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">↻</span>
+                    <span>Follow-Up Req.</span>
+                    <span className="text-[9px] font-normal text-blue-700">Farmer Pending</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisposition('EXISTING_CUSTOMER')}
+                    className={cx(
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'EXISTING_CUSTOMER'
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-900 ring-2 ring-indigo-200'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">👤</span>
+                    <span>Existing Cust.</span>
+                    <span className="text-[9px] font-normal text-indigo-700">Service / Repeat</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setDisposition('NOT_ANSWERED')}
                     className={cx(
-                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
                       disposition === 'NOT_ANSWERED'
                         ? 'bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-200'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -2334,9 +2457,23 @@ export function AgentWorkspacePage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setDisposition('NOT_INTERESTED')}
+                    className={cx(
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      disposition === 'NOT_INTERESTED'
+                        ? 'bg-red-50 border-red-500 text-red-900 ring-2 ring-red-200'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="text-sm">✗</span>
+                    <span>Not Interested</span>
+                    <span className="text-[9px] font-normal text-red-600">Close Discussion</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setDisposition('WRONG_NUMBER')}
                     className={cx(
-                      'py-2 px-2.5 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
+                      'py-2 px-2 rounded-lg text-xs font-bold border transition text-center flex flex-col items-center gap-0.5 cursor-pointer',
                       disposition === 'WRONG_NUMBER'
                         ? 'bg-slate-100 border-slate-500 text-slate-900 ring-2 ring-slate-300'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -2344,13 +2481,60 @@ export function AgentWorkspacePage() {
                   >
                     <span className="text-sm">⚠</span>
                     <span>Wrong Number</span>
-                    <span className="text-[9px] font-normal text-slate-500">Invalid / Unreachable</span>
+                    <span className="text-[9px] font-normal text-slate-500">Invalid Contact</span>
                   </button>
                 </div>
               </div>
 
-              {/* Interested Next Action Sub-Panel (direct Callback) */}
-              {disposition === 'INTERESTED' && (
+              {/* Commercial Opportunities & Product Interest (Section 3.1 & 9) */}
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                  Commercial Opportunities &amp; Product Interest
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                      Crop Focus
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Paddy, Coconut, Banana"
+                      value={cropInterest}
+                      onChange={(e) => setCropInterest(e.target.value)}
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                      Product Recommendation
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Bio Jeevan PF / Sanjeevini Gel"
+                      value={productInterest}
+                      onChange={(e) => setProductInterest(e.target.value)}
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                      Expected Value (₹)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 5000"
+                      value={expectedBookingAmount}
+                      onChange={(e) => setExpectedBookingAmount(e.target.value)}
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Next Action Sub-Panel (Callback / Follow-Up) */}
+              {(disposition === 'INTERESTED' ||
+                disposition === 'CALLBACK_REQUESTED' ||
+                disposition === 'FOLLOW_UP_REQUIRED') && (
                 <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-900">

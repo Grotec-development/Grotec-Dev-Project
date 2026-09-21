@@ -1,29 +1,23 @@
-/**
- * Returns true if actor strictly outranks targetRole.
- * Agents and Delivery staff are peers and do not outrank each other.
- */
+export function toTechnicalRole(roleCode: any): any;
 export function outranks(actorRole: any, targetRole: any): boolean;
-/**
- * Many service methods hardcode `actor.roleCode === 'FOUNDER'` as a stricter,
- * business-rule-level gate on top of the permission-guard layer (e.g. "only the
- * Founder can reset a password" per PRD §5.1.2), rather than deriving it from
- * ROLE_RANK. SUPER_ADMIN is meant to have full access everywhere Founder does
- * plus the ability to override Founder specifically, so every one of those
- * hardcoded checks needs to also recognize SUPER_ADMIN. Centralizing the check
- * here keeps that "Founder-tier" concept in one place instead of duplicating
- * `=== 'FOUNDER' || === 'SUPER_ADMIN'` at every call site.
- */
 export function isTopTier(roleCode: any): boolean;
 /**
- * Login roles per the PRD, plus SUPER_ADMIN: a break-glass role added on top of
- * the PRD's Phase 1 hierarchy that outranks even Founder and holds every
- * permission in the system, including ones normally hardcoded to "Founder
- * only" (see isTopTier below). Relationship Manager is an ownership concept,
- * NOT a login role (see docs/architecture.md).
+ * GROTEC FarmerOS Roles Definition
+ * Section 5: GROTEC Roles & Permission Model
  *
- * @typedef {'SUPER_ADMIN'|'FOUNDER'|'MANAGER'|'AGENT'|'STAFF'|'DELIVERY'} RoleCode
+ * Supports business-facing roles mapped cleanly to permission groups and
+ * extendable without code changes.
  */
-export const ROLE_CODES: string[];
+/**
+ * @typedef {'SUPER_ADMIN' | 'FOUNDER' | 'MANAGER' | 'AGENT' | 'STAFF' | 'DELIVERY' | 'FARMER_SUCCESS_MANAGER' | 'GROUP_LEADER' | 'FSE' | 'HR_ADMIN' | 'ACCOUNTS_FINANCE' | 'TECHNICAL_AGRONOMY' | 'STORES_DISPATCH'} RoleCode
+ */
+export const ROLE_CODES: readonly ["SUPER_ADMIN", "FOUNDER", "MANAGER", "AGENT", "STAFF", "DELIVERY", "FARMER_SUCCESS_MANAGER", "GROUP_LEADER", "FSE", "HR_ADMIN", "ACCOUNTS_FINANCE", "TECHNICAL_AGRONOMY", "STORES_DISPATCH"];
+export const GROTEC_BUSINESS_ROLES: {
+    code: string;
+    label: string;
+    technicalRole: string;
+    description: string;
+}[];
 export namespace ROLE_LABELS {
     let SUPER_ADMIN: string;
     let FOUNDER: string;
@@ -31,6 +25,13 @@ export namespace ROLE_LABELS {
     let AGENT: string;
     let STAFF: string;
     let DELIVERY: string;
+    let FARMER_SUCCESS_MANAGER: string;
+    let GROUP_LEADER: string;
+    let FSE: string;
+    let HR_ADMIN: string;
+    let ACCOUNTS_FINANCE: string;
+    let TECHNICAL_AGRONOMY: string;
+    let STORES_DISPATCH: string;
 }
 export namespace ROLE_RANK {
     let SUPER_ADMIN_1: number;
@@ -39,18 +40,25 @@ export namespace ROLE_RANK {
     export { FOUNDER_1 as FOUNDER };
     let MANAGER_1: number;
     export { MANAGER_1 as MANAGER };
+    let FARMER_SUCCESS_MANAGER_1: number;
+    export { FARMER_SUCCESS_MANAGER_1 as FARMER_SUCCESS_MANAGER };
+    let GROUP_LEADER_1: number;
+    export { GROUP_LEADER_1 as GROUP_LEADER };
     let AGENT_1: number;
     export { AGENT_1 as AGENT };
+    let FSE_1: number;
+    export { FSE_1 as FSE };
     let STAFF_1: number;
     export { STAFF_1 as STAFF };
+    let HR_ADMIN_1: number;
+    export { HR_ADMIN_1 as HR_ADMIN };
+    let ACCOUNTS_FINANCE_1: number;
+    export { ACCOUNTS_FINANCE_1 as ACCOUNTS_FINANCE };
+    let TECHNICAL_AGRONOMY_1: number;
+    export { TECHNICAL_AGRONOMY_1 as TECHNICAL_AGRONOMY };
+    let STORES_DISPATCH_1: number;
+    export { STORES_DISPATCH_1 as STORES_DISPATCH };
     let DELIVERY_1: number;
     export { DELIVERY_1 as DELIVERY };
 }
-/**
- * Login roles per the PRD, plus SUPER_ADMIN: a break-glass role added on top of
- * the PRD's Phase 1 hierarchy that outranks even Founder and holds every
- * permission in the system, including ones normally hardcoded to "Founder
- * only" (see isTopTier below). Relationship Manager is an ownership concept,
- * NOT a login role (see docs/architecture.md).
- */
-export type RoleCode = "SUPER_ADMIN" | "FOUNDER" | "MANAGER" | "AGENT" | "STAFF" | "DELIVERY";
+export type RoleCode = "SUPER_ADMIN" | "FOUNDER" | "MANAGER" | "AGENT" | "STAFF" | "DELIVERY" | "FARMER_SUCCESS_MANAGER" | "GROUP_LEADER" | "FSE" | "HR_ADMIN" | "ACCOUNTS_FINANCE" | "TECHNICAL_AGRONOMY" | "STORES_DISPATCH";

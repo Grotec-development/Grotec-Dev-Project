@@ -16,13 +16,16 @@ import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
 import { DialerWebhookController } from './dialer-webhook.controller';
 import { DialerRegistry } from './dialer/dialer.registry';
+import { CallOutcomeMasterController } from './call-outcome-master.controller';
+import { CallOutcomeMasterService } from './call-outcome-master.service';
 let CallsModule = class CallsModule {
 };
 CallsModule = __decorate([
     Module({
         imports: [PrismaModule, AuditModule, CustomersModule, MessagingModule, IdempotencyModule],
-        controllers: [CallsController, CustomerCallsController, DialerWebhookController],
-        providers: [DialerRegistry, CallStatusSyncService, CallsService],
+        controllers: [CallsController, CustomerCallsController, DialerWebhookController, CallOutcomeMasterController],
+        providers: [DialerRegistry, CallStatusSyncService, CallsService, CallOutcomeMasterService],
+        exports: [CallOutcomeMasterService, CallsService],
     })
 ], CallsModule);
 export { CallsModule };

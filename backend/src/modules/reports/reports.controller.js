@@ -116,7 +116,61 @@ let ReportsController = class ReportsController {
         res?.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         return csv;
     }
+
+    // -------------------------------------------------------------------------
+    // FSE 360° BUSINESS FUNNEL (Section 8)
+    // -------------------------------------------------------------------------
+
+    async getFseFunnel(actor, query) {
+        return this.reports.getFseFunnel(actor, query || {});
+    }
+
+    // -------------------------------------------------------------------------
+    // DYNAMIC BUSINESS INTELLIGENCE FILTER ENGINE (Section 10)
+    // -------------------------------------------------------------------------
+
+    async getDynamicBi(actor, query) {
+        return this.reports.getDynamicBi(actor, query || {});
+    }
+
+    async exportDynamicBi(actor, query, res) {
+        const { filename, csv } = await this.reports.exportDynamicBiCsv(actor, query || {});
+        res?.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res?.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return csv;
+    }
 };
+
+__decorate([
+    Get('fse-funnel'),
+    RequirePermission(PERMISSIONS.callRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "getFseFunnel", null);
+
+__decorate([
+    Get('dynamic-bi'),
+    RequirePermission(PERMISSIONS.customerRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "getDynamicBi", null);
+
+__decorate([
+    Get('dynamic-bi/export'),
+    RequirePermission(PERMISSIONS.customerRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query()),
+    __param(2, Res({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "exportDynamicBi", null);
 
 __decorate([
     Get('calls'),

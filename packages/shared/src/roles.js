@@ -1,55 +1,100 @@
 /**
- * Login roles per the PRD, plus SUPER_ADMIN: a break-glass role added on top of
- * the PRD's Phase 1 hierarchy that outranks even Founder and holds every
- * permission in the system, including ones normally hardcoded to "Founder
- * only" (see isTopTier below). Relationship Manager is an ownership concept,
- * NOT a login role (see docs/architecture.md).
- *
- * @typedef {'SUPER_ADMIN'|'FOUNDER'|'MANAGER'|'AGENT'|'STAFF'|'DELIVERY'} RoleCode
+ * GROTEC FarmerOS Roles Definition
+ * Section 5: GROTEC Roles & Permission Model
+ * 
+ * Supports business-facing roles mapped cleanly to permission groups and
+ * extendable without code changes.
  */
-export const ROLE_CODES = ['SUPER_ADMIN', 'FOUNDER', 'MANAGER', 'AGENT', 'STAFF', 'DELIVERY'];
-
-export const ROLE_LABELS = {
-  SUPER_ADMIN: 'Super Admin',
-  FOUNDER: 'Founder',
-  MANAGER: 'Admin/Manager',
-  AGENT: 'Telecaller/Agent',
-  STAFF: 'Office/Operations Staff',
-  DELIVERY: 'Delivery Service Person',
-};
 
 /**
- * Hierarchy rank per Master Build Prompt, extended with SUPER_ADMIN above Founder:
- * SUPER_ADMIN (-1) > FOUNDER (0) > MANAGER (1) > AGENT (2) = STAFF (2) = DELIVERY (2).
- * Lower number = higher authority.
+ * @typedef {'SUPER_ADMIN' | 'FOUNDER' | 'MANAGER' | 'AGENT' | 'STAFF' | 'DELIVERY' | 'FARMER_SUCCESS_MANAGER' | 'GROUP_LEADER' | 'FSE' | 'HR_ADMIN' | 'ACCOUNTS_FINANCE' | 'TECHNICAL_AGRONOMY' | 'STORES_DISPATCH'} RoleCode
  */
+
+export const ROLE_CODES = /** @type {const} */ ([
+  'SUPER_ADMIN',
+  'FOUNDER',
+  'MANAGER',
+  'AGENT',
+  'STAFF',
+  'DELIVERY',
+  // Official GROTEC Business Roles
+  'FARMER_SUCCESS_MANAGER',
+  'GROUP_LEADER',
+  'FSE',
+  'HR_ADMIN',
+  'ACCOUNTS_FINANCE',
+  'TECHNICAL_AGRONOMY',
+  'STORES_DISPATCH',
+]);
+
+export const GROTEC_BUSINESS_ROLES = [
+  { code: 'SUPER_ADMIN', label: 'Founder / Super Admin', technicalRole: 'SUPER_ADMIN', description: 'Full system ownership & break-glass access' },
+  { code: 'FOUNDER', label: 'Founder', technicalRole: 'FOUNDER', description: 'Executive oversight, approvals, and strategic governance' },
+  { code: 'FARMER_SUCCESS_MANAGER', label: 'Farmer Success Manager', technicalRole: 'MANAGER', description: 'Telecalling operations, assignment, conversion & performance management' },
+  { code: 'GROUP_LEADER', label: 'Group Leader (GL)', technicalRole: 'MANAGER', description: 'Team supervisory oversight, queue balancing & quality coaching' },
+  { code: 'FSE', label: 'Farmer Success Executive (FSE)', technicalRole: 'AGENT', description: 'Farmer advisory, outbound telecalling, wrap-up & follow-ups' },
+  { code: 'HR_ADMIN', label: 'HR / Admin', technicalRole: 'STAFF', description: 'Staff records, biometric attendance, leave & payroll processing' },
+  { code: 'ACCOUNTS_FINANCE', label: 'Accounts / Finance', technicalRole: 'STAFF', description: 'Invoicing, payment reconciliation & collections' },
+  { code: 'TECHNICAL_AGRONOMY', label: 'Technical / Agronomy', technicalRole: 'STAFF', description: 'Crop knowledge base curation, dosage guidance & AI prompt grounding' },
+  { code: 'STORES_DISPATCH', label: 'Stores / Dispatch', technicalRole: 'STAFF', description: 'Inventory stock movements, vehicle loading & trip dispatch' },
+  { code: 'DELIVERY', label: 'Delivery (future)', technicalRole: 'DELIVERY', description: 'Doorstep delivery execution, POD signature & vehicle stock reconciliation' },
+];
+
+export const ROLE_LABELS = {
+  SUPER_ADMIN: 'Founder / Super Admin',
+  FOUNDER: 'Founder',
+  MANAGER: 'Admin / Manager',
+  AGENT: 'Telecaller / Agent',
+  STAFF: 'Office / Operations Staff',
+  DELIVERY: 'Delivery Service Person',
+  FARMER_SUCCESS_MANAGER: 'Farmer Success Manager',
+  GROUP_LEADER: 'Group Leader (GL)',
+  FSE: 'Farmer Success Executive (FSE)',
+  HR_ADMIN: 'HR / Admin',
+  ACCOUNTS_FINANCE: 'Accounts / Finance',
+  TECHNICAL_AGRONOMY: 'Technical / Agronomy',
+  STORES_DISPATCH: 'Stores / Dispatch',
+};
+
 export const ROLE_RANK = {
   SUPER_ADMIN: -1,
   FOUNDER: 0,
   MANAGER: 1,
+  FARMER_SUCCESS_MANAGER: 1,
+  GROUP_LEADER: 1,
   AGENT: 2,
+  FSE: 2,
   STAFF: 2,
+  HR_ADMIN: 2,
+  ACCOUNTS_FINANCE: 2,
+  TECHNICAL_AGRONOMY: 2,
+  STORES_DISPATCH: 2,
   DELIVERY: 2,
 };
 
-/**
- * Returns true if actor strictly outranks targetRole.
- * Agents and Delivery staff are peers and do not outrank each other.
- */
-export function outranks(actorRole, targetRole) {
-  return ROLE_RANK[actorRole] < ROLE_RANK[targetRole];
+export function toTechnicalRole(roleCode) {
+  switch (roleCode) {
+    case 'FSE':
+      return 'AGENT';
+    case 'FARMER_SUCCESS_MANAGER':
+    case 'GROUP_LEADER':
+      return 'MANAGER';
+    case 'HR_ADMIN':
+    case 'ACCOUNTS_FINANCE':
+    case 'TECHNICAL_AGRONOMY':
+    case 'STORES_DISPATCH':
+      return 'STAFF';
+    default:
+      return roleCode;
+  }
 }
 
-/**
- * Many service methods hardcode `actor.roleCode === 'FOUNDER'` as a stricter,
- * business-rule-level gate on top of the permission-guard layer (e.g. "only the
- * Founder can reset a password" per PRD §5.1.2), rather than deriving it from
- * ROLE_RANK. SUPER_ADMIN is meant to have full access everywhere Founder does
- * plus the ability to override Founder specifically, so every one of those
- * hardcoded checks needs to also recognize SUPER_ADMIN. Centralizing the check
- * here keeps that "Founder-tier" concept in one place instead of duplicating
- * `=== 'FOUNDER' || === 'SUPER_ADMIN'` at every call site.
- */
+export function outranks(actorRole, targetRole) {
+  const actorRank = ROLE_RANK[actorRole] ?? 99;
+  const targetRank = ROLE_RANK[targetRole] ?? 99;
+  return actorRank < targetRank;
+}
+
 export function isTopTier(roleCode) {
   return roleCode === 'FOUNDER' || roleCode === 'SUPER_ADMIN';
 }

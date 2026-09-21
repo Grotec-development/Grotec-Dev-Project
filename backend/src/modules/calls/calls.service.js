@@ -161,7 +161,10 @@ let CallsService = class CallsService {
         const active = await this.prisma.call.findFirst({
             where: {
                 agentId: actor.id,
-                status: { in: [...ACTIVE_CALL_STATUSES] },
+                OR: [
+                    { status: { in: [...ACTIVE_CALL_STATUSES] } },
+                    { status: 'ENDED', outcome: null, outcomeCustom: null, endedAt: { gte: new Date(Date.now() - 30 * 60 * 1000) } },
+                ],
             },
             include: {
                 notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
@@ -176,7 +179,7 @@ let CallsService = class CallsService {
                     notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
                 },
             });
-            if (fresh && (ACTIVE_CALL_STATUSES.includes(fresh.status) || (fresh.status === CallStatus.ENDED && !fresh.outcome))) {
+            if (fresh && (ACTIVE_CALL_STATUSES.includes(fresh.status) || (fresh.status === 'ENDED' && !fresh.outcome && !fresh.outcomeCustom))) {
                 return this.serialize(fresh);
             }
         }
@@ -427,23 +430,41 @@ let CallsService = class CallsService {
         if (call.status === CallStatus.FAILED) {
             throw ApiError.conflict('OUTCOME_NOT_ALLOWED', 'An outcome cannot be recorded for a failed call');
         }
-        if (call.status === CallStatus.NOT_ANSWERED && dto.outcome !== CallOutcome.NOT_ANSWERED) {
+        const outcomeCode = (dto.outcome || '').trim().toUpperCase();
+        let enumOutcome = null;
+        if (outcomeCode === 'INTERESTED' || outcomeCode === 'NOT_INTERESTED' || outcomeCode === 'NOT_ANSWERED') {
+            enumOutcome = outcomeCode;
+        } else if (outcomeCode === 'CALLBACK_REQUESTED' || outcomeCode === 'FOLLOW_UP_REQUIRED') {
+            enumOutcome = CallOutcome.INTERESTED;
+        } else if (outcomeCode === 'WRONG_NUMBER') {
+            enumOutcome = CallOutcome.NOT_INTERESTED;
+        }
+
+        if (call.status === CallStatus.NOT_ANSWERED && enumOutcome !== CallOutcome.NOT_ANSWERED && outcomeCode !== 'NOT_ANSWERED') {
             throw ApiError.conflict('OUTCOME_MISMATCH', 'Only “Not Answered” can be recorded when the call was not answered');
         }
-        if (call.outcome) {
+        if (call.outcome || call.outcomeCustom) {
             throw ApiError.conflict('CALL_OUTCOME_EXISTS', 'This call already has an outcome recorded');
         }
         const result = await this.prisma.$transaction(async (tx) => {
             const updateCount = await tx.call.updateMany({
-                where: { id: call.id, outcome: null },
-                data: { outcome: dto.outcome, nextAction: dto.nextAction ?? null },
+                where: { id: call.id, outcome: null, outcomeCustom: null },
+                data: {
+                    outcome: enumOutcome,
+                    outcomeCustom: outcomeCode,
+                    nextAction: dto.nextAction ?? null,
+                    productInterest: dto.productInterest || null,
+                    cropInterest: dto.cropInterest || null,
+                    expectedBookingAmount: dto.expectedBookingAmount != null ? dto.expectedBookingAmount : null,
+                    callMode: dto.callMode || null,
+                },
             });
             if (updateCount.count === 0) {
                 throw ApiError.conflict('CALL_OUTCOME_EXISTS', 'This call already has an outcome recorded');
             }
             const update = await tx.call.findUniqueOrThrow({
                 where: { id: call.id },
-                select: { id: true, outcome: true, nextAction: true },
+                select: { id: true, outcome: true, outcomeCustom: true, nextAction: true },
             });
             await this.audit.record(tx, {
                 actorId: actor.id,
@@ -451,30 +472,36 @@ let CallsService = class CallsService {
                 entityId: call.id,
                 entityLabel: call.phoneNumber,
                 action: 'call.outcome_recorded',
-                after: { outcome: update.outcome, nextAction: update.nextAction },
+                after: { outcome: update.outcomeCustom || update.outcome, nextAction: update.nextAction },
             });
-            if (dto.outcome === CallOutcome.INTERESTED) {
-                if (!dto.nextAction) {
-                    throw ApiError.badRequest('NEXT_ACTION_REQUIRED', 'Interested requires exactly one next action: Callback or Sales');
-                }
+
+            const isFollowUpRequested =
+                (outcomeCode === 'INTERESTED' && dto.nextAction === 'CALLBACK') ||
+                outcomeCode === 'CALLBACK_REQUESTED' ||
+                outcomeCode === 'FOLLOW_UP_REQUIRED' ||
+                outcomeCode === 'COMPLAINT_SERVICE' ||
+                (Boolean(dto.followUpDate) && Boolean(dto.followUpTime));
+
+            if (isFollowUpRequested) {
                 if (!call.customerId) {
                     throw ApiError.conflict('CUSTOMER_REQUIRED', 'Create or link the customer before recording this outcome');
                 }
-                if (dto.nextAction === 'CALLBACK') {
-                    const followUp = await this.createCallbackFollowUp(tx, actor, call, dto);
-                    return { followUpId: followUp.id, followUp: this.serializeFollowUp(followUp), messageId: null };
+                const followUp = await this.createCallbackFollowUp(tx, actor, call, dto);
+                return { followUpId: followUp.id, followUp: this.serializeFollowUp(followUp), messageId: null };
+            }
+
+            if (outcomeCode === 'CONVERTED_ORDER' || (outcomeCode === 'INTERESTED' && dto.nextAction === 'SALES')) {
+                if (!call.customerId) {
+                    throw ApiError.conflict('CUSTOMER_REQUIRED', 'Create or link the customer before recording this outcome');
                 }
-                // SALES — progression + RM handoff + automatic product communication.
+                // SALES / CONVERTED — progression + RM handoff + automatic product communication.
                 const leadId = await this.closeOpenLead(tx, call);
                 const rm = await this.assignRelationshipOwner(tx, actor, call, leadId);
                 const message = await this.queueProductMessage(tx, actor, call);
                 return { followUpId: null, followUp: null, messageId: message.id, rmId: rm.id };
             }
-            // NOT_INTERESTED / NOT_ANSWERED: nextAction is forbidden here.
-            if (dto.nextAction) {
-                throw ApiError.badRequest('NEXT_ACTION_NOT_ALLOWED', 'Next action is only valid for an Interested outcome');
-            }
-            if (dto.outcome === CallOutcome.NOT_INTERESTED && call.leadId) {
+
+            if ((outcomeCode === 'NOT_INTERESTED' || outcomeCode === 'WRONG_NUMBER') && call.leadId) {
                 await tx.lead.update({ where: { id: call.leadId }, data: { status: 'CLOSED' } });
             }
             return { followUpId: null, followUp: null, messageId: null, rmId: null };
@@ -746,8 +773,13 @@ let CallsService = class CallsService {
             phoneNumber: call.phoneNumber,
             direction: call.direction,
             status: call.status,
-            outcome: call.outcome,
+            outcome: call.outcomeCustom || call.outcome || null,
+            outcomeCustom: call.outcomeCustom || null,
             nextAction: call.nextAction,
+            productInterest: call.productInterest || null,
+            cropInterest: call.cropInterest || null,
+            expectedBookingAmount: call.expectedBookingAmount ? Number(call.expectedBookingAmount) : null,
+            callMode: call.callMode || null,
             provider: call.provider,
             providerCallId: call.providerCallId,
             connectedAt: call.connectedAt,
@@ -767,7 +799,11 @@ let CallsService = class CallsService {
             disconnectReason: call.disconnectReason,
             startedAt: call.startedAt,
             endedAt: call.endedAt,
-            outcome: call.outcome ?? null,
+            outcome: call.outcomeCustom || call.outcome || null,
+            productInterest: call.productInterest || null,
+            cropInterest: call.cropInterest || null,
+            expectedBookingAmount: call.expectedBookingAmount ? Number(call.expectedBookingAmount) : null,
+            callMode: call.callMode || null,
         };
     }
 };

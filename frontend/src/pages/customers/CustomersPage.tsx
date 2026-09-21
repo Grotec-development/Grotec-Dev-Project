@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw, Upload } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw, Upload, Users } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { ApiErrorBody, CustomerSummary, Page } from '../../lib/types';
 import { formatE164 } from '../../lib/format';
@@ -10,6 +10,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { Alert, Button, Card, EmptyState, Input, Select, StatusBadge, Table, TableSkeleton, TD, TH, THead, cx } from '../../components/ui';
 import { NewCustomerModal } from './NewCustomerModal';
 import { ImportCustomersModal } from './ImportCustomersModal';
+import { FarmerSegmentsModal } from './FarmerSegmentsModal';
 
 export function CustomersPage() {
   const { hasPermission, user } = useAuth();
@@ -20,6 +21,7 @@ export function CustomersPage() {
   const [status, setStatus] = useState('ACTIVE');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showSegments, setShowSegments] = useState(false);
   const [page, setPage] = useState(1);
 
   const { data, isFetching, isError, error, refetch } = useQuery({
@@ -109,6 +111,14 @@ export function CustomersPage() {
               <Upload className="h-3.5 w-3.5" /> Import CSV
             </Button>
           ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSegments(true)}
+            className="px-3 py-1.5 text-xs font-semibold shadow-xs gap-1.5 text-purple-700 hover:text-purple-800 border-purple-200 bg-purple-50/50 hover:bg-purple-100/50"
+          >
+            <Users className="h-3.5 w-3.5 text-purple-600" /> Farmer Segments
+          </Button>
           {canCreate ? (
             <Button
               variant="primary"
@@ -342,6 +352,12 @@ export function CustomersPage() {
         <ImportCustomersModal
           open={showImport}
           onClose={() => setShowImport(false)}
+        />
+      ) : null}
+
+      {showSegments ? (
+        <FarmerSegmentsModal
+          onClose={() => setShowSegments(false)}
         />
       ) : null}
     </div>

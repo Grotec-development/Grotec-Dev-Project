@@ -122,6 +122,8 @@ model Tenant {
   salesOrders       SalesOrder[]
   vehicles          Vehicle[]
   trips             Trip[]
+  callOutcomeMasters CallOutcomeMaster[]
+  farmerSegments    FarmerSegment[]
 
   @@map("tenants")
 }
@@ -200,6 +202,7 @@ model Employee {
   inventoryMovements InventoryMovement[]    @relation("MovementActor")
   assignedVehicles  Vehicle[]               @relation("DriverVehicle")
   drivenTrips       Trip[]                  @relation("TripDriver")
+  createdSegments   FarmerSegment[]         @relation("SegmentCreatedBy")
 
   @@map("employees")
 }
@@ -481,6 +484,11 @@ model Call {
   status        CallStatus
   outcome       CallOutcome?  // PRD §6.3.6/§11.1 — outcome and next action stay separate
   nextAction    NextAction?   @map("next_action")
+  outcomeCustom String?       @map("outcome_custom") @db.VarChar(50)
+  productInterest String?     @map("product_interest") @db.VarChar(200)
+  cropInterest  String?       @map("crop_interest") @db.VarChar(200)
+  expectedBookingAmount Decimal? @map("expected_booking_amount") @db.Decimal(12, 2)
+  callMode      String?       @map("call_mode") @db.VarChar(40)
   provider      String        @db.VarChar(40)
   providerCallId String       @unique @map("provider_call_id") @db.VarChar(120)
   startedAt     DateTime      @default(now()) @map("started_at")
@@ -519,6 +527,26 @@ model CallNote {
 // ---------------------------------------------------------------------------
 // Call outcomes + follow-ups + sales handoff (Month 3)
 // ---------------------------------------------------------------------------
+
+model CallOutcomeMaster {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String?  @map("tenant_id") @db.Uuid
+  tenant             Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  code               String   @unique @db.VarChar(50)
+  label              String   @db.VarChar(100)
+  category           String   @default("GENERAL") @db.VarChar(50)
+  reportingMapping   String?  @map("reporting_mapping") @db.VarChar(50)
+  requiresFollowUp   Boolean  @default(false) @map("requires_follow_up")
+  requiresNextAction Boolean  @default(false) @map("requires_next_action")
+  isActive           Boolean  @default(true) @map("is_active")
+  displayOrder       Int      @default(0) @map("display_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([isActive])
+  @@map("call_outcome_masters")
+}
 
 model FollowUp {
   id          String         @id @default(uuid()) @db.Uuid
@@ -631,6 +659,22 @@ model Referral {
   @@index([referrerCustomerId])
   @@index([leadId])
   @@map("referrals")
+}
+
+model FarmerSegment {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String?   @map("tenant_id") @db.Uuid
+  tenant         Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  name           String    @db.VarChar(120)
+  description    String?
+  filterCriteria Json      @map("filter_criteria")
+  createdById    String?   @map("created_by") @db.Uuid
+  createdBy      Employee? @relation("SegmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@map("farmer_segments")
 }
 
 // ---------------------------------------------------------------------------

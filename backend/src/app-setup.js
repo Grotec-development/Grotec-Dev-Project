@@ -22,11 +22,13 @@ export async function configureApp(app, options = {}) {
     app.enableCors({
         origin: (requestOrigin, callback) => {
             if (!requestOrigin) return callback(null, true);
-            if (
-                ALLOWED_ORIGIN_REGEX.test(requestOrigin) ||
-                origins.includes(requestOrigin) ||
-                origins.some((o) => requestOrigin.startsWith(o))
-            ) {
+            if (origins.length > 0) {
+                if (origins.includes(requestOrigin) || origins.some((o) => requestOrigin === o || requestOrigin.startsWith(o + '/'))) {
+                    return callback(null, true);
+                }
+                return callback(null, false);
+            }
+            if (ALLOWED_ORIGIN_REGEX.test(requestOrigin)) {
                 return callback(null, true);
             }
             return callback(null, false);

@@ -13,6 +13,7 @@
     "build:backend": "npm run build:shared && npm run prisma:generate --workspace @grotec/backend && npm run build --workspace @grotec/backend",
     "build:frontend": "npm run build:shared && npm run build --workspace @grotec/frontend",
     "build": "npm run build:backend && npm run build:frontend",
+    "build:android": "./scripts/build-android.sh",
     "start:backend": "npm run start:prod --workspace @grotec/backend",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run build --workspace @grotec/shared && npm run start:dev --workspace @grotec/backend",
@@ -22,7 +23,9 @@
     "test": "npm run test --workspace @grotec/shared --if-present && npm run test --workspace @grotec/backend && npm run test --workspace @grotec/frontend",
     "test:api": "npm run test --workspace @grotec/backend",
     "test:web": "npm run test --workspace @grotec/frontend",
-    "lint": "npm run lint --workspaces --if-present"
+    "lint": "npm run lint --workspaces --if-present",
+    "adb:devices": "PATH=\"$HOME/.android-sdk/platform-tools:$PATH\" adb devices",
+    "adb:install": "PATH=\"$HOME/.android-sdk/platform-tools:$PATH\" adb install -r grotec-farmeros.apk"
   },
   "devDependencies": {
     "@swc-node/register": "^1.12.1",
