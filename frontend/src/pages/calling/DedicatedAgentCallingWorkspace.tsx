@@ -563,7 +563,7 @@ export function DedicatedAgentCallingWorkspace() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 font-mono mt-0.5">
-                    Farmer Code: <span className="font-bold text-slate-700">{currentCustomer.farmerCode || 'GF00000001'}</span>
+                    Farmer Code: <span className="font-bold text-slate-700">{currentCustomer.farmerCode || '—'}</span>
                   </p>
                 </div>
 
@@ -595,11 +595,11 @@ export function DedicatedAgentCallingWorkspace() {
                   </div>
                   <div>
                     <span className="text-slate-400">District: </span>
-                    <span className="font-semibold text-slate-800">{currentCustomer.location?.district || 'Dharmapuri'}</span>
+                    <span className="font-semibold text-slate-800">{currentCustomer.location?.district || '—'}</span>
                   </div>
                   <div>
                     <span className="text-slate-400">State: </span>
-                    <span className="font-semibold text-slate-800">{currentCustomer.location?.state || 'Tamil Nadu'}</span>
+                    <span className="font-semibold text-slate-800">{currentCustomer.location?.state || '—'}</span>
                   </div>
                 </div>
               </div>

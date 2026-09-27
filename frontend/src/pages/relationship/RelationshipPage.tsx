@@ -497,7 +497,7 @@ export function RelationshipPage() {
                               <span>
                                 {[cust.location.village, cust.location.taluk, cust.location.district]
                                   .filter(Boolean)
-                                  .join(', ') || 'Tamil Nadu'}
+                                  .join(', ') || '—'}
                               </span>
                             </div>
                           )}

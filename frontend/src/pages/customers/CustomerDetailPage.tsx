@@ -59,7 +59,7 @@ export function CustomerDetailPage() {
 
   const callsQuery = useQuery({
     queryKey: ['customer-calls', id],
-    queryFn: async () => (await api.get<{ items: any[] }>('/calls', { params: { customerId: id, pageSize: 50 } })).data,
+    queryFn: async () => (await api.get<any[]>(`/customers/${id}/calls`)).data,
     enabled: Boolean(id),
   });
 
@@ -124,7 +124,7 @@ export function CustomerDetailPage() {
 
     const list: TimelineDisplayItem[] = [];
 
-    const realCalls = callsQuery.data?.items || [];
+    const realCalls = callsQuery.data || [];
     const realNotes = notesQuery.data || [];
 
     for (const call of realCalls) {
@@ -157,7 +157,7 @@ export function CustomerDetailPage() {
 
     list.sort((a, b) => b.dateVal - a.dateVal);
     return list;
-  }, [callsQuery.data?.items, notesQuery.data]);
+  }, [callsQuery.data, notesQuery.data]);
 
   if (!data) {
     return (
@@ -220,10 +220,21 @@ export function CustomerDetailPage() {
     }
   };
 
-  const primaryCropNames = data.crops?.map((c) => c.crop.name).join(', ') || 'Tomato (PKM-1), Brinjal';
-  const primaryLocation = primaryLocationObj
-    ? `${primaryLocationObj.village || ''} ${primaryLocationObj.taluk ? primaryLocationObj.taluk + ', ' : ''}${primaryLocationObj.district || 'Dharmapuri'}, ${primaryLocationObj.state || 'Tamil Nadu'}`.trim()
-    : 'Dharmapuri, Tamil Nadu';
+  const primaryCropNames = data.crops?.map((c) => c.crop.name).join(', ') || 'Not recorded';
+  // Land holding is the sum of crop acreage, grouped by unit (acre, hectare, ...)
+  const landByUnit = (data.crops ?? []).reduce<Record<string, number>>((acc, c) => {
+    acc[c.unit] = (acc[c.unit] ?? 0) + Number(c.acreage || 0);
+    return acc;
+  }, {});
+  const landHolding =
+    Object.entries(landByUnit)
+      .filter(([, total]) => total > 0)
+      .map(([unit, total]) => `${Number(total.toFixed(2))} ${unit}${total === 1 ? '' : 's'}`)
+      .join(' + ') || 'Not recorded';
+  const primaryLocation =
+    [primaryLocationObj?.village, primaryLocationObj?.taluk, primaryLocationObj?.district, primaryLocationObj?.state]
+      .filter(Boolean)
+      .join(', ') || 'Location not set';
 
   return (
     <div className="p-6 space-y-4">
@@ -261,22 +272,22 @@ export function CustomerDetailPage() {
 
       {/* Header Banner matching PDF Farmer Profile / CRM Record */}
       <div className="rounded-lg border border-slate-200/90 bg-white p-5 shadow-xs flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
+        <div className="space-y-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">{data.fullName}</h1>
             <StatusBadge status={data.status} />
           </div>
           <p className="text-xs text-slate-600 font-medium">
-            {primaryLocation} • Sowing Sundergarh tomato seeds
+            {primaryLocation}
           </p>
           <p className="text-xs text-slate-400 font-mono">
-            ID: <span className="font-semibold text-slate-700">{data.farmerCode ?? 'GT-F-2289'}</span>
+            ID: <span className="font-semibold text-slate-700">{data.farmerCode ?? '—'}</span>
             <span className="mx-2 text-slate-300">•</span>
-            Phone: <span className="font-semibold text-slate-700">{primaryPhone ? formatE164(primaryPhone) : '+91 94432 12091'}</span>
+            Phone: <span className="font-semibold text-slate-700">{primaryPhone ? formatE164(primaryPhone) : '—'}</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           {canEdit ? (
             <Button
               variant="outline"
@@ -496,13 +507,9 @@ export function CustomerDetailPage() {
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Land Holding</p>
-                  <p className="text-slate-800 font-bold mt-0.5">3.5 Acres</p>
+                  <p className="text-slate-800 font-bold mt-0.5">{landHolding}</p>
                 </div>
                 <SoilTypeField customerId={data.id} soilType={data.soilType} canEdit={canEdit} />
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Irrigation</p>
-                  <p className="text-slate-800 font-bold mt-0.5">Drip irrigation (Subsidy)</p>
-                </div>
               </div>
             </Card>
 
@@ -934,7 +941,7 @@ function LocationsCard({
               </div>
               <div>
                 <span className="text-slate-400 font-medium">State: </span>
-                <span className="text-slate-800">{loc.state || 'Tamil Nadu'}</span>
+                <span className="text-slate-800">{loc.state || '—'}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-medium">Pincode: </span>

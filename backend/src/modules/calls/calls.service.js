@@ -396,12 +396,13 @@ let CallsService = class CallsService {
         const calls = await this.prisma.call.findMany({
             where: { customerId },
             include: {
+                agent: { select: { id: true, fullName: true } },
                 notes: { include: { author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'asc' } },
             },
             orderBy: { startedAt: 'desc' },
             take: 50,
         });
-        return calls.map((call) => this.serialize({ ...call, notes: call.notes }));
+        return calls.map((call) => ({ ...this.serialize({ ...call, notes: call.notes }), agent: call.agent }));
     }
     /** Full calling-workspace context for one call: call + customer + history + follow-ups. */
     async callContext(id, actor) {

@@ -251,7 +251,7 @@ export function InventoryPage() {
                         </td>
                         <td className="px-5 py-4">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 border border-slate-200">
-                            {item.product?.category?.name || 'Bio Product'}
+                            {item.product?.category?.name || 'Uncategorized'}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-center font-mono text-xs text-slate-600">
