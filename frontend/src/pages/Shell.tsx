@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, Suspense, useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -445,7 +445,7 @@ export function Shell() {
           }
         }}
         className={cx(
-          'fixed inset-y-0 left-0 flex flex-col border-r border-slate-200/90 bg-white z-50 transition-all duration-200 ease-in-out',
+          'fixed inset-y-0 left-0 flex flex-col border-r border-slate-200/90 bg-white z-50 transition-all duration-200 ease-in-out pt-[var(--sat)]',
           mobileMenuOpen
             ? 'w-60 translate-x-0 shadow-2xl'
             : isNavExpanded
@@ -706,7 +706,15 @@ export function Shell() {
         </header>
 
         <AssistantProvider>
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex min-h-[60vh] items-center justify-center">
+                <Spinner label="Loading…" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
           <AssistantWidget />
         </AssistantProvider>
 

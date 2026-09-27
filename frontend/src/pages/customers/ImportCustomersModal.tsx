@@ -271,7 +271,7 @@ export function ImportCustomersModal({ open, onClose }: ImportCustomersModalProp
           {step === 'preview' && previewResult && (
             <div className="space-y-4">
               {/* Summary stat cards */}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
                   <p className="text-[10px] font-bold uppercase text-slate-500">Total Rows</p>
                   <p className="text-xl font-extrabold text-slate-800">{previewResult.totalRows}</p>

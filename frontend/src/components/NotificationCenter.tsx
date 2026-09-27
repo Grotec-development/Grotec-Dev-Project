@@ -121,7 +121,7 @@ export function NotificationCenter() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-11 z-50 w-80 sm:w-96 rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 top-11 z-50 w-80 sm:w-96 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-800 text-sm">Notifications</span>

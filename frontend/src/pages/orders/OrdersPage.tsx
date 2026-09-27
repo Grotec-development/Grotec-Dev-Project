@@ -546,7 +546,7 @@ export function OrdersPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-6 text-slate-800 bg-white" id="invoice-sheet">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 text-slate-800 bg-white" id="invoice-sheet">
               {/* Invoice Header */}
               <div className="flex justify-between items-start border-b border-slate-200 pb-6">
                 <div>
@@ -585,8 +585,8 @@ export function OrdersPage() {
               </div>
 
               {/* Line Items Table */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600 uppercase">
                     <tr>
                       <th className="px-4 py-2.5">Item Description</th>

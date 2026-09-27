@@ -1,35 +1,40 @@
+import { lazy } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { Shell } from './pages/Shell';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RouteErrorBoundary } from './components/RouteErrorBoundary';
-import { DashboardPage } from './pages/DashboardPage';
-import { AgentWorkspacePage } from './pages/AgentWorkspacePage';
-import { CustomersPage } from './pages/customers/CustomersPage';
-import { CustomerDetailPage } from './pages/customers/CustomerDetailPage';
-import { LeadsPage } from './pages/leads/LeadsPage';
-import { RelationshipPage } from './pages/relationship/RelationshipPage';
-import { CropsPage } from './pages/CropsPage';
-import { KnowledgeBasePage } from './pages/KnowledgeBasePage';
-import { TeamPage } from './pages/TeamPage';
-import { AuditPage } from './pages/AuditPage';
-import { RestrictedPage } from './pages/RestrictedPage';
-import { HrmsDashboardPage } from './pages/hrms/HrmsDashboardPage';
-import { EmployeesPage } from './pages/hrms/EmployeesPage';
-import { EmployeeProfilePage } from './pages/hrms/EmployeeProfilePage';
-import { AttendancePage } from './pages/hrms/AttendancePage';
-import { LeavePage } from './pages/hrms/LeavePage';
-import { PayrollPage } from './pages/hrms/PayrollPage';
-import { PayslipsPage } from './pages/hrms/PayslipsPage';
-import { KpiPage } from './pages/hrms/KpiPage';
-import { ReportsPage } from './pages/ReportsPage';
-import { ActionCenterPage } from './pages/ActionCenterPage';
-import { OrdersPage } from './pages/orders/OrdersPage';
-import { InventoryPage } from './pages/inventory/InventoryPage';
-import { FactoryPage } from './pages/factory/FactoryPage';
-import { DispatchPage } from './pages/dispatch/DispatchPage';
-import { DeliveryMobilePage } from './pages/delivery/DeliveryMobilePage';
-import { ExceptionCentrePage } from './pages/exceptions/ExceptionCentrePage';
+
+// Route-level code splitting: each page ships as its own chunk so a phone on
+// cellular data only downloads the page it's actually visiting, not all ~28
+// pages in a single bundle.
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const AgentWorkspacePage = lazy(() => import('./pages/AgentWorkspacePage').then((m) => ({ default: m.AgentWorkspacePage })));
+const CustomersPage = lazy(() => import('./pages/customers/CustomersPage').then((m) => ({ default: m.CustomersPage })));
+const CustomerDetailPage = lazy(() => import('./pages/customers/CustomerDetailPage').then((m) => ({ default: m.CustomerDetailPage })));
+const LeadsPage = lazy(() => import('./pages/leads/LeadsPage').then((m) => ({ default: m.LeadsPage })));
+const RelationshipPage = lazy(() => import('./pages/relationship/RelationshipPage').then((m) => ({ default: m.RelationshipPage })));
+const CropsPage = lazy(() => import('./pages/CropsPage').then((m) => ({ default: m.CropsPage })));
+const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage })));
+const TeamPage = lazy(() => import('./pages/TeamPage').then((m) => ({ default: m.TeamPage })));
+const AuditPage = lazy(() => import('./pages/AuditPage').then((m) => ({ default: m.AuditPage })));
+const RestrictedPage = lazy(() => import('./pages/RestrictedPage').then((m) => ({ default: m.RestrictedPage })));
+const HrmsDashboardPage = lazy(() => import('./pages/hrms/HrmsDashboardPage').then((m) => ({ default: m.HrmsDashboardPage })));
+const EmployeesPage = lazy(() => import('./pages/hrms/EmployeesPage').then((m) => ({ default: m.EmployeesPage })));
+const EmployeeProfilePage = lazy(() => import('./pages/hrms/EmployeeProfilePage').then((m) => ({ default: m.EmployeeProfilePage })));
+const AttendancePage = lazy(() => import('./pages/hrms/AttendancePage').then((m) => ({ default: m.AttendancePage })));
+const LeavePage = lazy(() => import('./pages/hrms/LeavePage').then((m) => ({ default: m.LeavePage })));
+const PayrollPage = lazy(() => import('./pages/hrms/PayrollPage').then((m) => ({ default: m.PayrollPage })));
+const PayslipsPage = lazy(() => import('./pages/hrms/PayslipsPage').then((m) => ({ default: m.PayslipsPage })));
+const KpiPage = lazy(() => import('./pages/hrms/KpiPage').then((m) => ({ default: m.KpiPage })));
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
+const ActionCenterPage = lazy(() => import('./pages/ActionCenterPage').then((m) => ({ default: m.ActionCenterPage })));
+const OrdersPage = lazy(() => import('./pages/orders/OrdersPage').then((m) => ({ default: m.OrdersPage })));
+const InventoryPage = lazy(() => import('./pages/inventory/InventoryPage').then((m) => ({ default: m.InventoryPage })));
+const FactoryPage = lazy(() => import('./pages/factory/FactoryPage').then((m) => ({ default: m.FactoryPage })));
+const DispatchPage = lazy(() => import('./pages/dispatch/DispatchPage').then((m) => ({ default: m.DispatchPage })));
+const DeliveryMobilePage = lazy(() => import('./pages/delivery/DeliveryMobilePage').then((m) => ({ default: m.DeliveryMobilePage })));
+const ExceptionCentrePage = lazy(() => import('./pages/exceptions/ExceptionCentrePage').then((m) => ({ default: m.ExceptionCentrePage })));
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },

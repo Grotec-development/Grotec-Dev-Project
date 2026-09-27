@@ -25,11 +25,23 @@
     overscroll-behavior-y: none;
     touch-action: manipulation;
     padding-top: var(--sat);
+    padding-left: var(--sal);
+    padding-right: var(--sar);
   }
 
   /* Optimize touch target sizes for mobile */
   button, a, input, select, textarea {
     touch-action: manipulation;
+  }
+}
+
+/* Below md, force 16px on form fields so iOS/mobile browsers don't auto-zoom the
+   page on focus (they zoom whenever the focused field's font-size is under 16px).
+   !important is needed because the app's text-xs/text-sm utility classes on
+   inputs otherwise win over this plain element selector. */
+@media (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
   }
 }
 
