@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as XLSX from 'xlsx';
 import { ImportService } from './import.service';
 
 describe('ImportService (Validation & Preview)', () => {
@@ -21,16 +22,29 @@ describe('ImportService (Validation & Preview)', () => {
   });
 
   describe('parseFile', () => {
-    it('rejects binary Excel (.xlsx/.xls) uploads with guidance', () => {
-      const buffer = Buffer.from('fake binary xlsx content');
-      expect(() => service.parseFile(buffer, 'farmers.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
-        .toThrow(/Binary Excel \(\.xlsx\/\.xls\) files require the xlsx parser package/);
+    it('parses Excel (.xlsx) uploads into rows with suggested mappings', () => {
+      const sheet = XLSX.utils.aoa_to_sheet([
+        ['Farmer Name', 'Mobile Number', 'District'],
+        ['Ramesh', '9876543001', 'Salem'],
+        ['', '', ''],
+        ['Suresh', '9876543002', 'Erode'],
+      ]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, sheet, 'Farmers');
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      const result = service.parseFile(buffer, 'farmers.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+      expect(result.rowCount).toBe(2); // blank row skipped
+      expect(result.headers).toEqual(['Farmer Name', 'Mobile Number', 'District']);
+      expect(result.suggestedMapping.fullName).toBe('Farmer Name');
+      expect(result.suggestedMapping.phone).toBe('Mobile Number');
     });
 
     it('rejects unsupported file formats', () => {
       const buffer = Buffer.from('PDF content');
       expect(() => service.parseFile(buffer, 'farmers.pdf', 'application/pdf'))
-        .toThrow(/Only CSV \(\.csv\) files are supported/);
+        .toThrow(/Unsupported file format/);
     });
 
     it('rejects empty files', () => {
@@ -98,7 +112,7 @@ describe('ImportService (Validation & Preview)', () => {
 
       // Row 3: Invalid phone
       expect(preview.items[2].status).toBe('INVALID');
-      expect(preview.items[2].errors.some((e) => e.includes('Invalid phone format'))).toBe(true);
+      expect(preview.items[2].errors.some((e) => e.includes('Invalid primary phone format'))).toBe(true);
 
       // Row 4: Oversized soilType
       expect(preview.items[3].status).toBe('INVALID');
@@ -106,7 +120,7 @@ describe('ImportService (Validation & Preview)', () => {
 
       // Row 5: Duplicate within file
       expect(preview.items[4].status).toBe('DUPLICATE');
-      expect(preview.items[4].duplicateReason).toContain('Duplicate phone number within this import file (first seen at row 1)');
+      expect(preview.items[4].duplicateReason).toContain('Duplicate primary phone in file (first seen at row 1)');
 
       // Row 6: Valid
       expect(preview.items[5].status).toBe('VALID');
@@ -116,7 +130,7 @@ describe('ImportService (Validation & Preview)', () => {
     it('rejects preview if required mappings are missing', async () => {
       const rows = [{ name: 'Test', phone: '9876543210' }];
       await expect(service.preview(rows, { phone: 'phone' })).rejects.toThrow(/Column mapping for Full Name is required/);
-      await expect(service.preview(rows, { fullName: 'name' })).rejects.toThrow(/Column mapping for Phone is required/);
+      await expect(service.preview(rows, { fullName: 'name' })).rejects.toThrow(/Column mapping for Primary Phone is required/);
     });
   });
 });

@@ -250,7 +250,7 @@ describe('LeadsService rebalanceWorkload integration', () => {
           { id: 'lead-3', customerId: 'cust-3', ownerships: [], callSessions: [] },
         ]),
       },
-      callSession: {
+      call: {
         findMany: vi.fn().mockResolvedValue([]),
       },
       $transaction: vi.fn(),
@@ -284,7 +284,7 @@ describe('LeadsService rebalanceWorkload integration', () => {
           { id: 'lead-1', customerId: 'cust-1', ownerships: [], callSessions: [] },
         ]),
       },
-      callSession: {
+      call: {
         findMany: vi.fn().mockResolvedValue([]),
       },
       $transaction: vi.fn(async (cb) => cb(mockTx)),
