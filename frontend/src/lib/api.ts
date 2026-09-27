@@ -125,8 +125,38 @@ api.interceptors.response.use(
 /** Normalizes axios errors into {message} for display. */
 export function errorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const body = error.response?.data as { error?: { message?: string; code?: string } } | undefined;
-    return body?.error?.message ?? body?.error?.code ?? error.message;
+    const body = error.response?.data as {
+      error?: {
+        message?: string;
+        code?: string;
+        details?: {
+          fields?: string[] | Record<string, string[] | string>;
+          [key: string]: any;
+        };
+      };
+      message?: string | string[];
+    } | undefined;
+
+    if (body?.error?.details?.fields) {
+      const f = body.error.details.fields;
+      if (Array.isArray(f) && f.length > 0) {
+        return f.length === 1 ? f[0] : `Validation failed: ${f.join('; ')}`;
+      }
+      if (typeof f === 'object') {
+        const entries = Object.entries(f)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .filter(Boolean);
+        if (entries.length > 0) {
+          return `Validation failed: ${entries.join('; ')}`;
+        }
+      }
+    }
+
+    if (Array.isArray(body?.message)) {
+      return body.message.join(', ');
+    }
+
+    return body?.error?.message ?? (typeof body?.message === 'string' ? body.message : undefined) ?? body?.error?.code ?? error.message;
   }
   return error instanceof Error ? error.message : 'Something went wrong';
 }

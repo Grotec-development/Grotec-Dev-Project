@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var _a, _b, _c;
 import { Injectable } from '@nestjs/common';
 import { CustomerStatus, Prisma } from '@prisma/client';
-import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, normalizePhoneToE164 } from '@grotec/shared';
+import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, isTopTier, normalizePhoneToE164 } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
@@ -57,6 +57,24 @@ let CustomersService = class CustomersService {
                         ownerships: { some: { employeeId: filters.ownerId, releasedAt: null } },
                     },
                 },
+            });
+        }
+        if (filters.district) {
+            conditions.push({
+                locations: {
+                    some: {
+                        deletedAt: null,
+                        district: { equals: filters.district, mode: 'insensitive' },
+                    },
+                },
+            });
+        }
+        if (filters.missingTaluk === true || filters.missingTaluk === 'true') {
+            conditions.push({
+                OR: [
+                    { locations: { none: { deletedAt: null } } },
+                    { locations: { some: { deletedAt: null, OR: [{ taluk: null }, { taluk: '' }] } } },
+                ],
             });
         }
         const where = { AND: conditions };
@@ -352,27 +370,58 @@ let CustomersService = class CustomersService {
                 after.soilType = nextSoilType;
             }
         }
+        const hasLocationUpdates = dto.taluk !== undefined || dto.district !== undefined || dto.state !== undefined || dto.village !== undefined || dto.pincode !== undefined;
         // Nothing actually changed — no write, no audit row, no event.
-        if (Object.keys(data).length === 0)
+        if (Object.keys(data).length === 0 && !hasLocationUpdates)
             return this.detailOrThrow(id, actor);
         await this.prisma.$transaction(async (tx) => {
-            const updated = await tx.customer.update({ where: { id }, data });
-            await this.audit.record(tx, {
-                actorId: actor.id,
-                entityType: 'CUSTOMER',
-                entityId: id,
-                entityLabel: updated.fullName,
-                action: 'updated',
-                before,
-                after,
-            });
-            await this.domainEvents.emit(tx, {
-                eventType: DOMAIN_EVENTS.CUSTOMER_UPDATED,
-                aggregateType: 'customer',
-                aggregateId: id,
-                actorId: actor.id,
-                payload: { fullName: updated.fullName, ...after },
-            });
+            if (Object.keys(data).length > 0) {
+                const updated = await tx.customer.update({ where: { id }, data });
+                await this.audit.record(tx, {
+                    actorId: actor.id,
+                    entityType: 'CUSTOMER',
+                    entityId: id,
+                    entityLabel: updated.fullName,
+                    action: 'updated',
+                    before,
+                    after,
+                });
+                await this.domainEvents.emit(tx, {
+                    eventType: DOMAIN_EVENTS.CUSTOMER_UPDATED,
+                    aggregateType: 'customer',
+                    aggregateId: id,
+                    actorId: actor.id,
+                    payload: { fullName: updated.fullName, ...after },
+                });
+            }
+            if (hasLocationUpdates) {
+                const primaryLoc = await tx.customerLocation.findFirst({
+                    where: { customerId: id, deletedAt: null },
+                    orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+                });
+                const locData = {
+                    ...(dto.taluk !== undefined ? { taluk: dto.taluk?.trim() || null } : {}),
+                    ...(dto.district !== undefined ? { district: dto.district?.trim() || null } : {}),
+                    ...(dto.state !== undefined ? { state: dto.state?.trim() || null } : {}),
+                    ...(dto.village !== undefined ? { village: dto.village?.trim() || null } : {}),
+                    ...(dto.pincode !== undefined ? { pincode: dto.pincode?.trim() || null } : {}),
+                };
+                if (primaryLoc) {
+                    await tx.customerLocation.update({
+                        where: { id: primaryLoc.id },
+                        data: locData,
+                    });
+                } else {
+                    await tx.customerLocation.create({
+                        data: {
+                            customerId: id,
+                            isPrimary: true,
+                            createdById: actor.id,
+                            ...locData,
+                        },
+                    });
+                }
+            }
         });
         return this.detailOrThrow(id, actor);
     }
@@ -400,6 +449,98 @@ let CustomersService = class CustomersService {
                 payload: { status: newStatus },
             });
         });
+    }
+    async delete(actor, id) {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER' && !actor.permissions?.includes('customer.delete')) {
+            throw ApiError.forbidden('FORBIDDEN', 'Customer deletion is restricted to Management');
+        }
+        const existing = await this.prisma.customer.findUnique({
+            where: { id },
+            include: { leads: { select: { id: true } } },
+        });
+        if (!existing) {
+            throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+        }
+
+        const leadIds = existing.leads.map((l) => l.id);
+
+        await this.prisma.$transaction(async (tx) => {
+            // 1. Clean up lead child relations
+            if (leadIds.length > 0) {
+                await tx.leadOwnership.deleteMany({ where: { leadId: { in: leadIds } } });
+                await tx.referral.deleteMany({ where: { leadId: { in: leadIds } } });
+                await tx.followUp.deleteMany({ where: { leadId: { in: leadIds } } });
+            }
+
+            // 2. Clean up call child relations and calls
+            const customerCalls = await tx.call.findMany({
+                where: { OR: [{ customerId: id }, ...(leadIds.length > 0 ? [{ leadId: { in: leadIds } }] : [])] },
+                select: { id: true },
+            });
+            const callIds = customerCalls.map((c) => c.id);
+            if (callIds.length > 0) {
+                await tx.callNote.deleteMany({ where: { callId: { in: callIds } } });
+                await tx.call.deleteMany({ where: { id: { in: callIds } } });
+            }
+
+            // 3. Clean up leads
+            if (leadIds.length > 0) {
+                await tx.lead.deleteMany({ where: { id: { in: leadIds } } });
+            }
+
+            // 4. Clean up follow ups directly on customer
+            await tx.followUp.deleteMany({ where: { customerId: id } });
+
+            // 5. Clean up referrals made by customer
+            await tx.referral.deleteMany({
+                where: { referrerCustomerId: id },
+            });
+
+            // 6. Clean up relationship ownership
+            await tx.relationshipOwnership.deleteMany({ where: { customerId: id } });
+
+            // 7. Clean up outbound messages
+            await tx.outboundMessage.deleteMany({ where: { customerId: id } });
+
+            // 8. Clean up customer notes
+            await tx.customerNote.deleteMany({ where: { customerId: id } });
+
+            // 9. Clean up customer crops
+            await tx.customerCrop.deleteMany({ where: { customerId: id } });
+
+            // 10. Clean up customer locations
+            await tx.customerLocation.deleteMany({ where: { customerId: id } });
+
+            // 11. Clean up customer phones
+            await tx.customerPhone.deleteMany({ where: { customerId: id } });
+
+            // 12. Clean up sales orders if any exist
+            const customerOrders = await tx.salesOrder.findMany({
+                where: { customerId: id },
+                select: { id: true },
+            });
+            const orderIds = customerOrders.map((o) => o.id);
+            if (orderIds.length > 0) {
+                await tx.salesOrderItem.deleteMany({ where: { orderId: { in: orderIds } } });
+                await tx.invoice.deleteMany({ where: { orderId: { in: orderIds } } });
+                await tx.salesOrder.deleteMany({ where: { id: { in: orderIds } } });
+            }
+
+            // 13. Permanently remove customer
+            await tx.customer.delete({ where: { id } });
+
+            // 14. Record audit event
+            await this.audit.record(tx, {
+                actorId: actor.id,
+                entityType: 'CUSTOMER',
+                entityId: id,
+                entityLabel: existing.fullName,
+                action: 'deleted',
+                before: { fullName: existing.fullName, farmerCode: existing.farmerCode },
+            });
+        }, { maxWait: 15000, timeout: 30000 });
+
+        return { success: true, message: `Customer "${existing.fullName}" permanently deleted` };
     }
     // -------------------------------------------------------------------- phones
     async addPhone(actor, customerId, input) {

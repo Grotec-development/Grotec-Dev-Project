@@ -31,6 +31,8 @@ let PermissionGuard = class PermissionGuard {
         const principal = request.employee;
         if (!principal)
             throw ApiError.unauthorized();
+        if (principal.roleCode === 'FOUNDER' || principal.roleCode === 'SUPER_ADMIN')
+            return true;
         const granted = new Set(principal.permissions);
         const missing = required.filter((permission) => !granted.has(permission));
         if (missing.length > 0) {

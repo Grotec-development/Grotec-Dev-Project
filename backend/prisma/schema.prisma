@@ -161,6 +161,8 @@ model Employee {
   joiningDate    DateTime? @map("joining_date") @db.Date
   experience     String?  @db.VarChar(50)
   address        String?
+  bloodGroup     String?  @map("blood_group") @db.VarChar(10)
+  aadhaarNumber  String?  @map("aadhaar_number") @db.VarChar(20)
   notes          String?
   employmentStatus EmployeeEmploymentStatus? @default(ACTIVE) @map("employment_status")
 

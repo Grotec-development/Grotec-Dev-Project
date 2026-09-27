@@ -81,5 +81,17 @@ __decorate([
 __decorate([
     IsOptional(),
     IsString(),
+    MaxLength(10),
+    __metadata("design:type", String)
+], UpdateEmployeeDto.prototype, "bloodGroup", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(20),
+    __metadata("design:type", String)
+], UpdateEmployeeDto.prototype, "aadhaarNumber", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
     __metadata("design:type", String)
 ], UpdateEmployeeDto.prototype, "employmentStatus", void 0);

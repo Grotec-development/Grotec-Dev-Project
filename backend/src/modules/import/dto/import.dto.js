@@ -32,3 +32,19 @@ __decorate([
     IsObject(),
     __metadata("design:type", Object)
 ], PreviewImportDto.prototype, "mapping", void 0);
+
+export class ExecuteImportDto {
+}
+__decorate([
+    IsArray(),
+    __metadata("design:type", Array)
+], ExecuteImportDto.prototype, "rows", void 0);
+__decorate([
+    IsObject(),
+    __metadata("design:type", Object)
+], ExecuteImportDto.prototype, "mapping", void 0);
+__decorate([
+    IsOptional(),
+    IsObject(),
+    __metadata("design:type", Object)
+], ExecuteImportDto.prototype, "options", void 0);

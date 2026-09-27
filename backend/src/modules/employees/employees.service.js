@@ -43,6 +43,8 @@ const EMPLOYEE_SELECT = {
     joiningDate: true,
     experience: true,
     address: true,
+    bloodGroup: true,
+    aadhaarNumber: true,
     notes: true,
 };
 let EmployeesService = class EmployeesService {
@@ -185,6 +187,8 @@ let EmployeesService = class EmployeesService {
                     joiningDate: dto.joiningDate ? new Date(dto.joiningDate) : null,
                     experience: dto.experience ?? null,
                     address: dto.address ?? null,
+                    bloodGroup: dto.bloodGroup ?? null,
+                    aadhaarNumber: dto.aadhaarNumber ?? null,
                     notes: dto.notes ?? null,
                     employmentStatus: dto.employmentStatus ?? EmployeeEmploymentStatus.ACTIVE,
                 },
@@ -292,6 +296,8 @@ let EmployeesService = class EmployeesService {
                     joiningDate: dto.joiningDate ? new Date(dto.joiningDate) : (dto.joiningDate === null ? null : undefined),
                     experience: dto.experience === undefined ? undefined : dto.experience,
                     address: dto.address === undefined ? undefined : dto.address,
+                    bloodGroup: dto.bloodGroup === undefined ? undefined : dto.bloodGroup,
+                    aadhaarNumber: dto.aadhaarNumber === undefined ? undefined : dto.aadhaarNumber,
                     notes: dto.notes === undefined ? undefined : dto.notes,
                     employmentStatus: dto.employmentStatus,
                     status: isTerminating ? EmployeeStatus.INACTIVE : undefined,

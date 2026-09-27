@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw, Upload, Users } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw, Upload, Users, Trash2, Eye, MapPin, Phone, AlertTriangle } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { ApiErrorBody, CustomerSummary, Page } from '../../lib/types';
 import { formatE164 } from '../../lib/format';
 import { useAuth } from '../../auth/AuthContext';
-import { Alert, Button, Card, EmptyState, Input, Select, StatusBadge, Table, TableSkeleton, TD, TH, THead, cx } from '../../components/ui';
+import { getDistricts } from '../../lib/location-data';
+import { Alert, Button, Card, ConfirmModal, EmptyState, Input, Select, StatusBadge, Table, TableSkeleton, TD, TH, THead, cx } from '../../components/ui';
 import { NewCustomerModal } from './NewCustomerModal';
 import { ImportCustomersModal } from './ImportCustomersModal';
 import { FarmerSegmentsModal } from './FarmerSegmentsModal';
@@ -17,25 +18,53 @@ export function CustomersPage() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
   const [district, setDistrict] = useState('');
+  const [missingTalukOnly, setMissingTalukOnly] = useState(false);
   const [crop, setCrop] = useState('');
   const [status, setStatus] = useState('ACTIVE');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showSegments, setShowSegments] = useState(false);
   const [page, setPage] = useState(1);
+  const [customerToDelete, setCustomerToDelete] = useState<{ id: string; fullName: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const availableDistricts = useMemo(() => getDistricts('Tamil Nadu'), []);
 
   const { data, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ['customers', q, status, page],
+    queryKey: ['customers', q, district, missingTalukOnly, status, page],
     queryFn: async () => {
       const res = await api.get<Page<CustomerSummary>>('/customers', {
-        params: { q: q || undefined, status: status || undefined, page, pageSize: 50 },
+        params: {
+          q: q || undefined,
+          district: district || undefined,
+          missingTaluk: missingTalukOnly ? 'true' : undefined,
+          status: status || undefined,
+          page,
+          pageSize: 50,
+        },
       });
       return res.data;
     },
+    refetchInterval: 12_000,
   });
 
   const canCreate = hasPermission('customer.create');
+  const canDelete = hasPermission('customer.delete') || canCreate;
   const canImport = (user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || hasPermission('customer.import')) && canCreate;
+
+  const handleDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/customers/${customerToDelete.id}`);
+      void queryClient.invalidateQueries({ queryKey: ['customers'] });
+      setCustomerToDelete(null);
+    } catch (err) {
+      alert(errorMessage(err));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Real farmer list populated directly from live database records
   const farmerList = useMemo(() => {
@@ -69,16 +98,16 @@ export function CustomersPage() {
 
   const filteredFarmerList = useMemo(() => {
     return farmerList.filter((f) => {
-      if (district && f.district !== district) return false;
       if (crop && !f.crops.toLowerCase().includes(crop.toLowerCase())) return false;
       return true;
     });
-  }, [farmerList, district, crop]);
+  }, [farmerList, crop]);
 
-  const hasActiveFilters = Boolean(q || district || crop || (status && status !== 'ACTIVE'));
+  const hasActiveFilters = Boolean(q || district || missingTalukOnly || crop || (status && status !== 'ACTIVE'));
   const activeFilterText = [
     q ? `search "${q}"` : '',
     district ? `district "${district}"` : '',
+    missingTalukOnly ? 'missing taluk only' : '',
     crop ? `crop "${crop}"` : '',
     status && status !== 'ACTIVE' ? `status "${status}"` : '',
   ]
@@ -88,8 +117,10 @@ export function CustomersPage() {
   const handleClearFilters = () => {
     setQ('');
     setDistrict('');
+    setMissingTalukOnly(false);
     setCrop('');
     setStatus('ACTIVE');
+    setPage(1);
   };
 
   return (
@@ -138,24 +169,47 @@ export function CustomersPage() {
           {/* District Dropdown */}
           <select
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
+            onChange={(e) => {
+              setDistrict(e.target.value);
+              setPage(1);
+            }}
             className="rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
             aria-label="Filter by district"
           >
             <option value="">District: All Tamil Nadu</option>
-            <option value="Dharmapuri">Dharmapuri</option>
-            <option value="Trichy">Trichy</option>
-            <option value="Erode">Erode</option>
-            <option value="Coimbatore">Coimbatore</option>
-            <option value="Tanjore">Tanjore</option>
-            <option value="Salem">Salem</option>
-            <option value="Pudukkottai">Pudukkottai</option>
+            {availableDistricts.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
           </select>
+
+          {/* Missing Taluk Quick Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setMissingTalukOnly((prev) => !prev);
+              setPage(1);
+            }}
+            className={cx(
+              'rounded-md px-2.5 py-1.5 text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer',
+              missingTalukOnly
+                ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs font-bold'
+                : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-100'
+            )}
+            title="Filter farmers with missing Taluk"
+          >
+            <AlertTriangle className={cx('h-3.5 w-3.5', missingTalukOnly ? 'text-amber-700' : 'text-slate-400')} />
+            <span>Missing Taluk</span>
+          </button>
 
           {/* Crop Dropdown */}
           <select
             value={crop}
-            onChange={(e) => setCrop(e.target.value)}
+            onChange={(e) => {
+              setCrop(e.target.value);
+              setPage(1);
+            }}
             className="rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
             aria-label="Filter by crop"
           >
@@ -172,7 +226,10 @@ export function CustomersPage() {
           {/* Status Dropdown */}
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
             className="rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
             aria-label="Filter by status"
           >
@@ -190,7 +247,10 @@ export function CustomersPage() {
               className="w-full rounded-md border border-slate-200 bg-slate-50/50 pl-8 pr-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand-600 focus:bg-white focus:outline-none"
               placeholder="Search farmers, crops, RMs..."
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
               aria-label="Search farmers"
             />
           </div>
@@ -210,7 +270,7 @@ export function CustomersPage() {
             </Alert>
           </div>
         ) : !data ? (
-          <TableSkeleton rows={7} cols={8} />
+          <TableSkeleton rows={7} cols={9} />
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -224,12 +284,13 @@ export function CustomersPage() {
                   <TH>LAST CONTACT</TH>
                   <TH>STATUS</TH>
                   <TH>ASSIGNED RM</TH>
+                  <TH className="text-right">ACTIONS</TH>
                 </tr>
               </THead>
               <tbody className="divide-y divide-slate-100">
                 {filteredFarmerList.length === 0 ? (
                   <tr>
-                    <TD colSpan={8} className="py-10">
+                    <TD colSpan={9} className="py-10">
                       <EmptyState
                         title={hasActiveFilters ? "No farmers match current filters" : "No farmer records found"}
                         description={
@@ -263,16 +324,59 @@ export function CustomersPage() {
                         </Link>
                       </TD>
                       <TD className="font-mono text-[11px] text-slate-600">
-                        {farmer.primaryPhone ? formatE164(farmer.primaryPhone) : '—'}
+                        <div className="flex items-center gap-1">
+                          <span>{farmer.primaryPhone ? formatE164(farmer.primaryPhone) : '—'}</span>
+                          {farmer.phoneCount > 1 && (
+                            <span className="rounded bg-slate-100 px-1 py-0.2 text-[9px] font-sans font-medium text-slate-500">
+                              +{farmer.phoneCount - 1}
+                            </span>
+                          )}
+                        </div>
                       </TD>
-                      <TD className="text-slate-700 font-medium">{farmer.district}</TD>
-                      <TD className="text-slate-600">{farmer.taluk}</TD>
-                      <TD className="text-slate-700 font-medium">{farmer.crops}</TD>
+                      <TD className="text-slate-700 font-medium">{farmer.district || '—'}</TD>
+                      <TD>
+                        {farmer.taluk ? (
+                          <span className="text-slate-700">{farmer.taluk}</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                            Missing Taluk
+                          </span>
+                        )}
+                      </TD>
+                      <TD className="text-slate-700 font-medium">{farmer.crops || '—'}</TD>
                       <TD className="text-slate-500 text-[11px]">{farmer.lastContact}</TD>
                       <TD>
                         <StatusBadge status={farmer.status} />
                       </TD>
-                      <TD className="text-slate-700 font-semibold">{farmer.rm}</TD>
+                      <TD className="text-slate-700 font-semibold">{farmer.rm || '—'}</TD>
+                      <TD className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            to={`/agent?customerId=${farmer.id}&name=${encodeURIComponent(farmer.fullName)}`}
+                            className="rounded p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition"
+                            title="Call Farmer in Calling Workspace"
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                          </Link>
+                          <Link
+                            to={`/customers/${farmer.id}`}
+                            className="rounded p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                            title="View Customer Profile"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Link>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomerToDelete({ id: farmer.id, fullName: farmer.fullName })}
+                              className="rounded p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                              title="Delete Customer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </TD>
                     </tr>
                   ))
                 )}
@@ -281,60 +385,91 @@ export function CustomersPage() {
           </div>
         )}
 
-        {/* Pagination Footer matching PDF: Showing 1-12 of 2,847 farmers | Previous 1 2 3 Next */}
-        <div className="flex flex-wrap items-center justify-between border-t border-slate-200/90 bg-slate-50/40 px-4 py-3 text-xs text-slate-500">
-          <span>
-            Showing {farmerList.length ? (page - 1) * 50 + 1 : 0}–{(page - 1) * 50 + farmerList.length} of{' '}
-            {(data?.total ?? 0).toLocaleString('en-IN')} farmers
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className={cx(
-                'rounded px-2.5 py-1 text-xs font-bold transition',
-                page === 1 ? 'bg-brand-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-              )}
-              onClick={() => setPage(1)}
-            >
-              1
-            </button>
-            <button
-              type="button"
-              className={cx(
-                'rounded px-2.5 py-1 text-xs font-bold transition',
-                page === 2 ? 'bg-brand-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-              )}
-              onClick={() => setPage(2)}
-            >
-              2
-            </button>
-            <button
-              type="button"
-              className={cx(
-                'rounded px-2.5 py-1 text-xs font-bold transition',
-                page === 3 ? 'bg-brand-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-              )}
-              onClick={() => setPage(3)}
-            >
-              3
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <ConfirmModal
+          isOpen={Boolean(customerToDelete)}
+          onClose={() => setCustomerToDelete(null)}
+          onConfirm={handleDeleteCustomer}
+          title={`Permanently Delete Customer`}
+          variant="danger"
+          confirmLabel="Permanently Delete"
+          isLoading={isDeleting}
+          description={
+            <div className="space-y-2 text-xs">
+              <p className="font-semibold text-slate-800">
+                Are you sure you want to permanently delete this customer?
+              </p>
+              <p className="text-slate-500 leading-relaxed">
+                This will permanently remove <strong>{customerToDelete?.fullName}</strong> and all linked history, notes, calls, follow-ups, and orders from the database. This action cannot be undone.
+              </p>
+            </div>
+          }
+        />
+
+        {/* Dynamic Pagination matching total records */}
+        {(() => {
+          const totalRecords = data?.total ?? 0;
+          const totalPages = Math.max(1, Math.ceil(totalRecords / 50));
+          const pageNumbers: (number | string)[] = [];
+          if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+          } else {
+            pageNumbers.push(1);
+            if (page > 3) pageNumbers.push('...');
+            const start = Math.max(2, page - 1);
+            const end = Math.min(totalPages - 1, page + 1);
+            for (let i = start; i <= end; i++) pageNumbers.push(i);
+            if (page < totalPages - 2) pageNumbers.push('...');
+            pageNumbers.push(totalPages);
+          }
+
+          return (
+            <div className="flex flex-wrap items-center justify-between border-t border-slate-200/90 bg-slate-50/40 px-4 py-3 text-xs text-slate-500 gap-2">
+              <span>
+                Showing {farmerList.length ? (page - 1) * 50 + 1 : 0}–{(page - 1) * 50 + farmerList.length} of{' '}
+                {totalRecords.toLocaleString('en-IN')} farmers (Page {page} of {totalPages})
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                {pageNumbers.map((p, idx) =>
+                  typeof p === 'number' ? (
+                    <button
+                      key={p}
+                      type="button"
+                      className={cx(
+                        'rounded px-2.5 py-1 text-xs font-bold transition cursor-pointer',
+                        page === p
+                          ? 'bg-emerald-700 text-white shadow-xs'
+                          : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      )}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-slate-400">
+                      …
+                    </span>
+                  )
+                )}
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </Card>
 
       {showCreate ? (

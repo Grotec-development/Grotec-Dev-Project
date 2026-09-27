@@ -1,3 +1,4 @@
+import express from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -7,6 +8,8 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 export async function configureApp(app, options = {}) {
     const config = app.get(ConfigService);
     app.setGlobalPrefix('api/v1');
+    app.use(express.json({ limit: '50mb' }));
+    app.use(express.urlencoded({ limit: '50mb', extended: true }));
     app.use(cookieParser());
     app.useGlobalFilters(new HttpExceptionFilter());
     app.useGlobalPipes(new ValidationPipe({

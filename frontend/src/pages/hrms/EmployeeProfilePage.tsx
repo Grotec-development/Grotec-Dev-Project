@@ -338,6 +338,18 @@ export function EmployeeProfilePage() {
                 <span className="font-medium text-slate-800">{overview.phone || '—'}</span>
               </div>
               <div>
+                <span className="block text-xs text-slate-400">Blood Group</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  {overview.bloodGroup || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="block text-xs text-slate-400">Aadhaar Number</span>
+                <span className="font-mono font-medium text-slate-800">
+                  {overview.aadhaarNumber ? `•••• •••• ${overview.aadhaarNumber.slice(-4)} (${overview.aadhaarNumber})` : '—'}
+                </span>
+              </div>
+              <div className="col-span-2">
                 <span className="block text-xs text-slate-400">Residential Address</span>
                 <span className="font-medium text-slate-800">{overview.address || '—'}</span>
               </div>

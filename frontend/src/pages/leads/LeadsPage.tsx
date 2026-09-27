@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { Phone } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Lead, Page } from '../../lib/types';
 import { formatDate } from '../../lib/format';
@@ -14,6 +15,7 @@ export function LeadsPage() {
       const res = await api.get<Page<Lead>>('/leads', { params: { status: status || undefined, page: 1, pageSize: 50 } });
       return res.data;
     },
+    refetchInterval: 10_000,
   });
 
   return (
@@ -46,12 +48,13 @@ export function LeadsPage() {
                 <TH>Source</TH>
                 <TH>Owner</TH>
                 <TH>Opened</TH>
+                <TH className="text-right">Actions</TH>
               </tr>
             </THead>
             <tbody>
               {data.items.length === 0 ? (
                 <tr>
-                  <TD colSpan={5} className="py-8 text-center text-slate-400">
+                  <TD colSpan={6} className="py-8 text-center text-slate-400">
                     No leads found.
                   </TD>
                 </tr>
@@ -69,6 +72,16 @@ export function LeadsPage() {
                     <TD>{lead.source ?? '—'}</TD>
                     <TD>{lead.owner?.fullName ?? '—'}</TD>
                     <TD className="text-xs text-slate-500">{formatDate(lead.createdAt)}</TD>
+                    <TD className="text-right">
+                      <Link
+                        to={`/agent?customerId=${lead.customer.id}&name=${encodeURIComponent(lead.customer.fullName)}`}
+                        className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition"
+                        title="Call Farmer in Calling Workspace"
+                      >
+                        <Phone className="h-3 w-3" />
+                        <span>Call</span>
+                      </Link>
+                    </TD>
                   </tr>
                 ))
               )}

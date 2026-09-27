@@ -309,6 +309,10 @@ export interface QueueItem {
     farmerCode: string | null;
     fullName: string;
     primaryPhone: string | null;
+    phones?: Array<{ id: string; phone: string; rawInput?: string | null; isPrimary: boolean; kind: string }>;
+    location?: { id: string; state?: string | null; district?: string | null; taluk?: string | null; village?: string | null; pincode?: string | null } | null;
+    soilType?: string | null;
+    preferredLanguage?: string | null;
     crops: Array<{
       crop: { id: string; code: string; name: string; localName: string | null };
       acreage: number;
@@ -340,9 +344,13 @@ export interface ImportRowMapped {
   fullName: string;
   phone: string;
   secondaryPhone: string | null;
+  additionalPhones?: string[];
+  allPhones?: string[];
   village: string | null;
   taluk: string | null;
   district: string | null;
+  state?: string | null;
+  pincode?: string | null;
   soilType: string | null;
   preferredLanguage: string | null;
 }
@@ -352,6 +360,8 @@ export interface ImportRowItem {
   status: 'VALID' | 'INVALID' | 'DUPLICATE';
   errors: string[];
   duplicateReason: string | null;
+  talukMissing?: boolean;
+  phoneCount?: number;
   mapped: ImportRowMapped;
   raw: Record<string, string>;
 }
@@ -361,9 +371,21 @@ export interface ImportPreviewResult {
   validRows: number;
   invalidRows: number;
   duplicateRows: number;
+  missingTalukRows?: number;
   detectedColumns: string[];
   mappingApplied: Record<string, string>;
   items: ImportRowItem[];
+}
+
+export interface ImportExecuteResult {
+  success: boolean;
+  message: string;
+  totalRows: number;
+  createdCount: number;
+  skippedCount: number;
+  errorCount: number;
+  missingTalukCount?: number;
+  customerIds: string[];
 }
 
 /** Step 5: CRM Reports & Operational Leaderboard types */

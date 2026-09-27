@@ -11,11 +11,11 @@ export interface GrotecLogoProps {
 }
 
 const SIZE_MAP = {
-  xs: { img: 'h-7 w-7', title: 'text-sm', sub: 'text-[10px]' },
-  sm: { img: 'h-9 w-9', title: 'text-base', sub: 'text-[11px]' },
-  md: { img: 'h-11 w-11', title: 'text-lg', sub: 'text-xs' },
-  lg: { img: 'h-16 w-16', title: 'text-2xl', sub: 'text-sm' },
-  xl: { img: 'h-20 w-20', title: 'text-3xl', sub: 'text-base' },
+  xs: { img: 'h-8 w-8', title: 'text-sm font-bold', sub: 'text-[10px]' },
+  sm: { img: 'h-10 w-10', title: 'text-base font-bold', sub: 'text-[11px]' },
+  md: { img: 'h-12 w-12', title: 'text-lg font-bold', sub: 'text-xs' },
+  lg: { img: 'h-16 w-16', title: 'text-2xl font-bold', sub: 'text-sm' },
+  xl: { img: 'h-24 w-24', title: 'text-3xl font-bold', sub: 'text-base' },
 };
 
 export function GrotecLogo({

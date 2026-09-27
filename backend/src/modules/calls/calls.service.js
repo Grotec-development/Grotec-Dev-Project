@@ -154,7 +154,7 @@ let CallsService = class CallsService {
                 after: { phoneNumber: e164, customerId, leadId, status: placed.status, provider: dialer.id },
             });
             return row;
-        });
+        }, { maxWait: 15000, timeout: 30000 });
         return this.serialize({ ...call, notes: [] });
     }
     async getActiveCall(actor) {
@@ -230,8 +230,18 @@ let CallsService = class CallsService {
             throw ApiError.conflict('CALL_NOT_ACTIVE', 'This call is already finished');
         }
         const snapshot = await this.dialers.get(call.provider).endCall(call.providerCallId);
-        if (snapshot)
+        if (snapshot) {
             await this.applySnapshot(call, snapshot);
+        } else {
+            await this.prisma.call.update({
+                where: { id: call.id },
+                data: {
+                    status: CallStatus.ENDED,
+                    endedAt: new Date(),
+                    disconnectReason: CallDisconnectReason.AGENT_ENDED,
+                },
+            });
+        }
         const [updated] = await Promise.all([
             this.requireCall(id, actor),
             this.audit.record(this.prisma, {
@@ -316,6 +326,7 @@ let CallsService = class CallsService {
                 customer: {
                     include: {
                         phones: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+                        locations: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
                         crops: {
                             where: { deletedAt: null },
                             orderBy: { createdAt: 'asc' },
@@ -329,6 +340,7 @@ let CallsService = class CallsService {
                 },
             },
             orderBy: { updatedAt: 'desc' },
+            take: filters.limit ? Number(filters.limit) : 250,
         });
         const lastCalls = await this.prisma.call.findMany({
             where: { leadId: { in: leads.map((lead) => lead.id) } },
@@ -339,25 +351,45 @@ let CallsService = class CallsService {
             if (call.leadId && !latestCallByLead.has(call.leadId))
                 latestCallByLead.set(call.leadId, call);
         }
-        return leads.map((lead) => ({
-            leadId: lead.id,
-            source: lead.source,
-            status: lead.status,
-            notes: lead.notes,
-            owner: lead.ownerships[0]?.employee ?? null,
-            customer: {
-                id: lead.customer.id,
-                farmerCode: lead.customer.farmerCode,
-                fullName: lead.customer.fullName,
-                primaryPhone: lead.customer.phones[0]?.phoneE164 ?? null,
-                crops: lead.customer.crops.map((c) => ({
-                    crop: c.crop,
-                    acreage: c.acreage.toNumber(),
-                    unit: c.unit,
-                })),
-            },
-            lastCall: latestCallByLead.get(lead.id) ? this.serializeCallBrief(latestCallByLead.get(lead.id)) : null,
-        }));
+        return leads.map((lead) => {
+            const loc = lead.customer.locations?.[0] || null;
+            return {
+                leadId: lead.id,
+                source: lead.source,
+                status: lead.status,
+                notes: lead.notes,
+                owner: lead.ownerships[0]?.employee ?? null,
+                customer: {
+                    id: lead.customer.id,
+                    farmerCode: lead.customer.farmerCode,
+                    fullName: lead.customer.fullName,
+                    primaryPhone: lead.customer.phones[0]?.phoneE164 ?? null,
+                    phones: lead.customer.phones.map((p) => ({
+                        id: p.id,
+                        phone: p.phoneE164,
+                        rawInput: p.rawInput,
+                        isPrimary: p.isPrimary,
+                        kind: p.kind,
+                    })),
+                    location: loc ? {
+                        id: loc.id,
+                        state: loc.state,
+                        district: loc.district,
+                        taluk: loc.taluk,
+                        village: loc.village,
+                        pincode: loc.pincode,
+                    } : null,
+                    soilType: lead.customer.soilType,
+                    preferredLanguage: lead.customer.preferredLanguage,
+                    crops: lead.customer.crops.map((c) => ({
+                        crop: c.crop,
+                        acreage: c.acreage.toNumber(),
+                        unit: c.unit,
+                    })),
+                },
+                lastCall: latestCallByLead.get(lead.id) ? this.serializeCallBrief(latestCallByLead.get(lead.id)) : null,
+            };
+        });
     }
     async customerCalls(customerId, actor) {
         await this.customers.assertReadable(customerId, actor);
@@ -475,6 +507,13 @@ let CallsService = class CallsService {
                 after: { outcome: update.outcomeCustom || update.outcome, nextAction: update.nextAction },
             });
 
+            const noteContent = dto.notes || dto.followUpNote;
+            if (noteContent && noteContent.trim()) {
+                await tx.callNote.create({
+                    data: { callId: call.id, authorId: actor.id, body: noteContent.trim() },
+                });
+            }
+
             const isFollowUpRequested =
                 (outcomeCode === 'INTERESTED' && dto.nextAction === 'CALLBACK') ||
                 outcomeCode === 'CALLBACK_REQUESTED' ||
@@ -505,7 +544,7 @@ let CallsService = class CallsService {
                 await tx.lead.update({ where: { id: call.leadId }, data: { status: 'CLOSED' } });
             }
             return { followUpId: null, followUp: null, messageId: null, rmId: null };
-        });
+        }, { maxWait: 15000, timeout: 30000 });
         // Deliver the queued product message after commit — a provider failure must
         // never roll back the outcome; it is recorded as FAILED instead (§12).
         if (result.messageId) {

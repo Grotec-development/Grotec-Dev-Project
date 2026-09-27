@@ -10,6 +10,7 @@ export namespace PERMISSIONS {
     let customerCreate: string;
     let customerUpdate: string;
     let customerDeactivate: string;
+    let customerDelete: string;
     let cropRead: string;
     let cropManage: string;
     let leadRead: string;

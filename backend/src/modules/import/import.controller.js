@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c;
+var _a, _b, _c, _d;
 import {
   Body,
   Controller,
@@ -25,7 +25,7 @@ import { CurrentEmployee } from '../../common/decorators/current-employee.decora
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { ApiError } from '../../common/errors/api-error';
 import { ImportService } from './import.service';
-import { ParseImportDto, PreviewImportDto } from './dto/import.dto';
+import { ParseImportDto, PreviewImportDto, ExecuteImportDto } from './dto/import.dto';
 
 /**
  * Controller for CSV / Customer data import.
@@ -77,6 +77,15 @@ let ImportController = class ImportController {
     this.assertManagementRole(actor);
     return this.importService.preview(dto.rows, dto.mapping, actor);
   }
+
+  /**
+   * Executes the customer import, creating Customers, CustomerPhones,
+   * CustomerLocations, and Leads in database transactions.
+   */
+  async execute(actor, dto) {
+    this.assertManagementRole(actor);
+    return this.importService.execute(dto.rows, dto.mapping, dto.options || {}, actor);
+  }
 };
 
 __decorate([
@@ -102,6 +111,17 @@ __decorate([
   __metadata("design:paramtypes", [Object, typeof (_c = typeof PreviewImportDto !== "undefined" && PreviewImportDto) === "function" ? _c : Object]),
   __metadata("design:returntype", Promise)
 ], ImportController.prototype, "preview", null);
+
+__decorate([
+  Post('execute'),
+  HttpCode(200),
+  RequirePermission(PERMISSIONS.customerCreate),
+  __param(0, CurrentEmployee()),
+  __param(1, Body()),
+  __metadata("design:type", Function),
+  __metadata("design:paramtypes", [Object, typeof (_d = typeof ExecuteImportDto !== "undefined" && ExecuteImportDto) === "function" ? _d : Object]),
+  __metadata("design:returntype", Promise)
+], ImportController.prototype, "execute", null);
 
 ImportController = __decorate([
   Controller('import'),

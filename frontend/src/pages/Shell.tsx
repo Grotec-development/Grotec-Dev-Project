@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Phone,
   Users,
+  User,
   Contact,
   Sprout,
   ShieldCheck,
@@ -77,31 +78,15 @@ const AGENT_PRIMARY_NAV = new Set([
 ]);
 
 /**
- * FOUNDER-only: these five destinations are hidden from the founder's primary
- * navigation. Same rule as above — VISIBILITY for one role. Routes, pages,
- * APIs and permissions are untouched, and the founder keeps direct-URL access.
+ * FOUNDER has full system-wide access without hidden navigation items.
  */
-const FOUNDER_HIDDEN_NAV = new Set([
-  '/agent',
-  '/calling',
-  '/action-center',
-  '/leads',
-  '/knowledge-base',
-  '/crops',
-  '/reports',
-]);
+const FOUNDER_HIDDEN_NAV = new Set<string>([]);
 
 /**
- * MANAGER-only: these five destinations are hidden from the manager's primary
- * navigation. Same rule as above — VISIBILITY for one role only. Routes, pages,
- * APIs and permissions are untouched, and the manager keeps direct-URL access.
+ * MANAGER navigation visibility.
  */
-const MANAGER_HIDDEN_NAV = new Set([
+const MANAGER_HIDDEN_NAV = new Set<string>([
   '/action-center',
-  '/leads',
-  '/knowledge-base',
-  '/crops',
-  '/reports',
 ]);
 
 // Administration & Settings (Founder & Manager only)
@@ -358,6 +343,8 @@ export function Shell() {
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [sidebarPinned, setSidebarPinned] = useState(false);
   const [sidebarFocused, setSidebarFocused] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Expanded whenever hovered, pinned, focused, or on mobile drawer open
   const isNavExpanded = mobileMenuOpen || sidebarPinned || sidebarHovered || sidebarFocused;
@@ -455,11 +442,11 @@ export function Shell() {
         aria-label="Main navigation"
       >
         {/* Header Brand Logo */}
-        <div className="flex items-center justify-between border-b border-slate-200/90 px-3.5 py-3 bg-white h-14">
+        <div className="flex items-center justify-between border-b border-slate-200/90 px-3.5 py-3 bg-white h-16">
           <div className="flex items-center gap-2 min-w-0">
             <GrotecLogo
               to="/dashboard"
-              size="sm"
+              size="md"
               variant={isNavExpanded ? 'full' : 'mark-only'}
               // AGENT workspace hides the version line; '' overrides GrotecLogo's
               // default (undefined would fall back to it). Other roles and the
@@ -640,13 +627,23 @@ export function Shell() {
                 </p>
               </div>
             )}
-            {isNavExpanded && (
+            {isNavExpanded ? (
               <button
                 type="button"
                 onClick={() => void logout()}
                 title="Sign out"
                 aria-label="Sign out"
                 className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void logout()}
+                title="Sign out"
+                aria-label="Sign out"
+                className="mt-2 rounded-md p-1.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 transition cursor-pointer"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -692,14 +689,64 @@ export function Shell() {
               <input
                 type="text"
                 placeholder="Search farmers, crops, advisories..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && globalSearch.trim()) {
+                    navigate(`/customers?q=${encodeURIComponent(globalSearch.trim())}`);
+                  }
+                }}
                 className="w-full rounded-md border border-slate-200 bg-slate-50/70 pl-8 pr-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
                 aria-label="Search farmers, crops, advisories"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 relative">
               <NotificationCenter />
-              <div className="h-8 w-8 rounded-full bg-brand-50 border border-brand-200/80 flex items-center justify-center text-xs font-bold text-brand-700 shadow-xs">
-                {initialsOf(user.fullName || 'Priya S.')}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen((prev) => !prev)}
+                  className="h-8 w-8 rounded-full bg-brand-50 border border-brand-200/80 flex items-center justify-center text-xs font-bold text-brand-700 shadow-xs hover:ring-2 hover:ring-brand-500/30 transition cursor-pointer"
+                  aria-expanded={userMenuOpen}
+                  aria-label="User profile menu"
+                >
+                  {initialsOf(user.fullName || 'Priya S.')}
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-lg border border-slate-200 bg-white py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-3.5 py-2 border-b border-slate-100">
+                      <p className="text-xs font-bold text-slate-900 truncate">{user.fullName || 'User'}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                      <span className="mt-1.5 inline-block rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                        {user.roleCode === 'FOUNDER' ? 'Founder & CEO' : user.roleCode}
+                      </span>
+                    </div>
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          navigate(user.id ? `/hrms/employees/${user.id}` : '/team');
+                        }}
+                        className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <User className="h-3.5 w-3.5 text-slate-400" />
+                        <span>My Profile</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          void logout();
+                        }}
+                        className="w-full text-left px-3.5 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        <LogOut className="h-3.5 w-3.5 text-red-500" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

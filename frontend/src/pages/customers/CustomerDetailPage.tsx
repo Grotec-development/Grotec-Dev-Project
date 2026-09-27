@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2, Calendar, FileText, ShoppingBag, PhoneCall, Send } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2, Calendar, FileText, ShoppingBag, PhoneCall, Send, AlertTriangle, X } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Crop, CustomerDetail, Lead, Page, Referral } from '../../lib/types';
 import { formatDate, formatE164 } from '../../lib/format';
 import { useAuth } from '../../auth/AuthContext';
+import { LocationSelector } from '../../components/LocationSelector';
 import { Alert, Badge, Button, Card, CardHeader, ConfirmModal, Field, Input, Select, Spinner, StatusBadge, Table, TD, TH, THead, cx } from '../../components/ui';
 
 interface PurchaseRecord {
@@ -22,8 +23,20 @@ export function CustomerDetailPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const canEdit = hasPermission('customer.update');
+  const canDelete = hasPermission('customer.delete') || hasPermission('customer.create');
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'land_crops' | 'advisory_notes'>('overview');
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showEditLocation, setShowEditLocation] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationDraft, setLocationDraft] = useState({
+    state: 'Tamil Nadu',
+    district: '',
+    taluk: '',
+    village: '',
+    pincode: '',
+  });
 
   const { data, isError, error } = useQuery({
     queryKey: ['customer', id],
@@ -156,14 +169,60 @@ export function CustomerDetailPage() {
 
   const canToggle = hasPermission('customer.deactivate');
   const primaryPhone = data.phones?.find((p) => p.isPrimary)?.phone || data.phones?.[0]?.phone || '';
+  const primaryLocationObj = data.locations?.[0];
+  const isTalukMissing = !primaryLocationObj?.taluk || primaryLocationObj.taluk.trim().length === 0;
 
   const handleCallNow = () => {
-    navigate(`/agent?phone=${encodeURIComponent(primaryPhone)}&name=${encodeURIComponent(data.fullName)}`);
+    navigate(`/agent?customerId=${id}&phone=${encodeURIComponent(primaryPhone)}&name=${encodeURIComponent(data.fullName)}`);
+  };
+
+  const handleDeleteCustomer = async () => {
+    setIsDeleting(true);
+    try {
+      await api.delete(`/customers/${id}`);
+      navigate('/customers');
+    } catch (err) {
+      alert(errorMessage(err));
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const openLocationEditor = () => {
+    setLocationDraft({
+      state: primaryLocationObj?.state || 'Tamil Nadu',
+      district: primaryLocationObj?.district || '',
+      taluk: primaryLocationObj?.taluk || '',
+      village: primaryLocationObj?.village || '',
+      pincode: primaryLocationObj?.pincode || '',
+    });
+    setShowEditLocation(true);
+  };
+
+  const handleSaveLocation = async () => {
+    setSavingLocation(true);
+    try {
+      await api.patch(`/customers/${id}`, {
+        state: locationDraft.state,
+        district: locationDraft.district,
+        taluk: locationDraft.taluk,
+        village: locationDraft.village,
+        pincode: locationDraft.pincode,
+      });
+      void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+      void queryClient.invalidateQueries({ queryKey: ['customers'] });
+      setShowEditLocation(false);
+    } catch (err) {
+      alert(errorMessage(err));
+    } finally {
+      setSavingLocation(false);
+    }
   };
 
   const primaryCropNames = data.crops?.map((c) => c.crop.name).join(', ') || 'Tomato (PKM-1), Brinjal';
-  const primaryLocation = data.locations?.[0]
-    ? `${data.locations[0].village || ''} ${data.locations[0].district || 'Dharmapuri'}, ${data.locations[0].state || 'Tamil Nadu'}`.trim()
+  const primaryLocation = primaryLocationObj
+    ? `${primaryLocationObj.village || ''} ${primaryLocationObj.taluk ? primaryLocationObj.taluk + ', ' : ''}${primaryLocationObj.district || 'Dharmapuri'}, ${primaryLocationObj.state || 'Tamil Nadu'}`.trim()
     : 'Dharmapuri, Tamil Nadu';
 
   return (
@@ -174,6 +233,31 @@ export function CustomerDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Farmer Directory
         </Link>
       </div>
+
+      {/* Missing Taluk Warning Notification (Requirement 3) */}
+      {isTalukMissing && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-amber-100 p-2 text-amber-700">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">Taluk not available — please update Taluk.</p>
+              <p className="text-xs text-amber-700">
+                A Taluk is required for accurate agronomy advisory, delivery routing, and local soil profiling.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={openLocationEditor}
+            className="bg-amber-600 hover:bg-amber-700 text-white gap-1 text-xs font-semibold shadow-xs"
+          >
+            <MapPin className="h-3.5 w-3.5" /> Update Taluk Now
+          </Button>
+        </div>
+      )}
 
       {/* Header Banner matching PDF Farmer Profile / CRM Record */}
       <div className="rounded-lg border border-slate-200/90 bg-white p-5 shadow-xs flex flex-wrap items-start justify-between gap-4">
@@ -193,6 +277,17 @@ export function CustomerDetailPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {canEdit ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openLocationEditor}
+              className="text-xs gap-1"
+            >
+              <MapPin className="h-3.5 w-3.5" /> Location
+            </Button>
+          ) : null}
+
           {canToggle ? (
             <Button
               variant="outline"
@@ -208,6 +303,18 @@ export function CustomerDetailPage() {
               className="text-xs"
             >
               {data.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+            </Button>
+          ) : null}
+
+          {canDelete ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isDeleting}
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
             </Button>
           ) : null}
 
@@ -245,6 +352,74 @@ export function CustomerDetailPage() {
           </div>
         }
       />
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteCustomer}
+        title={`Permanently Delete ${data?.fullName || 'Customer'}`}
+        variant="danger"
+        confirmLabel="Permanently Delete"
+        isLoading={isDeleting}
+        description={
+          <div className="space-y-2 text-xs">
+            <p className="font-semibold text-slate-800">
+              Are you sure you want to permanently delete this customer?
+            </p>
+            <p className="text-slate-500 leading-relaxed">
+              This action will permanently delete <strong>{data.fullName}</strong> ({data.farmerCode}) and all linked records, notes, calls, follow-ups, and orders from the database. This action cannot be undone.
+            </p>
+          </div>
+        }
+      />
+
+      {showEditLocation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+          <Card className="w-full max-w-lg p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-emerald-600" /> Update Customer Location &amp; Taluk
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Select State &gt; District &gt; Taluk to update the customer record.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditLocation(false)}
+                className="text-slate-400 hover:text-slate-600 rounded p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <LocationSelector
+              state={locationDraft.state}
+              district={locationDraft.district}
+              taluk={locationDraft.taluk}
+              village={locationDraft.village}
+              pincode={locationDraft.pincode}
+              onChange={(patch) => setLocationDraft((d) => ({ ...d, ...patch }))}
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button size="sm" variant="ghost" onClick={() => setShowEditLocation(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={savingLocation}
+                onClick={() => void handleSaveLocation()}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+              >
+                {savingLocation ? 'Saving...' : 'Save Location'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {toggleStatus.isError ? (
         <Alert tone="error">{errorMessage(toggleStatus.error)}</Alert>
@@ -428,7 +603,7 @@ export function CustomerDetailPage() {
       {activeTab === 'land_crops' && (
         <div className="grid gap-5 xl:grid-cols-2">
           <CropsCard customerId={data.id} customer={data} crops={cropsQuery.data ?? []} canEdit={canEdit} />
-          <LocationsCard customerId={data.id} customer={data} canEdit={canEdit} />
+          <LocationsCard customerId={data.id} customer={data} canEdit={canEdit} onEditLocation={openLocationEditor} />
           <ReferralsCard customerId={data.id} />
         </div>
       )}
@@ -712,25 +887,65 @@ function PhonesCard({ customerId, customer, canEdit }: { customerId: string; cus
   );
 }
 
-function LocationsCard({ customerId, customer, canEdit }: { customerId: string; customer: CustomerDetail; canEdit: boolean }) {
-  const { pending, error, run } = useCustomerMutation(customerId);
-  const [village, setVillage] = useState('');
-  const [district, setDistrict] = useState('');
-
+function LocationsCard({
+  customerId,
+  customer,
+  canEdit,
+  onEditLocation,
+}: {
+  customerId: string;
+  customer: CustomerDetail;
+  canEdit: boolean;
+  onEditLocation?: () => void;
+}) {
   return (
     <Card className="p-4 shadow-xs">
-      <CardHeader title="Locations / Farm Holdings" />
-      {error ? <div className="p-2"><Alert tone="error">{error}</Alert></div> : null}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+          Locations / Farm Holdings
+        </h3>
+        {canEdit && onEditLocation && (
+          <Button size="sm" variant="ghost" onClick={onEditLocation} className="text-xs gap-1 text-emerald-700 hover:text-emerald-800">
+            <MapPin className="h-3.5 w-3.5" /> Edit Location
+          </Button>
+        )}
+      </div>
       <div className="divide-y divide-slate-100 text-xs">
         {customer.locations?.map((loc) => (
-          <div key={loc.id} className="flex items-center justify-between py-2">
-            <div>
-              <span className="font-semibold text-slate-800">{loc.village || 'Farm'}</span>
-              <span className="ml-2 text-slate-500">{loc.district}, {loc.state}</span>
-              {loc.isPrimary ? <span className="ml-2 text-[10px] text-emerald-600 font-bold">Primary</span> : null}
+          <div key={loc.id} className="py-2.5 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800 text-sm">{loc.village || 'Farm Location'}</span>
+              {loc.isPrimary ? <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">Primary Location</span> : null}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-slate-600">
+              <div>
+                <span className="text-slate-400 font-medium">Taluk: </span>
+                {loc.taluk ? (
+                  <span className="font-semibold text-slate-800">{loc.taluk}</span>
+                ) : (
+                  <span className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px] font-semibold">
+                    Not available (Update Taluk)
+                  </span>
+                )}
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">District: </span>
+                <span className="font-semibold text-slate-800">{loc.district || '—'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">State: </span>
+                <span className="text-slate-800">{loc.state || 'Tamil Nadu'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">Pincode: </span>
+                <span className="text-slate-800 font-mono">{loc.pincode || '—'}</span>
+              </div>
             </div>
           </div>
         ))}
+        {(!customer.locations || customer.locations.length === 0) && (
+          <p className="py-4 text-center text-slate-400">No farm locations registered.</p>
+        )}
       </div>
     </Card>
   );

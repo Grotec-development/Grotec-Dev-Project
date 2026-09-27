@@ -72,7 +72,7 @@ let HttpExceptionFilter = HttpExceptionFilter_1 = class HttpExceptionFilter {
                 return {
                     error: {
                         code: 'VALIDATION_ERROR',
-                        message: 'Validation failed',
+                        message: `Validation failed: ${obj.message.join('; ')}`,
                         details: { fields: obj.message },
                     },
                 };

@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var _a, _b, _c, _d, _e;
 import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { PERMISSIONS, GROTEC_BUSINESS_ROLES, PROPOSED_ROLE_PERMISSIONS, isTopTier } from '@grotec/shared';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';

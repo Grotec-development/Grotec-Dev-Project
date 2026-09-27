@@ -19,13 +19,14 @@ export function ExceptionCentrePage() {
   const [selectedException, setSelectedException] = useState<any | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
 
-  // Fetch pending exceptions
+  // Fetch pending exceptions with real-time sync
   const { data: exceptions = [], isLoading } = useQuery({
     queryKey: ['pending-exceptions'],
     queryFn: async () => {
       const res = await api.get('/exceptions/pending');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
+    refetchInterval: 10_000,
   });
 
   // Review exception mutation

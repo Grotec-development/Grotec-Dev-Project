@@ -30,13 +30,15 @@ let CustomersController = class CustomersController {
     constructor(customers) {
         this.customers = customers;
     }
-    async list(actor, q, phone, status, cropId, ownerId, page, pageSize) {
+    async list(actor, q, phone, status, cropId, ownerId, district, missingTaluk, page, pageSize) {
         return this.customers.list(actor, parsePagination(page, pageSize), {
             q,
             phone,
             status: status,
             cropId,
             ownerId,
+            district,
+            missingTaluk,
         });
     }
     async lookupByPhone(phone) {
@@ -56,6 +58,9 @@ let CustomersController = class CustomersController {
     }
     async deactivate(actor, id) {
         await this.customers.setActive(actor, id, false);
+    }
+    async delete(actor, id) {
+        return this.customers.delete(actor, id);
     }
     // ------------------------------------------------------------- sub-resources
     async addPhone(actor, id, dto) {
@@ -101,10 +106,12 @@ __decorate([
     __param(3, Query('status')),
     __param(4, Query('cropId')),
     __param(5, Query('ownerId')),
-    __param(6, Query('page')),
-    __param(7, Query('pageSize')),
+    __param(6, Query('district')),
+    __param(7, Query('missingTaluk')),
+    __param(8, Query('page')),
+    __param(9, Query('pageSize')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], CustomersController.prototype, "list", null);
 __decorate([
@@ -163,6 +170,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], CustomersController.prototype, "deactivate", null);
+__decorate([
+    HttpCode(200),
+    Delete(':id'),
+    RequirePermission(PERMISSIONS.customerDelete || 'customer.delete'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], CustomersController.prototype, "delete", null);
 __decorate([
     Post(':id/phones'),
     RequirePermission(PERMISSIONS.customerUpdate),

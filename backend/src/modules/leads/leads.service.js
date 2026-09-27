@@ -276,9 +276,9 @@ let LeadsService = class LeadsService {
                     where: { releasedAt: null },
                     include: { employee: { select: { id: true, fullName: true, status: true } } },
                 },
-                callSessions: {
-                    select: { id: true, scheduledAt: true, status: true },
-                    where: { status: 'SCHEDULED' },
+                followUps: {
+                    select: { id: true, dueAt: true, status: true },
+                    where: { status: 'PENDING' },
                 },
             },
             take: limit,
@@ -288,22 +288,27 @@ let LeadsService = class LeadsService {
             id: l.id,
             customerId: l.customerId,
             currentOwnerId: l.ownerships[0]?.employeeId ?? null,
-            hasPendingFollowUp: (l.callSessions?.length ?? 0) > 0,
+            hasPendingFollowUp: (l.followUps?.length ?? 0) > 0,
         }));
-        const callHistory = await this.prisma.callSession.findMany({
+        const rawCalls = await this.prisma.call.findMany({
             where: {
                 status: 'ENDED',
-                connectedAt: { not: null },
             },
             select: {
                 customerId: true,
-                employeeId: true,
+                agentId: true,
                 endedAt: true,
-                connectedAt: true,
+                startedAt: true,
             },
             orderBy: { endedAt: 'desc' },
             take: 5000,
         });
+        const callHistory = rawCalls.map((c) => ({
+            customerId: c.customerId,
+            employeeId: c.agentId,
+            endedAt: c.endedAt,
+            connectedAt: c.startedAt,
+        }));
         const plan = computeLeadWorkloadPlan({
             agents: eligibleAgents,
             leads: normalizedLeads,

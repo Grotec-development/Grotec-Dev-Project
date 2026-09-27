@@ -17,11 +17,39 @@ __decorate([
     MaxLength(200),
     __metadata("design:type", String)
 ], UpdateCustomerDto.prototype, "fullName", void 0);
-// Optional. Omit the key to leave the stored value alone; send null or an empty
-// string to clear it. @IsOptional() deliberately allows an explicit null through.
 __decorate([
     IsOptional(),
     IsString(),
     MaxLength(40),
     __metadata("design:type", String)
 ], UpdateCustomerDto.prototype, "soilType", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(100),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "taluk", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(100),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "district", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(100),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "state", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(150),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "village", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(10),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "pincode", void 0);

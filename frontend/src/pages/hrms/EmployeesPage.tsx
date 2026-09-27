@@ -58,6 +58,8 @@ export function EmployeesPage() {
     joiningDate: '',
     experience: '',
     address: '',
+    bloodGroup: '',
+    aadhaarNumber: '',
     notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -106,6 +108,8 @@ export function EmployeesPage() {
       joiningDate: new Date().toISOString().slice(0, 10),
       experience: '',
       address: '',
+      bloodGroup: '',
+      aadhaarNumber: '',
       notes: '',
     });
     setFormError(null);
@@ -369,6 +373,32 @@ export function EmployeesPage() {
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     />
                   </Field>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Blood Group">
+                      <Select
+                        value={formData.bloodGroup}
+                        onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                      >
+                        <option value="">(Select Blood Group)</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                      </Select>
+                    </Field>
+                    <Field label="Aadhaar Number">
+                      <Input
+                        value={formData.aadhaarNumber}
+                        onChange={(e) => setFormData({ ...formData, aadhaarNumber: e.target.value })}
+                        placeholder="12-digit Aadhaar"
+                        maxLength={20}
+                      />
+                    </Field>
+                  </div>
                   <Field label="Residential Address">
                     <Input
                       value={formData.address}

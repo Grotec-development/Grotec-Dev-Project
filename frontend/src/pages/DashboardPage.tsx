@@ -40,10 +40,11 @@ export function DashboardPage() {
   const [leaderboardPeriod, setLeaderboardPeriod] = useState<'today' | 'week' | 'month'>('week');
   const [pulseHoverIndex, setPulseHoverIndex] = useState<number | null>(null);
 
-  // 1. Dashboard summary (real CRM counts)
+  // 1. Dashboard summary (real CRM counts with real-time polling)
   const summaryQuery = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: async () => (await api.get<DashboardSummary>('/dashboard/summary', { params: { range: 'day' } })).data,
+    refetchInterval: 10_000,
   });
 
   // 2. 7-Day call report (real historical calls)
@@ -57,6 +58,7 @@ export function DashboardPage() {
     queryFn: async () => (await api.get<{ items: any[]; total: number }>('/reports/calls', {
       params: { startDate: sevenDaysAgo, pageSize: 200 },
     })).data,
+    refetchInterval: 30_000,
   });
 
   // 3. Leaderboard query (real operational telecaller metrics)
@@ -65,6 +67,7 @@ export function DashboardPage() {
     queryFn: async () => (await api.get<{ leaderboard: any[]; totalAgents: number; currentAgentRank: number | null }>('/reports/leaderboard', {
       params: { period: leaderboardPeriod },
     })).data,
+    refetchInterval: 20_000,
   });
 
   // 4. Agent Performance query (breaks, calls, quality, uptime)
@@ -73,6 +76,7 @@ export function DashboardPage() {
     queryFn: async () => (await api.get<{ teamSummary: any; agents: any[] }>('/reports/agent-performance', {
       params: { period: 'today' },
     })).data,
+    refetchInterval: 15_000,
   });
   const perfData = agentPerformanceQuery.data;
 
@@ -174,15 +178,13 @@ export function DashboardPage() {
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Telephony System Ready</span>
           </div>
-          {user?.roleCode !== 'FOUNDER' && (
-            <Link
-              to="/agent"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition"
-            >
-              <Phone className="h-3.5 w-3.5 fill-current" />
-              <span>Open Agent Mode</span>
-            </Link>
-          )}
+          <Link
+            to="/agent"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition"
+          >
+            <Phone className="h-3.5 w-3.5 fill-current" />
+            <span>Open Agent Mode</span>
+          </Link>
         </div>
       </div>
 
@@ -273,14 +275,12 @@ export function DashboardPage() {
               <span>View directory</span>
               <ChevronRight className="h-3 w-3" />
             </Link>
-            {user?.roleCode !== 'FOUNDER' && (
-              <Link
-                to="/agent"
-                className="text-[11px] font-bold text-slate-600 hover:text-slate-900"
-              >
-                Call now &rarr;
-              </Link>
-            )}
+            <Link
+              to="/agent"
+              className="text-[11px] font-bold text-slate-600 hover:text-slate-900"
+            >
+              Call now &rarr;
+            </Link>
           </div>
         </div>
 

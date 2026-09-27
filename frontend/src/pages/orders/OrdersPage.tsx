@@ -32,13 +32,14 @@ export function OrdersPage() {
   const [paymentMethod, setPaymentMethod] = useState('CASH_ON_DELIVERY');
   const [notes, setNotes] = useState('');
 
-  // Fetch orders
+  // Fetch orders with real-time sync
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
       const res = await api.get('/orders');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
+    refetchInterval: 10_000,
   });
 
   // Fetch products

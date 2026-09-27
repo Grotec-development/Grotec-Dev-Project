@@ -36,6 +36,8 @@ const DispatchPage = lazy(() => import('./pages/dispatch/DispatchPage').then((m)
 const DeliveryMobilePage = lazy(() => import('./pages/delivery/DeliveryMobilePage').then((m) => ({ default: m.DeliveryMobilePage })));
 const ExceptionCentrePage = lazy(() => import('./pages/exceptions/ExceptionCentrePage').then((m) => ({ default: m.ExceptionCentrePage })));
 
+import { DedicatedAgentCallingWorkspace } from './pages/calling/DedicatedAgentCallingWorkspace';
+
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   {
@@ -45,8 +47,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'dashboard', element: <DashboardPage /> },
-      { path: 'agent', element: <AgentWorkspacePage /> },
-      { path: 'calling', element: <AgentWorkspacePage /> },
+      { path: 'agent', element: <DedicatedAgentCallingWorkspace /> },
+      { path: 'calling', element: <DedicatedAgentCallingWorkspace /> },
+      { path: 'agent-advanced', element: <AgentWorkspacePage /> },
       { path: 'action-center', element: <ActionCenterPage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },

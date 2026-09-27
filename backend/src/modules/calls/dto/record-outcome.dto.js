@@ -76,3 +76,24 @@ __decorate([
     MaxLength(40),
     __metadata("design:type", String)
 ], RecordOutcomeDto.prototype, "callMode", void 0);
+
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(2000),
+    __metadata("design:type", String)
+], RecordOutcomeDto.prototype, "notes", void 0);
+
+__decorate([
+    IsOptional(),
+    IsString(),
+    __metadata("design:type", String)
+], RecordOutcomeDto.prototype, "callbackAt", void 0);
+
+__decorate([
+    IsOptional(),
+    Type(() => Number),
+    IsNumber(),
+    __metadata("design:type", Number)
+], RecordOutcomeDto.prototype, "durationSeconds", void 0);
+
