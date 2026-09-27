@@ -631,7 +631,7 @@ let ReportsService = class ReportsService {
                         },
                         include: {
                             notes: { select: { id: true, body: true } },
-                            followUps: { select: { id: true, scheduledAt: true } },
+                            followUps: { select: { id: true, dueAt: true } },
                         },
                         orderBy: { startedAt: 'asc' },
                     }),
@@ -652,7 +652,7 @@ let ReportsService = class ReportsService {
                     this.prisma.followUp.findMany({
                         where: {
                             agentId: agent.id,
-                            scheduledAt: { gte: startDate, lte: endDate },
+                            dueAt: { gte: startDate, lte: endDate },
                         },
                     }),
                 ]);
