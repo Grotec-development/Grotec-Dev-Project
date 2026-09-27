@@ -653,10 +653,10 @@ export function Shell() {
       </aside>
 
       {/* Main Content Area — Desktop offset matches compact icon rail w-16 to preserve wide workspace */}
-      <main className="md:ml-16 flex-1 bg-canvas min-h-screen pb-20 md:pb-0 transition-all">
+      <main className="md:ml-16 flex-1 min-w-0 bg-canvas min-h-screen pb-20 md:pb-0 transition-all">
         {/* Top Header Bar */}
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/90 bg-white/95 px-4 md:px-6 backdrop-blur shadow-xs">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             {/* Hamburger Button on Mobile */}
             <button
               type="button"
@@ -677,7 +677,7 @@ export function Shell() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {/* Organization Workspace Badge */}
             <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>

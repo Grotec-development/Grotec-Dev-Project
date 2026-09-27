@@ -33,7 +33,11 @@ export const API_BASE_URL: string = (() => {
   if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
     return envUrl;
   }
-  // If running in local Vite development against local backend server, use relative proxy
+  // The Vite dev server always proxies /api (vite.config.ts), whatever host or port it is opened on
+  if (import.meta.env.DEV) {
+    return '/api/v1';
+  }
+  // Local production-mode server (backend-served build) uses the relative path too
   if (
     typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
