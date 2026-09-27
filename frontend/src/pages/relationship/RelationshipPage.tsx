@@ -120,6 +120,10 @@ export function RelationshipPage() {
 
   useEffect(() => {
     void fetchCustomers();
+    const interval = setInterval(() => {
+      void fetchCustomers();
+    }, 25_000);
+    return () => clearInterval(interval);
   }, [activeTab, selectedRmId]);
 
   // Handle assign submit

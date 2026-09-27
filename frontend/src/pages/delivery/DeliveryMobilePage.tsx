@@ -48,6 +48,7 @@ export function DeliveryMobilePage() {
       const res = await api.get('/delivery/active-trip');
       return res.data;
     },
+    refetchInterval: 8_000,
   });
 
   // Update stop status mutation

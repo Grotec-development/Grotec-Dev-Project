@@ -152,7 +152,17 @@ export function LeavePage() {
     } else if (activeTab === 'team' && canTeam) {
       void fetchTeamData();
     }
-  }, [activeTab, statusFilter, employeeFilter]);
+
+    const interval = setInterval(() => {
+      if (activeTab === 'my' && canMy) {
+        void fetchMyData();
+      } else if (activeTab === 'team' && canTeam) {
+        void fetchTeamData();
+      }
+    }, 20_000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, statusFilter, employeeFilter, canMy, canTeam]);
 
   // Submit self-service leave application
   const handleApply = async (e: React.FormEvent) => {

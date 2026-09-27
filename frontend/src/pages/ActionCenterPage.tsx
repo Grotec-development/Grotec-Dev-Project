@@ -567,6 +567,10 @@ function TeamRequestsPanel({ currentUserId }: { currentUserId?: string }) {
 
   useEffect(() => {
     void load();
+    const interval = setInterval(() => {
+      void load();
+    }, 15_000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 

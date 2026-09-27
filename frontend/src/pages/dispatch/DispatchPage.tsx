@@ -39,6 +39,7 @@ export function DispatchPage() {
       const res = await api.get('/dispatch/trips');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
+    refetchInterval: 10_000,
   });
 
   // Fetch vehicles
@@ -57,6 +58,7 @@ export function DispatchPage() {
       const res = await api.get('/orders?status=CONFIRMED');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
+    refetchInterval: 10_000,
   });
 
   // Create trip mutation

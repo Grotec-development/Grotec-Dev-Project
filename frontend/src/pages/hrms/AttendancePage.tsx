@@ -241,7 +241,17 @@ export function AttendancePage() {
     } else if (activeTab === 'team' && canTeam) {
       void fetchTeamData();
     }
-  }, [activeTab, month, statusFilter, employeeFilter]);
+
+    const interval = setInterval(() => {
+      if (activeTab === 'my' && canMy) {
+        void fetchMyData();
+      } else if (activeTab === 'team' && canTeam) {
+        void fetchTeamData();
+      }
+    }, 20_000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, month, statusFilter, employeeFilter, canMy, canTeam]);
 
   // Handle self mark attendance
   const handleMyMarkAttendance = async (e: React.FormEvent) => {
