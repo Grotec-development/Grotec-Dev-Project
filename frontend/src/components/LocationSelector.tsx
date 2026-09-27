@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getStates,
   getDistricts,
   getTaluks,
+  getVillages,
   getSuggestedPincode,
+  canonicalDistrict,
 } from '../lib/location-data';
 import { Field, Input, Select } from './ui';
 
@@ -36,16 +38,33 @@ export function LocationSelector({
 }: LocationSelectorProps) {
   const [customDistrict, setCustomDistrict] = useState(false);
   const [customTaluk, setCustomTaluk] = useState(false);
+  const [customVillage, setCustomVillage] = useState(false);
+  const [availableVillages, setAvailableVillages] = useState<string[]>([]);
 
   const availableStates = useMemo(() => getStates(), []);
   const availableDistricts = useMemo(() => getDistricts(state), [state]);
   const availableTaluks = useMemo(() => getTaluks(state, district), [state, district]);
 
-  // Check if current district is in master list
-  const isDistrictInList = useMemo(() => {
-    if (!district) return true;
-    return availableDistricts.some((d) => d.toLowerCase() === district.toLowerCase());
-  }, [district, availableDistricts]);
+  // Canonical spelling of the current district (older records may use aliases like "Tiruvallur")
+  const districtValue = useMemo(() => canonicalDistrict(state, district) ?? district, [state, district]);
+  const isDistrictInList = !district || Boolean(canonicalDistrict(state, district));
+
+  useEffect(() => {
+    let cancelled = false;
+    setAvailableVillages([]);
+    getVillages(state, district, taluk)
+      .then((list) => {
+        if (!cancelled) setAvailableVillages(list);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableVillages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state, district, taluk]);
+
+  const isVillageInList = !village || availableVillages.some((v) => v.toLowerCase() === village.toLowerCase());
 
   // Check if current taluk is in master list
   const isTalukInList = useMemo(() => {
@@ -55,6 +74,7 @@ export function LocationSelector({
 
   const showCustomDistrictInput = customDistrict || (!isDistrictInList && Boolean(district));
   const showCustomTalukInput = customTaluk || (!isTalukInList && Boolean(taluk));
+  const showCustomVillageInput = customVillage || availableVillages.length === 0 || !isVillageInList;
 
   function handleStateChange(newState: string) {
     const nextDistricts = getDistricts(newState);
@@ -65,11 +85,13 @@ export function LocationSelector({
 
     setCustomDistrict(false);
     setCustomTaluk(false);
+    setCustomVillage(false);
 
     onChange({
       state: newState,
       district: newDistrict,
       taluk: newTaluk,
+      village: '',
       pincode: suggestedPin,
     });
   }
@@ -77,11 +99,12 @@ export function LocationSelector({
   function handleDistrictChange(newDistrict: string) {
     if (newDistrict === '__CUSTOM__') {
       setCustomDistrict(true);
-      onChange({ district: '', taluk: '' });
+      onChange({ district: '', taluk: '', village: '' });
       return;
     }
     setCustomDistrict(false);
     setCustomTaluk(false);
+    setCustomVillage(false);
 
     const nextTaluks = getTaluks(state, newDistrict);
     const newTaluk = nextTaluks[0]?.name || '';
@@ -90,6 +113,7 @@ export function LocationSelector({
     onChange({
       district: newDistrict,
       taluk: newTaluk,
+      village: '',
       pincode: suggestedPin || pincode,
     });
   }
@@ -97,15 +121,27 @@ export function LocationSelector({
   function handleTalukChange(newTaluk: string) {
     if (newTaluk === '__CUSTOM__') {
       setCustomTaluk(true);
-      onChange({ taluk: '' });
+      onChange({ taluk: '', village: '' });
       return;
     }
     setCustomTaluk(false);
+    setCustomVillage(false);
     const suggestedPin = getSuggestedPincode(state, district, newTaluk);
     onChange({
       taluk: newTaluk,
+      village: '',
       pincode: suggestedPin || pincode,
     });
+  }
+
+  function handleVillageChange(newVillage: string) {
+    if (newVillage === '__CUSTOM__') {
+      setCustomVillage(true);
+      onChange({ village: '' });
+      return;
+    }
+    setCustomVillage(false);
+    onChange({ village: newVillage });
   }
 
   return (
@@ -150,7 +186,7 @@ export function LocationSelector({
             </div>
           ) : (
             <Select
-              value={district}
+              value={districtValue}
               onChange={(e) => handleDistrictChange(e.target.value)}
               disabled={disabled}
               className="w-full bg-white text-xs font-medium"
@@ -211,13 +247,44 @@ export function LocationSelector({
         </Field>
 
         <Field label="Village / Area">
-          <Input
-            value={village}
-            onChange={(e) => onChange({ village: e.target.value })}
-            placeholder="e.g. Melakkal, Papanasam"
-            disabled={disabled}
-            className="w-full text-xs"
-          />
+          {showCustomVillageInput ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={village}
+                onChange={(e) => onChange({ village: e.target.value })}
+                placeholder="e.g. Melakkal, Papanasam"
+                disabled={disabled}
+                className="flex-1 text-xs"
+              />
+              {availableVillages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomVillage(false);
+                    onChange({ village: '' });
+                  }}
+                  className="shrink-0 text-[11px] text-emerald-700 font-semibold underline px-1"
+                >
+                  List
+                </button>
+              )}
+            </div>
+          ) : (
+            <Select
+              value={availableVillages.find((v) => v.toLowerCase() === village.toLowerCase()) ?? ''}
+              onChange={(e) => handleVillageChange(e.target.value)}
+              disabled={disabled || !taluk}
+              className="w-full bg-white text-xs font-medium"
+            >
+              <option value="">-- Select Village ({availableVillages.length}) --</option>
+              {availableVillages.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+              <option value="__CUSTOM__">✏️ Other (Type manually)...</option>
+            </Select>
+          )}
         </Field>
       </div>
 
