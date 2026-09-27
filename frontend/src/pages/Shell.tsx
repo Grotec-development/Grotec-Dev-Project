@@ -85,9 +85,7 @@ const FOUNDER_HIDDEN_NAV = new Set<string>([]);
 /**
  * MANAGER navigation visibility.
  */
-const MANAGER_HIDDEN_NAV = new Set<string>([
-  '/action-center',
-]);
+const MANAGER_HIDDEN_NAV = new Set<string>([]);
 
 // Administration & Settings (Founder & Manager only)
 const ADMIN_NAV_ITEMS: NavItem[] = [

@@ -49,7 +49,7 @@ export function CustomersPage() {
   });
 
   const canCreate = hasPermission('customer.create');
-  const canDelete = hasPermission('customer.delete') || canCreate;
+  const canDelete = hasPermission('customer.delete');
   const canImport = (user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || hasPermission('customer.import')) && canCreate;
 
   const handleDeleteCustomer = async () => {

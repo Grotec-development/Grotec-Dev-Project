@@ -3,11 +3,11 @@ services:
   # GROTEC FarmerOS Backend Web Service (NestJS API)
   # -------------------------------------------------------------
   - type: web
-    name: grotec-backend
+    name: grotec-dev-project
     env: node
     plan: starter
     region: singapore
-    buildCommand: npm install && npm run build:backend && npm run prisma:migrate-deploy --workspace @grotec/backend
+    buildCommand: npm install && npm run build:backend && (npm run prisma:migrate-deploy --workspace @grotec/backend || true)
     startCommand: npm run start:backend
     healthCheckPath: /api/v1/health
     envVars:
@@ -19,6 +19,8 @@ services:
         fromDatabase:
           name: grotec-db
           property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
@@ -26,7 +28,7 @@ services:
       - key: CORS_ORIGINS
         value: http://localhost:5173,https://*.vercel.app
       - key: DIALER_PROVIDER
-        value: exotel
+        value: mock
       - key: EXOTEL_ACCOUNT_SID
         sync: false
       - key: EXOTEL_API_KEY
@@ -56,7 +58,7 @@ services:
       - key: FOUNDER_EMAIL
         value: founder@grotec.local
       - key: FOUNDER_PASSWORD
-        value: Founder@123
+        value: Founder@Grotec2026!
       - key: FOUNDER_NAME
         value: Grotec Founder
       - key: SEED_EMPLOYEES

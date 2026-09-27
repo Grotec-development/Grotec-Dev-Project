@@ -42,8 +42,9 @@ let AuthGuard = class AuthGuard {
         }
         const token = header.slice('Bearer '.length);
         try {
+            const secret = this.config.get('JWT_ACCESS_SECRET') || this.config.get('JWT_SECRET');
             const claims = await this.jwtService.verifyAsync(token, {
-                secret: this.config.get('JWT_ACCESS_SECRET'),
+                secret,
             });
             // Tenant comes only from the signed token; a client header must not choose it.
             const tenantId = claims.tenantId || null;

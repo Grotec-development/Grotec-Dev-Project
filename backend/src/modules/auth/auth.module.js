@@ -23,7 +23,7 @@ AuthModule = __decorate([
                 imports: [ConfigModule],
                 inject: [ConfigService],
                 useFactory: (config) => ({
-                    secret: config.get('JWT_ACCESS_SECRET'),
+                    secret: config.get('JWT_ACCESS_SECRET') || config.get('JWT_SECRET'),
                     signOptions: { expiresIn: Number(config.get('ACCESS_TOKEN_TTL_SECONDS') ?? 900) },
                 }),
             }),

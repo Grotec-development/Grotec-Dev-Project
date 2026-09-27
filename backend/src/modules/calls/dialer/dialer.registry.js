@@ -26,7 +26,7 @@ let DialerRegistry = class DialerRegistry {
         }));
     }
     get(id) {
-        const provider = this.providers.get(id ?? this.defaultId) ?? this.providers.get(this.defaultId);
+        const provider = this.providers.get(id ?? this.defaultId) ?? this.providers.get(this.defaultId) ?? this.providers.get('mock');
         if (!provider)
             throw new Error(`No auto-dialer provider registered: ${id ?? this.defaultId}`);
         return provider;

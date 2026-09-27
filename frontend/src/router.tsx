@@ -80,6 +80,7 @@ export const router = createBrowserRouter([
       { path: 'factory', element: <RequirePermission anyOf={['production.read']}><FactoryPage /></RequirePermission> },
       { path: 'dispatch', element: <RequirePermission anyOf={['dispatch.read']}><DispatchPage /></RequirePermission> },
       { path: 'delivery', element: <RequirePermission anyOf={['delivery.execute', 'delivery.read']}><DeliveryMobilePage /></RequirePermission> },
+      { path: 'delivery/mobile', element: <RequirePermission anyOf={['delivery.execute', 'delivery.read']}><DeliveryMobilePage /></RequirePermission> },
       { path: 'exceptions', element: <RequirePermission anyOf={['exceptions.manage']}><ExceptionCentrePage /></RequirePermission> },
     ],
   },
