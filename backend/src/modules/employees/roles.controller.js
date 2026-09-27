@@ -19,6 +19,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { ApiError } from '../../common/errors/api-error';
 var _a;
 
+// Permission rows are grouped by `module`; the UI groups by `category`.
+const withCategory = (permission) => ({ ...permission, category: permission.module });
+
 let RolesController = class RolesController {
     constructor(prisma) {
         this.prisma = prisma;
@@ -30,18 +33,19 @@ let RolesController = class RolesController {
             orderBy: { code: 'asc' },
             include: {
                 rolePermissions: {
-                    include: { permission: { select: { code: true, label: true, category: true, description: true } } },
+                    include: { permission: { select: { code: true, module: true, description: true } } },
                 },
             },
         });
         return roles.map(({ rolePermissions, ...role }) => ({
             ...role,
-            permissions: rolePermissions.map((rp) => rp.permission),
+            permissions: rolePermissions.map((rp) => withCategory(rp.permission)),
         }));
     }
 
     async listPermissions() {
-        return this.prisma.permission.findMany({ orderBy: [{ category: 'asc' }, { code: 'asc' }] });
+        const permissions = await this.prisma.permission.findMany({ orderBy: [{ module: 'asc' }, { code: 'asc' }] });
+        return permissions.map(withCategory);
     }
 
     async updateRolePermissions(actor, id, body) {
@@ -78,14 +82,14 @@ let RolesController = class RolesController {
             where: { id: role.id },
             include: {
                 rolePermissions: {
-                    include: { permission: { select: { code: true, label: true, category: true, description: true } } },
+                    include: { permission: { select: { code: true, module: true, description: true } } },
                 },
             },
         });
 
         return {
             ...updated,
-            permissions: updated.rolePermissions.map((rp) => rp.permission),
+            permissions: updated.rolePermissions.map((rp) => withCategory(rp.permission)),
         };
     }
 
@@ -105,7 +109,7 @@ let RolesController = class RolesController {
         const role = await this.prisma.role.create({
             data: {
                 code,
-                label: body.label?.trim() || code,
+                name: (body.name ?? body.label)?.trim() || code,
                 description: body.description?.trim() || null,
             },
         });
@@ -133,7 +137,7 @@ let RolesController = class RolesController {
                 const created = await this.prisma.role.create({
                     data: {
                         code: bizRole.code,
-                        label: bizRole.label,
+                        name: bizRole.label,
                         description: bizRole.description,
                     },
                 });

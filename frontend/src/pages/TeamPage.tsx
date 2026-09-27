@@ -207,7 +207,7 @@ function EditRolePermissionsModal({ role, onClose }: EditRolePermissionsModalPro
   const permissionsQuery = useQuery({
     queryKey: ['all-system-permissions'],
     queryFn: async () => {
-      const res = await api.get<Array<{ id: string; code: string; label: string | null; category: string; description: string | null }>>('/roles/permissions');
+      const res = await api.get<Array<{ id: string; code: string; label: string | null; category: string; description: string | null }>>('/permissions');
       return res.data;
     },
   });
