@@ -16,6 +16,7 @@ import { RequirePermission } from '../../common/decorators/require-permission.de
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ApiError } from '../../common/errors/api-error';
+var _a;
 
 let RolesController = class RolesController {
     constructor(prisma) {
