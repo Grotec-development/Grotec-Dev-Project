@@ -19,3 +19,4 @@ __exportStar(require("./events"), exports);
 __exportStar(require("./permissions"), exports);
 __exportStar(require("./phone"), exports);
 __exportStar(require("./roles"), exports);
+__exportStar(require("./districts"), exports);

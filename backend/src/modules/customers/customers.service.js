@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var _a, _b, _c;
 import { Injectable } from '@nestjs/common';
 import { CustomerStatus, Prisma } from '@prisma/client';
-import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, isTopTier, normalizePhoneToE164 } from '@grotec/shared';
+import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, districtSpellings, isTopTier, normalizePhoneToE164 } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
@@ -64,7 +64,7 @@ let CustomersService = class CustomersService {
                 locations: {
                     some: {
                         deletedAt: null,
-                        district: { equals: filters.district, mode: 'insensitive' },
+                        district: { in: districtSpellings(filters.district), mode: 'insensitive' },
                     },
                 },
             });

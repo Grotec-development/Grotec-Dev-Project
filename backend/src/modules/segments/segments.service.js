@@ -12,6 +12,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
+import { districtSpellings } from '@grotec/shared';
 
 export const APPROVED_ADVISORY_TEMPLATES = [
   {
@@ -67,7 +68,7 @@ let SegmentsService = class SegmentsService {
         some: {
           deletedAt: null,
           ...(filters.state ? { state: { equals: filters.state, mode: 'insensitive' } } : {}),
-          ...(filters.district ? { district: { equals: filters.district, mode: 'insensitive' } } : {}),
+          ...(filters.district ? { district: { in: districtSpellings(filters.district), mode: 'insensitive' } } : {}),
           ...(filters.taluk ? { taluk: { equals: filters.taluk, mode: 'insensitive' } } : {}),
           ...(filters.village ? { village: { equals: filters.village, mode: 'insensitive' } } : {}),
         },

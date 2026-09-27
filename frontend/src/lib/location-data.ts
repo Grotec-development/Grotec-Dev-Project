@@ -6,6 +6,8 @@
  * Karnataka and Kerala carry major agricultural districts only (no village lists).
  */
 
+import { canonicalDistrictKey } from '@grotec/shared';
+
 export interface TalukInfo {
   name: string;
   pincode?: string;
@@ -2333,29 +2335,6 @@ export const STATES_DATA: StateInfo[] = [
   },
 ];
 
-// Older spellings saved on existing records -> Local Government Directory names.
-const DISTRICT_ALIASES: Record<string, string> = {
-  tiruvallur: 'thiruvallur',
-  tiruvarur: 'thiruvarur',
-  thoothukudi: 'thoothukkudi',
-  tuticorin: 'thoothukkudi',
-  trichy: 'tiruchirappalli',
-  kanyakumari: 'kanniyakumari',
-  nilgiris: 'the nilgiris',
-  villupuram: 'viluppuram',
-  anantapur: 'ananthapuramu',
-  anantapuram: 'ananthapuramu',
-  kadapa: 'y.s.r. kadapa',
-  'ysr kadapa': 'y.s.r. kadapa',
-  nellore: 'sri potti sriramulu nellore',
-  'spsr nellore': 'sri potti sriramulu nellore',
-  konaseema: 'dr. b.r. ambedkar konaseema',
-  rangareddy: 'ranga reddy',
-  jangaon: 'jangoan',
-  'warangal urban': 'hanumakonda',
-  'warangal rural': 'warangal',
-};
-
 function findState(stateName: string): StateInfo | undefined {
   return STATES_DATA.find((s) => s.name.toLowerCase() === (stateName || '').toLowerCase());
 }
@@ -2363,8 +2342,8 @@ function findState(stateName: string): StateInfo | undefined {
 function findDistrict(stateName: string, districtName: string): DistrictInfo | undefined {
   const st = findState(stateName);
   if (!st) return undefined;
-  const key = (districtName || '').trim().toLowerCase();
-  const target = DISTRICT_ALIASES[key] ?? key;
+  // Older spellings on saved records (e.g. "Tiruvallur") resolve to the directory name
+  const target = canonicalDistrictKey(districtName);
   return st.districts.find((d) => d.name.toLowerCase() === target);
 }
 

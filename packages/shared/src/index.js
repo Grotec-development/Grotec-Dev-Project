@@ -3,3 +3,4 @@ export * from './events';
 export * from './permissions';
 export * from './phone';
 export * from './roles';
+export * from './districts';

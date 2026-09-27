@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var _a;
 import { Injectable } from '@nestjs/common';
-import { isTopTier } from '@grotec/shared';
+import { districtSpellings, isTopTier } from '@grotec/shared';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { parsePagination } from '../../common/utils/pagination';
@@ -1043,7 +1043,7 @@ let ReportsService = class ReportsService {
                 locations: {
                     some: {
                         deletedAt: null,
-                        ...(district ? { district: { equals: district, mode: 'insensitive' } } : {}),
+                        ...(district ? { district: { in: districtSpellings(district), mode: 'insensitive' } } : {}),
                         ...(taluk ? { taluk: { equals: taluk, mode: 'insensitive' } } : {}),
                         ...(village ? { village: { equals: village, mode: 'insensitive' } } : {}),
                     },
