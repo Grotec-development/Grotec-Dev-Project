@@ -24,6 +24,12 @@ let RelationshipController = class RelationshipController {
     async list(actor, rmId, q, unassigned) {
         return this.relationship.list(actor, { rmId, q, unassigned });
     }
+    async roster(actor, rmId, q) {
+        return this.relationship.list(actor, { rmId, q });
+    }
+    async unassigned(actor, rmId, q) {
+        return this.relationship.list(actor, { rmId, q, unassigned: '1' });
+    }
     async holders(actor) {
         return this.relationship.holders(actor);
     }
@@ -45,6 +51,26 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String, String]),
     __metadata("design:returntype", Promise)
 ], RelationshipController.prototype, "list", null);
+__decorate([
+    Get('roster'),
+    RequirePermission(PERMISSIONS.relationshipRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query('rmId')),
+    __param(2, Query('q')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], RelationshipController.prototype, "roster", null);
+__decorate([
+    Get('unassigned'),
+    RequirePermission(PERMISSIONS.relationshipRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query('rmId')),
+    __param(2, Query('q')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], RelationshipController.prototype, "unassigned", null);
 __decorate([
     Get('holders'),
     RequirePermission(PERMISSIONS.relationshipRead),

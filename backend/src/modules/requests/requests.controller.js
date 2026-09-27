@@ -31,6 +31,9 @@ let RequestsController = class RequestsController {
     async inbox(actor, status, type, page, pageSize) {
         return this.requests.inbox(actor, parsePagination(page, pageSize), { status, type });
     }
+    async team(actor, status, type, page, pageSize) {
+        return this.requests.inbox(actor, parsePagination(page, pageSize), { status, type });
+    }
     async updateStatus(actor, id, dto) {
         return this.requests.updateStatus(actor, id, dto);
     }
@@ -67,6 +70,18 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], RequestsController.prototype, "inbox", null);
+__decorate([
+    Get('team'),
+    RequirePermission(PERMISSIONS.requestManage),
+    __param(0, CurrentEmployee()),
+    __param(1, Query('status')),
+    __param(2, Query('type')),
+    __param(3, Query('page')),
+    __param(4, Query('pageSize')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], RequestsController.prototype, "team", null);
 __decorate([
     Patch(':id/status'),
     RequirePermission(PERMISSIONS.requestManage),
