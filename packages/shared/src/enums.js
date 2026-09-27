@@ -127,6 +127,7 @@ export const AuditEntityType = {
   TRIP: 'TRIP',
   TRIP_STOP: 'TRIP_STOP',
   QUANTITY_EXCEPTION: 'QUANTITY_EXCEPTION',
+  EMPLOYEE_REQUEST: 'EMPLOYEE_REQUEST',
 };
 
 export const AuditAction = {
@@ -178,6 +179,8 @@ export const AuditAction = {
   ATTENDANCE_REJECTED: 'attendance.rejected',
   ATTENDANCE_SYNCED_ESSL: 'attendance.synced_essl',
   LEAVE_APPLIED: 'leave.applied',
+  REQUEST_SUBMITTED: 'request.submitted',
+  REQUEST_STATUS_CHANGED: 'request.status_changed',
   LEAVE_APPROVED: 'leave.approved',
   LEAVE_REJECTED: 'leave.rejected',
   KPI_TARGET_CREATED: 'kpi.target_created',
@@ -290,6 +293,24 @@ export const NotificationType = {
   ATTENDANCE_STATUS: 'ATTENDANCE_STATUS',
   LEAVE_STATUS: 'LEAVE_STATUS',
   PAYROLL_STATUS: 'PAYROLL_STATUS',
+  EMPLOYEE_REQUEST_SUBMITTED: 'EMPLOYEE_REQUEST_SUBMITTED',
+  EMPLOYEE_REQUEST_UPDATED: 'EMPLOYEE_REQUEST_UPDATED',
+};
+
+/** Action Center employee request kinds (matches PostgreSQL enum EmployeeRequestType). */
+export const EmployeeRequestType = {
+  MANAGER_NOTE: 'MANAGER_NOTE',
+  HR_INQUIRY: 'HR_INQUIRY',
+  OFFICE_RESOURCE: 'OFFICE_RESOURCE',
+  ISSUE_REPORT: 'ISSUE_REPORT',
+};
+
+/** Lifecycle of an employee request (matches PostgreSQL enum EmployeeRequestStatus). */
+export const EmployeeRequestStatus = {
+  OPEN: 'OPEN',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'RESOLVED',
+  REJECTED: 'REJECTED',
 };
 
 /** Outbox event processing status (matches PostgreSQL enum OutboxStatus). */

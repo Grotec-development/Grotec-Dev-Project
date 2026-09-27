@@ -101,6 +101,7 @@ export namespace AuditEntityType {
     let TRIP: string;
     let TRIP_STOP: string;
     let QUANTITY_EXCEPTION: string;
+    let EMPLOYEE_REQUEST: string;
 }
 export namespace AuditAction {
     export let LOGIN_SUCCESS: string;
@@ -145,6 +146,8 @@ export namespace AuditAction {
     export let ATTENDANCE_REJECTED: string;
     export let ATTENDANCE_SYNCED_ESSL: string;
     export let LEAVE_APPLIED: string;
+    export let REQUEST_SUBMITTED: string;
+    export let REQUEST_STATUS_CHANGED: string;
     export let LEAVE_APPROVED: string;
     export let LEAVE_REJECTED: string;
     export let KPI_TARGET_CREATED: string;
@@ -245,6 +248,22 @@ export namespace NotificationType {
     export let LEAVE_STATUS: string;
     let PAYROLL_STATUS_1: string;
     export { PAYROLL_STATUS_1 as PAYROLL_STATUS };
+    export let EMPLOYEE_REQUEST_SUBMITTED: string;
+    export let EMPLOYEE_REQUEST_UPDATED: string;
+}
+export namespace EmployeeRequestType {
+    let MANAGER_NOTE: string;
+    let HR_INQUIRY: string;
+    let OFFICE_RESOURCE: string;
+    let ISSUE_REPORT: string;
+}
+export namespace EmployeeRequestStatus {
+    let OPEN_1: string;
+    export { OPEN_1 as OPEN };
+    export let IN_PROGRESS: string;
+    export let RESOLVED: string;
+    let REJECTED_2: string;
+    export { REJECTED_2 as REJECTED };
 }
 export namespace OutboxStatus {
     let PENDING_4: string;
@@ -282,7 +301,8 @@ export namespace DeliveryStatus {
     export { PLANNED_1 as PLANNED };
     export let EN_ROUTE: string;
     export let ARRIVED: string;
-    export let IN_PROGRESS: string;
+    let IN_PROGRESS_1: string;
+    export { IN_PROGRESS_1 as IN_PROGRESS };
     let COMPLETED_1: string;
     export { COMPLETED_1 as COMPLETED };
     export let PARTIAL: string;
@@ -295,8 +315,8 @@ export namespace QuantityExceptionStatus {
     export let UNDER_REVIEW: string;
     let APPROVED_2: string;
     export { APPROVED_2 as APPROVED };
-    let REJECTED_2: string;
-    export { REJECTED_2 as REJECTED };
+    let REJECTED_3: string;
+    export { REJECTED_3 as REJECTED };
     export let REVISED: string;
     export let APPLIED: string;
 }

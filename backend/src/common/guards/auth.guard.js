@@ -45,7 +45,8 @@ let AuthGuard = class AuthGuard {
             const claims = await this.jwtService.verifyAsync(token, {
                 secret: this.config.get('JWT_ACCESS_SECRET'),
             });
-            const tenantId = claims.tenantId || request.headers['x-tenant-id'] || null;
+            // Tenant comes only from the signed token; a client header must not choose it.
+            const tenantId = claims.tenantId || null;
             request.tenantId = tenantId;
             request.employee = {
                 id: claims.sub,

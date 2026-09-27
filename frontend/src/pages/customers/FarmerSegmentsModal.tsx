@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   X,
@@ -16,6 +16,7 @@ import { api, errorMessage } from '../../lib/api';
 import type { FarmerSegmentItem } from '../../lib/types';
 import { Alert, Badge, Button, Card, Field, Input, Select, Spinner, cx } from '../../components/ui';
 import { formatDate } from '../../lib/format';
+import { getStates, getDistricts, getTaluks, getVillages } from '../../lib/location-data';
 
 interface FarmerSegmentsModalProps {
   onClose: () => void;
@@ -29,6 +30,7 @@ export function FarmerSegmentsModal({ onClose }: FarmerSegmentsModalProps) {
   // Creation form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [filterState, setFilterState] = useState('Tamil Nadu');
   const [filterDistrict, setFilterDistrict] = useState('');
   const [filterTaluk, setFilterTaluk] = useState('');
   const [filterVillage, setFilterVillage] = useState('');
@@ -36,6 +38,60 @@ export function FarmerSegmentsModal({ onClose }: FarmerSegmentsModalProps) {
   const [filterStatus, setFilterStatus] = useState('ACTIVE');
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const [availableVillages, setAvailableVillages] = useState<string[]>([]);
+  const [loadingVillages, setLoadingVillages] = useState(false);
+
+  const availableStates = useMemo(() => getStates(), []);
+  const availableDistricts = useMemo(() => (filterState ? getDistricts(filterState) : []), [filterState]);
+  const availableTaluks = useMemo(
+    () => (filterState && filterDistrict ? getTaluks(filterState, filterDistrict) : []),
+    [filterState, filterDistrict],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!filterState || !filterDistrict || !filterTaluk) {
+      setAvailableVillages([]);
+      setLoadingVillages(false);
+      return;
+    }
+    setLoadingVillages(true);
+    getVillages(filterState, filterDistrict, filterTaluk)
+      .then((list) => {
+        if (!cancelled) {
+          setAvailableVillages(list);
+          setLoadingVillages(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailableVillages([]);
+          setLoadingVillages(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filterState, filterDistrict, filterTaluk]);
+
+  const handleFilterStateChange = (newState: string) => {
+    setFilterState(newState);
+    setFilterDistrict('');
+    setFilterTaluk('');
+    setFilterVillage('');
+  };
+
+  const handleFilterDistrictChange = (newDistrict: string) => {
+    setFilterDistrict(newDistrict);
+    setFilterTaluk('');
+    setFilterVillage('');
+  };
+
+  const handleFilterTalukChange = (newTaluk: string) => {
+    setFilterTaluk(newTaluk);
+    setFilterVillage('');
+  };
 
   // Campaign preview state
   const [campaignChannel, setCampaignChannel] = useState<'WHATSAPP' | 'SMS'>('WHATSAPP');
@@ -69,6 +125,7 @@ export function FarmerSegmentsModal({ onClose }: FarmerSegmentsModalProps) {
         name: name.trim(),
         description: description.trim() || undefined,
         filterCriteria: {
+          state: filterState || undefined,
           district: filterDistrict || undefined,
           taluk: filterTaluk.trim() || undefined,
           village: filterVillage.trim() || undefined,
@@ -80,6 +137,7 @@ export function FarmerSegmentsModal({ onClose }: FarmerSegmentsModalProps) {
       // Reset
       setName('');
       setDescription('');
+      setFilterState('Tamil Nadu');
       setFilterDistrict('');
       setFilterTaluk('');
       setFilterVillage('');
@@ -178,6 +236,7 @@ export function FarmerSegmentsModal({ onClose }: FarmerSegmentsModalProps) {
                   {segmentsQuery.data.map((seg) => {
                     const filters = seg.filterCriteria || {};
                     const filterTags = [
+                      filters.state ? `State: ${filters.state}` : null,
                       filters.district ? `District: ${filters.district}` : null,
                       filters.taluk ? `Taluk: ${filters.taluk}` : null,
                       filters.village ? `Village: ${filters.village}` : null,
@@ -280,54 +339,88 @@ export function FarmerSegmentsModal({ onClose }: FarmerSegmentsModalProps) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">District</label>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">State / Region</label>
                     <select
-                      value={filterDistrict}
-                      onChange={(e) => setFilterDistrict(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
+                      value={filterState}
+                      onChange={(e) => handleFilterStateChange(e.target.value)}
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none"
                     >
-                      <option value="">All Tamil Nadu</option>
-                      <option value="Dharmapuri">Dharmapuri</option>
-                      <option value="Trichy">Trichy</option>
-                      <option value="Erode">Erode</option>
-                      <option value="Coimbatore">Coimbatore</option>
-                      <option value="Tanjore">Tanjore</option>
-                      <option value="Madurai">Madurai</option>
-                      <option value="Salem">Salem</option>
-                      <option value="Dindigul">Dindigul</option>
+                      <option value="">All States</option>
+                      {availableStates.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Taluk</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Palani"
-                      value={filterTaluk}
-                      onChange={(e) => setFilterTaluk(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
-                    />
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">District</label>
+                    <select
+                      value={filterDistrict}
+                      onChange={(e) => handleFilterDistrictChange(e.target.value)}
+                      disabled={!filterState}
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                      <option value="">All Districts ({availableDistricts.length})</option>
+                      {availableDistricts.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Village</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Alagar"
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Taluk / Block</label>
+                    <select
+                      value={filterTaluk}
+                      onChange={(e) => handleFilterTalukChange(e.target.value)}
+                      disabled={!filterDistrict}
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                      <option value="">
+                        {!filterDistrict ? 'Select District First' : `All Taluks (${availableTaluks.length})`}
+                      </option>
+                      {availableTaluks.map((t) => (
+                        <option key={t.name} value={t.name}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Village / Area</label>
+                    <select
                       value={filterVillage}
                       onChange={(e) => setFilterVillage(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
-                    />
+                      disabled={!filterTaluk || loadingVillages}
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                      <option value="">
+                        {!filterTaluk
+                          ? 'Select Taluk First'
+                          : loadingVillages
+                          ? '⏳ Loading villages...'
+                          : `All Villages (${availableVillages.length})`}
+                      </option>
+                      {availableVillages.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Crop</label>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Crop (Optional)</label>
                     <input
                       type="text"
                       placeholder="e.g. Paddy, Banana, Cotton"
                       value={filterCrop}
                       onChange={(e) => setFilterCrop(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
+                      className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:border-brand-600 focus:outline-none"
                     />
                   </div>
                 </div>

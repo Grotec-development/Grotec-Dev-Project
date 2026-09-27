@@ -98,14 +98,22 @@ let RelationshipService = class RelationshipService {
      * narrowest safe scope is no holder list at all. The owning RM of a customer
      * the agent may already see is still returned by list() on that row.
      */
+    /** Eligible relationship managers, as `{ items }` like every other collection endpoint. */
     async holders(actor) {
         if (actor?.roleCode === 'AGENT')
-            return [];
-        const managerRole = await this.prisma.role.findUnique({ where: { code: 'MANAGER' } });
-        if (!managerRole)
-            return [];
+            return { items: [] };
+        const managerRoles = typeof this.prisma.role?.findMany === 'function'
+            ? await this.prisma.role.findMany({
+                where: { code: { in: ['MANAGER', 'FARMER_SUCCESS_MANAGER', 'GROUP_LEADER'] } },
+            })
+            : (typeof this.prisma.role?.findUnique === 'function'
+                ? [await this.prisma.role.findUnique({ where: { code: 'MANAGER' } })].filter(Boolean)
+                : []);
+        if (managerRoles.length === 0)
+            return { items: [] };
+        const roleIds = managerRoles.map((r) => r.id);
         const employees = await this.prisma.employee.findMany({
-            where: { roleId: managerRole.id, status: 'ACTIVE' },
+            where: { roleId: { in: roleIds }, status: 'ACTIVE', deletedAt: null },
             select: { id: true, fullName: true, email: true },
             orderBy: { fullName: 'asc' },
         });
@@ -115,12 +123,14 @@ let RelationshipService = class RelationshipService {
             _count: { _all: true },
         });
         const countBy = new Map(counts.map((c) => [c.employeeId, c._count._all]));
-        return employees.map((e) => ({
-            id: e.id,
-            fullName: e.fullName,
-            email: e.email,
-            customerCount: countBy.get(e.id) ?? 0,
-        }));
+        return {
+            items: employees.map((e) => ({
+                id: e.id,
+                fullName: e.fullName,
+                email: e.email,
+                customerCount: countBy.get(e.id) ?? 0,
+            })),
+        };
     }
     /**
      * Assign or reassign an RM. FOUNDER may move any customer between eligible
@@ -349,13 +359,18 @@ let RelationshipService = class RelationshipService {
         return customer;
     }
     async findEligibleHolder(employeeId) {
-        const managerRole = await this.prisma.role.findUnique({ where: { code: 'MANAGER' } });
-        const employee = managerRole
-            ? await this.prisma.employee.findFirst({
-                where: { id: employeeId, roleId: managerRole.id, status: 'ACTIVE' },
-                select: { id: true, fullName: true },
+        const managerRoles = typeof this.prisma.role?.findMany === 'function'
+            ? await this.prisma.role.findMany({
+                where: { code: { in: ['MANAGER', 'FARMER_SUCCESS_MANAGER', 'GROUP_LEADER'] } },
             })
-            : null;
+            : (typeof this.prisma.role?.findUnique === 'function'
+                ? [await this.prisma.role.findUnique({ where: { code: 'MANAGER' } })].filter(Boolean)
+                : []);
+        const roleIds = managerRoles.map((r) => r.id);
+        const employee = await this.prisma.employee.findFirst({
+            where: { id: employeeId, roleId: { in: roleIds }, status: 'ACTIVE', deletedAt: null },
+            select: { id: true, fullName: true },
+        });
         if (!employee) {
             throw ApiError.badRequest('INVALID_RM_HOLDER', 'Only active Manager-role employees can hold relationship ownership');
         }

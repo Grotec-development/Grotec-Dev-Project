@@ -73,7 +73,16 @@ let NotificationsService = class NotificationsService {
         });
         let sent = 0;
         for (const f of dueFollowUps) {
-            await this.prisma.$transaction(async (tx) => {
+            const claimed = await this.prisma.$transaction(async (tx) => {
+                // Claim first: only the run that flips reminderSentAt sends the
+                // reminder, so overlapping runs (timer + manual, two instances)
+                // never notify twice.
+                const claim = await tx.followUp.updateMany({
+                    where: { id: f.id, reminderSentAt: null },
+                    data: { reminderSentAt: new Date() },
+                });
+                if (claim.count === 0)
+                    return false;
                 await tx.appNotification.create({
                     data: {
                         recipientId: f.agentId,
@@ -83,12 +92,10 @@ let NotificationsService = class NotificationsService {
                         data: { followUpId: f.id, customerId: f.customerId },
                     },
                 });
-                await tx.followUp.update({
-                    where: { id: f.id },
-                    data: { reminderSentAt: new Date() },
-                });
+                return true;
             });
-            sent++;
+            if (claimed)
+                sent++;
         }
         return { sent };
     }

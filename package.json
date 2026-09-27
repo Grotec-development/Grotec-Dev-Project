@@ -23,14 +23,19 @@
     "test": "npm run test --workspace @grotec/shared --if-present && npm run test --workspace @grotec/backend && npm run test --workspace @grotec/frontend",
     "test:api": "npm run test --workspace @grotec/backend",
     "test:web": "npm run test --workspace @grotec/frontend",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint .",
     "adb:devices": "PATH=\"$HOME/.android-sdk/platform-tools:$PATH\" adb devices",
     "adb:install": "PATH=\"$HOME/.android-sdk/platform-tools:$PATH\" adb install -r grotec-farmeros.apk"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@swc-node/register": "^1.12.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
     "pg": "^8.13.1",
-    "prettier": "^3.3.3"
+    "prettier": "^3.3.3",
+    "typescript-eslint": "^8.70.1"
   },
   "engines": {
     "node": ">=20"

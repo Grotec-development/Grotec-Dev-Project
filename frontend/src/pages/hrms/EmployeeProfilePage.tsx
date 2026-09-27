@@ -346,7 +346,7 @@ export function EmployeeProfilePage() {
               <div>
                 <span className="block text-xs text-slate-400">Aadhaar Number</span>
                 <span className="font-mono font-medium text-slate-800">
-                  {overview.aadhaarNumber ? `•••• •••• ${overview.aadhaarNumber.slice(-4)} (${overview.aadhaarNumber})` : '—'}
+                  {overview.aadhaarLast4 ? `•••• •••• ${overview.aadhaarLast4}` : '—'}
                 </span>
               </div>
               <div className="col-span-2">

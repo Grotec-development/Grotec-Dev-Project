@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import {
   useState,
   type ButtonHTMLAttributes,
@@ -12,7 +13,7 @@ import {
 import { Loader2, AlertTriangle, AlertCircle, CheckCircle2, HelpCircle, X } from 'lucide-react';
 
 export function cx(...inputs: ClassValue[]): string {
-  return clsx(inputs);
+  return twMerge(clsx(inputs));
 }
 
 const buttonVariants = {
@@ -52,7 +53,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cx(
-        'w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-xs placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-slate-50 disabled:text-slate-400',
+        'w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-slate-50 disabled:text-slate-400',
         className,
       )}
       {...props}
@@ -64,7 +65,7 @@ export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectE
   return (
     <select
       className={cx(
-        'w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-xs focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600',
+        'w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 shadow-xs focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600',
         className,
       )}
       {...props}

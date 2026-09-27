@@ -278,65 +278,6 @@ export function LoginPage() {
                   )}
                 </Button>
 
-                {/* Quick-fill Demo & Admin Accounts Helper (Dev Only) */}
-                {import.meta.env.DEV && (
-                  <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-3 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                      <span>Quick Demo Accounts:</span>
-                      <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono">1-Tap Fill</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5 text-left">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail('grotecdatabase@gmail.com');
-                          setPassword('Grotecdatabase123@');
-                          setEmailError(null);
-                        }}
-                        className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs"
-                      >
-                        <span className="block font-bold text-slate-800">Founder & CEO</span>
-                        <span className="block text-[9px] text-slate-500 truncate">grotecdatabase@gmail.com</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail('founder@grotec.local');
-                          setPassword('Grotecdatabase123@');
-                          setEmailError(null);
-                        }}
-                        className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs"
-                      >
-                        <span className="block font-bold text-slate-800">Founder (Local)</span>
-                        <span className="block text-[9px] text-slate-500 truncate">founder@grotec.local</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail('manager@grotec.local');
-                          setPassword('Grotecdatabase123@');
-                          setEmailError(null);
-                        }}
-                        className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs"
-                      >
-                        <span className="block font-bold text-slate-800">Operations Manager</span>
-                        <span className="block text-[9px] text-slate-500 truncate">manager@grotec.local</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail('agent@grotec.local');
-                          setPassword('Grotecdatabase123@');
-                          setEmailError(null);
-                        }}
-                        className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs"
-                      >
-                        <span className="block font-bold text-slate-800">Telecaller Agent</span>
-                        <span className="block text-[9px] text-slate-500 truncate">agent@grotec.local</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </form>
 
               {/* Quiet Icon + Muted-Text Footnote Notice matching PDF */}
@@ -439,41 +380,6 @@ export function LoginPage() {
                 {success ? 'Verified ✓ Redirecting...' : busy ? 'Signing in…' : 'Sign In'}
               </Button>
 
-              {/* Quick-fill Demo & Admin Accounts Helper (Dev Only) */}
-              {import.meta.env.DEV && (
-                <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-2.5 space-y-1.5 text-left">
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                    <span>Quick Demo Accounts:</span>
-                    <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono">1-Tap Fill</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1 text-left">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail('grotecdatabase@gmail.com');
-                        setPassword('Grotecdatabase123@');
-                        setEmailError(null);
-                      }}
-                      className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left"
-                    >
-                      <span className="block font-bold text-slate-800">Founder</span>
-                      <span className="block text-[9px] text-slate-500 truncate">grotecdatabase@gmail.com</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail('founder@grotec.local');
-                        setPassword('Grotecdatabase123@');
-                        setEmailError(null);
-                      }}
-                      className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left"
-                    >
-                      <span className="block font-bold text-slate-800">Founder (Local)</span>
-                      <span className="block text-[9px] text-slate-500 truncate">founder@grotec.local</span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </form>
 
             {/* Single small muted audit line beneath button */}

@@ -28,14 +28,20 @@ import { useAuth } from '../auth/AuthContext';
 import { Alert, Badge, Button, Spinner, StatusBadge, cx } from '../components/ui';
 
 export function DashboardPage() {
-  const { user, hasPermission } = useAuth();
+  const { user } = useAuth();
 
+  // Role redirects happen before any other hook runs (rules of hooks)
   if (user?.roleCode === 'DELIVERY') {
     return <Navigate to="/hrms/attendance" replace />;
   }
   if (user?.roleCode === 'STAFF') {
     return <Navigate to="/hrms/employees" replace />;
   }
+  return <DashboardContent />;
+}
+
+function DashboardContent() {
+  const { user, hasPermission } = useAuth();
 
   const [leaderboardPeriod, setLeaderboardPeriod] = useState<'today' | 'week' | 'month'>('week');
   const [pulseHoverIndex, setPulseHoverIndex] = useState<number | null>(null);
@@ -61,12 +67,15 @@ export function DashboardPage() {
     refetchInterval: 30_000,
   });
 
-  // 3. Leaderboard query (real operational telecaller metrics)
+  const isLeaderboardAllowed = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
+
+  // 3. Leaderboard query (real operational telecaller metrics - Founder & SuperAdmin only)
   const leaderboardQuery = useQuery({
     queryKey: ['dashboard-leaderboard', leaderboardPeriod],
     queryFn: async () => (await api.get<{ leaderboard: any[]; totalAgents: number; currentAgentRank: number | null }>('/reports/leaderboard', {
       params: { period: leaderboardPeriod },
     })).data,
+    enabled: isLeaderboardAllowed,
     refetchInterval: 20_000,
   });
 
@@ -518,9 +527,6 @@ export function DashboardPage() {
                       Agent Performance (Today)
                     </h2>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Live Operations
-                  </span>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2.5">
@@ -536,25 +542,25 @@ export function DashboardPage() {
                   <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5">
                     <p className="text-[10px] font-bold uppercase text-slate-400">Quality Score</p>
                     <p className="text-lg font-black text-emerald-700 mt-0.5">
-                      {perfData?.teamSummary?.avgQualityScore ? `${perfData.teamSummary.avgQualityScore}%` : '92%'}
+                      {perfData?.teamSummary?.avgQualityScore != null ? `${perfData.teamSummary.avgQualityScore}%` : '—'}
                     </p>
-                    <span className="text-[10px] text-slate-500 font-semibold">Grade A Adherence</span>
+                    <span className="text-[10px] text-slate-500 font-semibold">Calls with notes &amp; follow-ups</span>
                   </div>
                   <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5">
                     <p className="text-[10px] font-bold uppercase text-slate-400">Team Uptime</p>
                     <p className="text-lg font-black text-slate-900 mt-0.5">
-                      {perfData?.teamSummary?.totalUptimeHours ? `${perfData.teamSummary.totalUptimeHours}h` : '18.4h'}
+                      {perfData?.teamSummary?.totalUptimeHours != null ? `${perfData.teamSummary.totalUptimeHours}h` : '—'}
                     </p>
                     <span className="text-[10px] text-slate-500 font-semibold">
-                      {perfData?.teamSummary?.totalAgents ?? 3} Agents Active
+                      {perfData?.teamSummary?.totalUptimeHours != null ? `${perfData?.teamSummary?.totalAgents ?? 0} agents` : 'No attendance punches'}
                     </span>
                   </div>
                   <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5">
                     <p className="text-[10px] font-bold uppercase text-slate-400">Breaks Taken</p>
                     <p className="text-lg font-black text-amber-700 mt-0.5">
-                      {perfData?.teamSummary?.totalBreakMinutes ? `${perfData.teamSummary.totalBreakMinutes}m` : '45m'}
+                      {perfData?.teamSummary?.totalBreakMinutes != null ? `${perfData.teamSummary.totalBreakMinutes}m` : '—'}
                     </p>
-                    <span className="text-[10px] text-slate-500 font-semibold">Compliant Schedule</span>
+                    <span className="text-[10px] text-slate-500 font-semibold">From attendance punches</span>
                   </div>
                 </div>
               </div>
@@ -695,137 +701,140 @@ export function DashboardPage() {
       {/* ============================================================
           LAYER 3: SCROLL FURTHER — OPERATIONAL LEADERBOARD
           - Deterministic ranks, agent stats, real telecaller data
+          - Founder & Super Admin restricted
          ============================================================ */}
-      <section className="pt-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              <span>Operational Leaderboard</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Telecaller calling volume, call connections, and customer conversion rankings
-            </p>
-          </div>
-
-          {/* Period selector */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
-            {(['today', 'week', 'month'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setLeaderboardPeriod(p)}
-                className={cx(
-                  'px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer capitalize',
-                  leaderboardPeriod === p
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900',
-                )}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-          {leaderboardQuery.isLoading ? (
-            <div className="p-10 flex justify-center">
-              <Spinner label="Loading operational leaderboard…" />
-            </div>
-          ) : (leaderboardQuery.data?.leaderboard || []).length === 0 ? (
-            <div className="p-12 text-center">
-              <Trophy className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-bold text-slate-700">No telecaller activity recorded for this period</p>
-              <p className="text-xs text-slate-400 mt-1">
-                Completed calls and conversions will populate rankings automatically.
+      {isLeaderboardAllowed && (
+        <section className="pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <span>Operational Leaderboard</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Telecaller calling volume, call connections, and customer conversion rankings
               </p>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-4 w-16 text-center">Rank</th>
-                    <th className="py-3 px-4">Telecaller / Agent</th>
-                    <th className="py-3 px-4 text-right">Calls Dialed</th>
-                    <th className="py-3 px-4 text-right">Connected</th>
-                    <th className="py-3 px-4 text-right">Interested / Follow-up</th>
-                    <th className="py-3 px-4 text-right">Converted</th>
-                    <th className="py-3 px-4 text-right">Conversion Rate</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(leaderboardQuery.data?.leaderboard || []).map((agent: any) => {
-                    const isCurrent = agent.isCurrentAgent || agent.agentId === user?.id;
 
-                    return (
-                      <tr
-                        key={agent.agentId}
-                        className={cx(
-                          'transition-colors',
-                          isCurrent ? 'bg-emerald-50/60 font-semibold' : 'hover:bg-slate-50/60',
-                        )}
-                      >
-                        <td className="py-3 px-4 text-center">
-                          {agent.rank === 1 ? (
-                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 text-amber-800 font-black text-xs">
-                              1
-                            </span>
-                          ) : agent.rank === 2 ? (
-                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-200 text-slate-700 font-black text-xs">
-                              2
-                            </span>
-                          ) : agent.rank === 3 ? (
-                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-50 text-amber-700 font-black text-xs">
-                              3
-                            </span>
-                          ) : (
-                            <span className="font-mono text-slate-500 font-bold">#{agent.rank}</span>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900">{agent.fullName}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">({agent.employeeCode})</span>
-                            {isCurrent && (
-                              <span className="rounded bg-emerald-600 text-white px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider">
-                                You
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-slate-400 block">{agent.department}</span>
-                        </td>
-
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-800">
-                          {agent.callsDialed}
-                        </td>
-
-                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                          {agent.callsConnected}
-                        </td>
-
-                        <td className="py-3 px-4 text-right font-mono text-slate-600">
-                          {agent.followUpsCompleted || 0}
-                        </td>
-
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                          {agent.leadsConverted || 0}
-                        </td>
-
-                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-800">
-                          {agent.conversionRate}%
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            {/* Period selector */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
+              {(['today', 'week', 'month'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setLeaderboardPeriod(p)}
+                  className={cx(
+                    'px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer capitalize',
+                    leaderboardPeriod === p
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+
+          <div className="rounded-xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+            {leaderboardQuery.isLoading ? (
+              <div className="p-10 flex justify-center">
+                <Spinner label="Loading operational leaderboard…" />
+              </div>
+            ) : (leaderboardQuery.data?.leaderboard || []).length === 0 ? (
+              <div className="p-12 text-center">
+                <Trophy className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-700">No telecaller activity recorded for this period</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Completed calls and conversions will populate rankings automatically.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-3 px-4 w-16 text-center">Rank</th>
+                      <th className="py-3 px-4">Telecaller / Agent</th>
+                      <th className="py-3 px-4 text-right">Calls Dialed</th>
+                      <th className="py-3 px-4 text-right">Connected</th>
+                      <th className="py-3 px-4 text-right">Interested / Follow-up</th>
+                      <th className="py-3 px-4 text-right">Converted</th>
+                      <th className="py-3 px-4 text-right">Conversion Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(leaderboardQuery.data?.leaderboard || []).map((agent: any) => {
+                      const isCurrent = agent.isCurrentAgent || agent.agentId === user?.id;
+
+                      return (
+                        <tr
+                          key={agent.agentId}
+                          className={cx(
+                            'transition-colors',
+                            isCurrent ? 'bg-emerald-50/60 font-semibold' : 'hover:bg-slate-50/60',
+                          )}
+                        >
+                          <td className="py-3 px-4 text-center">
+                            {agent.rank === 1 ? (
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 text-amber-800 font-black text-xs">
+                                1
+                              </span>
+                            ) : agent.rank === 2 ? (
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-200 text-slate-700 font-black text-xs">
+                                2
+                              </span>
+                            ) : agent.rank === 3 ? (
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-50 text-amber-700 font-black text-xs">
+                                3
+                              </span>
+                            ) : (
+                              <span className="font-mono text-slate-500 font-bold">#{agent.rank}</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{agent.fullName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">({agent.employeeCode})</span>
+                              {isCurrent && (
+                                <span className="rounded bg-emerald-600 text-white px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 block">{agent.department}</span>
+                          </td>
+
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-800">
+                            {agent.callsDialed}
+                          </td>
+
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                            {agent.callsConnected}
+                          </td>
+
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">
+                            {agent.followUpsCompleted || 0}
+                          </td>
+
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                            {agent.leadsConverted || 0}
+                          </td>
+
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-800">
+                            {agent.conversionRate}%
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

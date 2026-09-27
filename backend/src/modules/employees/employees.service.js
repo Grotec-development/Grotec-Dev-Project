@@ -16,6 +16,7 @@ import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditAction, AuditEntityType, isTopTier, outranks } from '@grotec/shared';
 import { toPage } from '../../common/utils/pagination';
+import { resolveTenantId } from '../../common/utils/tenant-scope';
 import { hashPassword } from '../auth/password.util';
 const ALLOWED_DOCUMENT_MIMES = new Set([
     'application/pdf',
@@ -47,6 +48,17 @@ const EMPLOYEE_SELECT = {
     aadhaarNumber: true,
     notes: true,
 };
+/**
+ * Employee rows leave the API with Aadhaar reduced to its last four digits:
+ * the full government ID is write-only (create/update) and never returned.
+ */
+function redactEmployee(employee) {
+    if (!employee)
+        return employee;
+    const { aadhaarNumber, ...rest } = employee;
+    const digits = typeof aadhaarNumber === 'string' ? aadhaarNumber.replace(/\D/g, '') : '';
+    return { ...rest, aadhaarLast4: digits.length >= 4 ? digits.slice(-4) : null };
+}
 let EmployeesService = class EmployeesService {
     constructor(prisma, audit) {
         this.prisma = prisma;
@@ -114,7 +126,7 @@ let EmployeesService = class EmployeesService {
             }),
             this.prisma.employee.count({ where }),
         ]);
-        return toPage(items, total, pagination);
+        return toPage(items.map(redactEmployee), total, pagination);
     }
     // All roles in the system (including ones no employee currently holds,
     // like a freshly-added SUPER_ADMIN) — the source for the role-assignment
@@ -136,7 +148,7 @@ let EmployeesService = class EmployeesService {
         if (!employee)
             throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Employee not found');
         await this.assertCanAccessEmployee(actor, employee.id, employee.role.code);
-        return employee;
+        return redactEmployee(employee);
     }
     async create(actor, dto) {
         const email = dto.email.trim().toLowerCase();
@@ -191,6 +203,7 @@ let EmployeesService = class EmployeesService {
                     aadhaarNumber: dto.aadhaarNumber ?? null,
                     notes: dto.notes ?? null,
                     employmentStatus: dto.employmentStatus ?? EmployeeEmploymentStatus.ACTIVE,
+                    tenantId: await resolveTenantId(this.prisma, actor),
                 },
                 select: EMPLOYEE_SELECT,
             });
@@ -204,7 +217,7 @@ let EmployeesService = class EmployeesService {
             });
             return employee;
         });
-        return { employee: created, temporaryPassword };
+        return { employee: redactEmployee(created), temporaryPassword };
     }
     async update(actor, id, dto) {
         const existing = await this.prisma.employee.findFirst({
@@ -336,7 +349,7 @@ let EmployeesService = class EmployeesService {
             });
             return employee;
         });
-        return updated;
+        return redactEmployee(updated);
     }
     async getProfile(actor, id) {
         const employee = await this.prisma.employee.findFirst({
@@ -358,7 +371,7 @@ let EmployeesService = class EmployeesService {
         const { salaryRevisions, ...safeEmployee } = employee;
         return {
             overview: {
-                ...safeEmployee,
+                ...redactEmployee(safeEmployee),
                 currentSalary,
             },
             permissions: {
@@ -733,7 +746,50 @@ let EmployeesService = class EmployeesService {
             });
             return updated;
         });
-        return employee;
+        return redactEmployee(employee);
+    }
+    async delete(actor, id) {
+        if (!isTopTier(actor.roleCode)) {
+            throw ApiError.forbidden('FOUNDER_ONLY', 'Only Founder and Super Admin can permanently remove employees');
+        }
+        const existing = await this.prisma.employee.findFirst({
+            where: { id, deletedAt: null },
+            include: { role: true },
+        });
+        if (!existing) {
+            throw ApiError.notFound('EMPLOYEE_NOT_FOUND', 'Employee not found');
+        }
+        if (existing.role?.code === 'FOUNDER') {
+            throw ApiError.forbidden('FOUNDER_PROTECTED', 'Cannot remove the Founder account');
+        }
+        if (existing.role?.code === 'SUPER_ADMIN') {
+            throw ApiError.forbidden('SUPER_ADMIN_PROTECTED', 'Cannot remove a Super Admin account');
+        }
+        if (existing.id === actor.id) {
+            throw ApiError.badRequest('SELF_DELETION', 'You cannot remove your own account');
+        }
+        await this.prisma.$transaction(async (tx) => {
+            await tx.authSession.updateMany({
+                where: { employeeId: id },
+                data: { revokedAt: new Date() },
+            });
+            await tx.employee.update({
+                where: { id },
+                data: {
+                    deletedAt: new Date(),
+                    status: EmployeeStatus.INACTIVE,
+                },
+            });
+            await this.audit.record(tx, {
+                actorId: actor.id,
+                entityType: AuditEntityType.EMPLOYEE,
+                entityId: id,
+                entityLabel: existing.email,
+                action: AuditAction.DELETED,
+                after: { deletedAt: new Date(), status: EmployeeStatus.INACTIVE },
+            });
+        });
+        return { success: true };
     }
     async resetPassword(actor, id, dto) {
         if (!isTopTier(actor.roleCode)) {

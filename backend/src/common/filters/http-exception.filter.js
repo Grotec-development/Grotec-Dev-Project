@@ -16,7 +16,7 @@ let HttpExceptionFilter = HttpExceptionFilter_1 = class HttpExceptionFilter {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse();
         const envelope = this.toEnvelope(exception);
-        if (envelope.error.code === 'INTERNAL_ERROR') {
+        if (envelope.error.code === 'INTERNAL_ERROR' || envelope.error.code === 'DB_ERROR') {
             this.logger.error(exception instanceof Error ? exception.stack ?? exception.message : String(exception));
         }
         response.status(this.statusOf(exception)).json(envelope);
@@ -31,6 +31,8 @@ let HttpExceptionFilter = HttpExceptionFilter_1 = class HttpExceptionFilter {
                 return 409;
             if (exception.code === 'P2025')
                 return 404;
+            if (exception.code === 'P2023')
+                return 400;
         }
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }
@@ -60,7 +62,12 @@ let HttpExceptionFilter = HttpExceptionFilter_1 = class HttpExceptionFilter {
             if (exception.code === 'P2025') {
                 return { error: { code: 'NOT_FOUND', message: 'Record not found' } };
             }
-            return { error: { code: 'DB_ERROR', message: 'Database error', details: { code: exception.code } } };
+            // Malformed identifier (e.g. a non-UUID path parameter)
+            if (exception.code === 'P2023') {
+                return { error: { code: 'INVALID_ID', message: 'Malformed identifier' } };
+            }
+            // Internal database codes are logged (see catch) but never returned to clients
+            return { error: { code: 'DB_ERROR', message: 'Database error' } };
         }
         if (exception instanceof HttpException) {
             const body = exception.getResponse();

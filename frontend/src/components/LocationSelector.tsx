@@ -40,6 +40,8 @@ export function LocationSelector({
   const [customTaluk, setCustomTaluk] = useState(false);
   const [customVillage, setCustomVillage] = useState(false);
   const [availableVillages, setAvailableVillages] = useState<string[]>([]);
+  const [loadingVillages, setLoadingVillages] = useState(false);
+  const [villageSearch, setVillageSearch] = useState('');
 
   const availableStates = useMemo(() => getStates(), []);
   const availableDistricts = useMemo(() => getDistricts(state), [state]);
@@ -51,20 +53,32 @@ export function LocationSelector({
 
   useEffect(() => {
     let cancelled = false;
-    setAvailableVillages([]);
+    if (!taluk) {
+      setAvailableVillages([]);
+      setLoadingVillages(false);
+      return;
+    }
+    setLoadingVillages(true);
+    setVillageSearch('');
     getVillages(state, district, taluk)
       .then((list) => {
-        if (!cancelled) setAvailableVillages(list);
+        if (!cancelled) {
+          setAvailableVillages(list);
+          setLoadingVillages(false);
+        }
       })
       .catch(() => {
-        if (!cancelled) setAvailableVillages([]);
+        if (!cancelled) {
+          setAvailableVillages([]);
+          setLoadingVillages(false);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [state, district, taluk]);
 
-  const isVillageInList = !village || availableVillages.some((v) => v.toLowerCase() === village.toLowerCase());
+  const isVillageInList = Boolean(village) && availableVillages.some((v) => v.toLowerCase() === village.toLowerCase());
 
   // Check if current taluk is in master list
   const isTalukInList = useMemo(() => {
@@ -74,7 +88,13 @@ export function LocationSelector({
 
   const showCustomDistrictInput = customDistrict || (!isDistrictInList && Boolean(district));
   const showCustomTalukInput = customTaluk || (!isTalukInList && Boolean(taluk));
-  const showCustomVillageInput = customVillage || availableVillages.length === 0 || !isVillageInList;
+  const showCustomVillageInput = customVillage || (Boolean(taluk) && !loadingVillages && availableVillages.length === 0);
+
+  const filteredVillages = useMemo(() => {
+    if (!villageSearch.trim()) return availableVillages;
+    const term = villageSearch.trim().toLowerCase();
+    return availableVillages.filter((v) => v.toLowerCase().includes(term));
+  }, [availableVillages, villageSearch]);
 
   function handleStateChange(newState: string) {
     const nextDistricts = getDistricts(newState);
@@ -247,7 +267,15 @@ export function LocationSelector({
         </Field>
 
         <Field label="Village / Area">
-          {showCustomVillageInput ? (
+          {!taluk ? (
+            <Select disabled value="" className="w-full bg-slate-50 text-slate-400 text-xs font-medium">
+              <option value="">-- Select Taluka / Block first --</option>
+            </Select>
+          ) : loadingVillages ? (
+            <Select disabled value="" className="w-full bg-slate-50 text-slate-500 text-xs font-medium">
+              <option value="">⏳ Loading villages in {taluk}...</option>
+            </Select>
+          ) : showCustomVillageInput ? (
             <div className="flex items-center gap-1.5">
               <Input
                 value={village}
@@ -270,20 +298,31 @@ export function LocationSelector({
               )}
             </div>
           ) : (
-            <Select
-              value={availableVillages.find((v) => v.toLowerCase() === village.toLowerCase()) ?? ''}
-              onChange={(e) => handleVillageChange(e.target.value)}
-              disabled={disabled || !taluk}
-              className="w-full bg-white text-xs font-medium"
-            >
-              <option value="">-- Select Village ({availableVillages.length}) --</option>
-              {availableVillages.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-              <option value="__CUSTOM__">✏️ Other (Type manually)...</option>
-            </Select>
+            <div className="space-y-1">
+              <Select
+                value={isVillageInList ? (availableVillages.find((v) => v.toLowerCase() === village.toLowerCase()) ?? '') : (village ? '__CUSTOM__' : '')}
+                onChange={(e) => handleVillageChange(e.target.value)}
+                disabled={disabled || !taluk}
+                className="w-full bg-white text-xs font-medium"
+              >
+                <option value="">-- Select Village ({filteredVillages.length}) --</option>
+                {filteredVillages.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+                <option value="__CUSTOM__">✏️ Other (Type manually)...</option>
+              </Select>
+              {availableVillages.length > 8 && (
+                <input
+                  type="text"
+                  placeholder="🔍 Quick filter village..."
+                  value={villageSearch}
+                  onChange={(e) => setVillageSearch(e.target.value)}
+                  className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-brand-600"
+                />
+              )}
+            </div>
           )}
         </Field>
       </div>

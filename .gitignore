@@ -30,6 +30,8 @@ frontend/.env.*
 # Docs are not part of the deployed product (session notes, audits, reference
 # material) and are not published to GitHub.
 docs/
+*.pdf
+audit_text.txt
 
 # Test credentials, tokens, and cookie files (root-level)
 *.token.txt

@@ -10,12 +10,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var _a, _b, _c;
 import { Injectable } from '@nestjs/common';
 import { CustomerStatus, Prisma } from '@prisma/client';
-import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, districtSpellings, isTopTier, normalizePhoneToE164 } from '@grotec/shared';
+import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, districtSpellings, isTopTier, normalizePhoneToE164, toTechnicalRole } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { toPage } from '../../common/utils/pagination';
+import { resolveTenantId } from '../../common/utils/tenant-scope';
 const LIVE_PHONE = { deletedAt: null };
 let CustomersService = class CustomersService {
     constructor(prisma, audit, domainEvents) {
@@ -44,8 +45,12 @@ let CustomersService = class CustomersService {
             else
                 return toPage([], 0, pagination);
         }
-        if (filters.status)
+        if (filters.status) {
+            if (!Object.values(CustomerStatus).includes(filters.status)) {
+                throw ApiError.badRequest('INVALID_STATUS', `status must be one of ${Object.values(CustomerStatus).join(', ')}`);
+            }
             conditions.push({ status: filters.status });
+        }
         if (filters.cropId) {
             conditions.push({ crops: { some: { cropId: filters.cropId, deletedAt: null } } });
         }
@@ -242,6 +247,7 @@ let CustomersService = class CustomersService {
             throw this.phoneConflict(duplicate);
         const locationInputs = this.validateLocations(locations);
         const crops = await this.validateCrops(cropInputs, actor);
+        const tenantId = await resolveTenantId(this.prisma, actor);
         const created = await this.prisma.$transaction(async (tx) => {
             const customer = await tx.customer.create({
                 data: {
@@ -249,6 +255,7 @@ let CustomersService = class CustomersService {
                     fullName: dto.fullName,
                     soilType,
                     createdById: actor.id,
+                    tenantId,
                 },
             });
             try {
@@ -857,24 +864,55 @@ let CustomersService = class CustomersService {
         };
     }
     // ------------------------------------------------------------------ helpers
-    /** Data-visibility scope — agents see customers they created or hold a current lead on. */
+    /**
+     * Data-visibility scope: the caller's tenant plus a per-role rule. Roles are
+     * resolved to their technical role (FSE → AGENT, GROUP_LEADER → MANAGER, ...)
+     * and anything not listed sees no customers — deny by default.
+     */
     visibilityWhere(actor) {
-        if (actor.roleCode === 'AGENT') {
-            return {
-                OR: [
-                    { createdById: actor.id },
-                    {
-                        leads: {
-                            some: {
-                                deletedAt: null,
-                                ownerships: { some: { employeeId: actor.id, releasedAt: null } },
+        const conditions = [];
+        if (actor.tenantId)
+            conditions.push({ tenantId: actor.tenantId });
+        const roleScope = this.roleScopeWhere(actor);
+        if (roleScope)
+            conditions.push(roleScope);
+        if (conditions.length === 0)
+            return {};
+        return conditions.length === 1 ? conditions[0] : { AND: conditions };
+    }
+    /** Per-role customer scope; null means unrestricted within the tenant. */
+    roleScopeWhere(actor) {
+        switch (toTechnicalRole(actor.roleCode)) {
+            case 'SUPER_ADMIN':
+            case 'FOUNDER':
+            case 'MANAGER':
+                return null;
+            // Agents see customers they created or hold a current lead on.
+            case 'AGENT':
+                return {
+                    OR: [
+                        { createdById: actor.id },
+                        {
+                            leads: {
+                                some: {
+                                    deletedAt: null,
+                                    ownerships: { some: { employeeId: actor.id, releasedAt: null } },
+                                },
                             },
                         },
-                    },
-                ],
-            };
+                    ],
+                };
+            // Drivers see customers on their own trips plus leads they captured in the field.
+            case 'DELIVERY':
+                return {
+                    OR: [
+                        { createdById: actor.id },
+                        { salesOrders: { some: { tripStops: { some: { trip: { driverId: actor.id } } } } } },
+                    ],
+                };
+            default:
+                return { id: { in: [] } };
         }
-        return {};
     }
     async scopedCustomer(id, actor) {
         const customer = await this.prisma.customer.findFirst({

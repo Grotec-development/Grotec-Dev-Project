@@ -142,7 +142,7 @@ describe('ReportsService (Filters, RBAC Scoping, & Deterministic Leaderboard)', 
         return Promise.resolve(1);
       });
 
-      const result = await service.getLeaderboard(agentActor, { period: 'month' });
+      const result = await service.getLeaderboard(founderActor, { period: 'month' });
 
       expect(result.totalAgents).toBe(3);
       expect(result.leaderboard[0].agentId).toBe('agent-B'); // Rank 1: 8 connected, 2 conv, 5 fu, 900s talk time
@@ -154,16 +154,22 @@ describe('ReportsService (Filters, RBAC Scoping, & Deterministic Leaderboard)', 
 
       // Verify isCurrentAgent marker
       expect(result.leaderboard.find((a) => a.agentId === 'agent-A').isCurrentAgent).toBe(false);
-      expect(result.currentAgentRank).toBeNull(); // agentActor is 'agent-1', not in this mock list
+      expect(result.currentAgentRank).toBeNull();
+    });
+
+    it('blocks AGENT from accessing leaderboard data directly', async () => {
+      await expect(
+        service.getLeaderboard(agentActor, {})
+      ).rejects.toThrow(/Operational Leaderboard is restricted to Founder and Super Admin/);
     });
 
     it('blocks non-management from exporting leaderboard CSV', async () => {
       await expect(
         service.exportLeaderboardCsv(agentActor, {})
-      ).rejects.toThrow(/Leaderboard export is restricted to management/);
+      ).rejects.toThrow(/Leaderboard export is restricted to Founder and Super Admin/);
     });
 
-    it('allows FOUNDER and MANAGER to export leaderboard CSV', async () => {
+    it('allows FOUNDER to export leaderboard CSV', async () => {
       mockPrisma.employee.findMany.mockResolvedValue([]);
       const result = await service.exportLeaderboardCsv(founderActor, {});
       expect(result.filename).toMatch(/grotec_leaderboard_/);

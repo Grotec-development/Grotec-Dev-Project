@@ -13,6 +13,7 @@ exports.PERMISSIONS = {
     employeeCreate: 'employee.create',
     employeeUpdate: 'employee.update',
     employeeDeactivate: 'employee.deactivate',
+    employeeDelete: 'employee.delete',
     employeeResetPassword: 'employee.reset_password',
     roleRead: 'role.read',
     permissionRead: 'permission.read',
@@ -91,6 +92,12 @@ exports.PERMISSIONS = {
     deliveryRead: 'delivery.read',
     deliveryExecute: 'delivery.execute',
     exceptionsManage: 'exceptions.manage',
+    // In-app notifications (own inbox) and the manual reminder trigger
+    notificationRead: 'notification.read',
+    notificationManage: 'notification.manage',
+    // Action Center employee requests (manager note, HR inquiry, office resource, issue)
+    requestCreate: 'request.create',
+    requestManage: 'request.manage',
 };
 /** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
 /** @type {PermissionCode[]} */
@@ -174,6 +181,10 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.dispatchManage,
         exports.PERMISSIONS.deliveryRead,
         exports.PERMISSIONS.exceptionsManage,
+        exports.PERMISSIONS.notificationRead,
+        exports.PERMISSIONS.notificationManage,
+        exports.PERMISSIONS.requestCreate,
+        exports.PERMISSIONS.requestManage,
         // NOTE: Manager does NOT receive auditRead or hrmsAuditRead (§5.2)
     ],
     AGENT: [
@@ -205,6 +216,8 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.kpiRead,
         exports.PERMISSIONS.hrmsKpiRead,
         exports.PERMISSIONS.tenantRead,
+        exports.PERMISSIONS.notificationRead,
+        exports.PERMISSIONS.requestCreate,
     ],
     STAFF: [
         exports.PERMISSIONS.employeeRead,
@@ -228,6 +241,8 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.kpiRead,
         exports.PERMISSIONS.hrmsKpiRead,
         exports.PERMISSIONS.tenantRead,
+        exports.PERMISSIONS.notificationRead,
+        exports.PERMISSIONS.requestCreate,
     ],
     DELIVERY: [
         exports.PERMISSIONS.hrmsRead,
@@ -249,5 +264,7 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.kpiRead,
         exports.PERMISSIONS.hrmsKpiRead,
         exports.PERMISSIONS.tenantRead,
+        exports.PERMISSIONS.notificationRead,
+        exports.PERMISSIONS.requestCreate,
     ],
 };

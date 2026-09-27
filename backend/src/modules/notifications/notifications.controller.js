@@ -13,6 +13,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 var _a;
 import { Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
+import { PERMISSIONS } from '@grotec/shared';
 import { parsePagination } from '../../common/utils/pagination';
 import { NotificationsService } from './notifications.service';
 let NotificationsController = class NotificationsController {
@@ -38,6 +40,7 @@ let NotificationsController = class NotificationsController {
 };
 __decorate([
     Get(),
+    RequirePermission(PERMISSIONS.notificationRead),
     __param(0, CurrentEmployee()),
     __param(1, Query('isRead')),
     __param(2, Query('page')),
@@ -48,6 +51,7 @@ __decorate([
 ], NotificationsController.prototype, "list", null);
 __decorate([
     Get('unread-count'),
+    RequirePermission(PERMISSIONS.notificationRead),
     __param(0, CurrentEmployee()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -55,6 +59,7 @@ __decorate([
 ], NotificationsController.prototype, "getUnreadCount", null);
 __decorate([
     Patch(':id/read'),
+    RequirePermission(PERMISSIONS.notificationRead),
     __param(0, CurrentEmployee()),
     __param(1, Param('id')),
     __metadata("design:type", Function),
@@ -63,6 +68,7 @@ __decorate([
 ], NotificationsController.prototype, "markAsRead", null);
 __decorate([
     Post('mark-all-read'),
+    RequirePermission(PERMISSIONS.notificationRead),
     __param(0, CurrentEmployee()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -70,6 +76,7 @@ __decorate([
 ], NotificationsController.prototype, "markAllAsRead", null);
 __decorate([
     Post('run-reminders'),
+    RequirePermission(PERMISSIONS.notificationManage),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

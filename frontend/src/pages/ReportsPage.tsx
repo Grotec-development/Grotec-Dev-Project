@@ -60,6 +60,11 @@ function formatSeconds(seconds: number): string {
   return `${mins}m ${secs}s`;
 }
 
+/** Renders a measured value with its unit, or an em dash when it was not measured. */
+function withUnit(value: number | null | undefined, unit: string): string {
+  return value == null ? '—' : `${value}${unit}`;
+}
+
 export function ReportsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'performance' | 'leaderboard' | 'calls' | 'followups' | 'farmers' | 'funnel' | 'dynamic-bi'>('performance');
@@ -164,7 +169,9 @@ export function ReportsPage() {
     enabled: activeTab === 'performance',
   });
 
-  // 1. Leaderboard Query
+  const isLeaderboardAllowed = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
+
+  // 1. Leaderboard Query (Founder & Super Admin only)
   const leaderboardQuery = useQuery({
     queryKey: ['reports-leaderboard', leaderboardPeriod],
     queryFn: async () => {
@@ -173,6 +180,7 @@ export function ReportsPage() {
       });
       return res.data;
     },
+    enabled: isLeaderboardAllowed && activeTab === 'leaderboard',
   });
 
   // 2. Calls Report Query
@@ -311,19 +319,21 @@ export function ReportsPage() {
               <BarChart2 className="h-3.5 w-3.5 text-blue-600" />
               Agent Performance
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('leaderboard')}
-              className={cx(
-                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
-                activeTab === 'leaderboard'
-                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
-              )}
-            >
-              <Trophy className="h-3.5 w-3.5 text-amber-500" />
-              Leaderboard
-            </button>
+            {isLeaderboardAllowed && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('leaderboard')}
+                className={cx(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
+                  activeTab === 'leaderboard'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900'
+                )}
+              >
+                <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                Leaderboard
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setActiveTab('calls')}
@@ -511,7 +521,7 @@ export function ReportsPage() {
                     <Coffee className="h-4 w-4 text-amber-600" />
                   </div>
                   <div className="text-xl font-black text-slate-900">
-                    {performanceQuery.data.teamSummary.totalBreakMinutes}m
+                    {withUnit(performanceQuery.data.teamSummary.totalBreakMinutes, 'm')}
                   </div>
                   <div className="text-[11px] text-amber-600 font-medium mt-0.5">
                     Total team rest & meal breaks
@@ -524,7 +534,7 @@ export function ReportsPage() {
                     <ShieldCheck className="h-4 w-4 text-purple-600" />
                   </div>
                   <div className="text-xl font-black text-slate-900">
-                    {performanceQuery.data.teamSummary.avgQualityScore}%
+                    {withUnit(performanceQuery.data.teamSummary.avgQualityScore, '%')}
                   </div>
                   <div className="text-[11px] text-purple-600 font-medium mt-0.5">
                     Documentation & follow-up adherence
@@ -537,7 +547,7 @@ export function ReportsPage() {
                     <BarChart2 className="h-4 w-4 text-blue-600" />
                   </div>
                   <div className="text-xl font-black text-slate-900">
-                    {performanceQuery.data.teamSummary.totalUptimeHours} hrs
+                    {withUnit(performanceQuery.data.teamSummary.totalUptimeHours, ' hrs')}
                   </div>
                   <div className="text-[11px] text-blue-600 font-medium mt-0.5">
                     {performanceQuery.data.teamSummary.totalAgents} roster telecallers
@@ -595,6 +605,8 @@ export function ReportsPage() {
                               ? 'green'
                               : agent.quality.grade === 'GOOD'
                               ? 'blue'
+                              : agent.quality.grade === 'NO_DATA'
+                              ? 'slate'
                               : 'amber';
 
                           return (
@@ -658,32 +670,34 @@ export function ReportsPage() {
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <div className="flex items-center gap-1.5">
                                   <Coffee className="h-3.5 w-3.5 text-amber-600" />
-                                  <span className="font-bold text-slate-900">{agent.breaks.totalMinutes}m</span>
-                                  <span className="text-[11px] text-slate-500">({agent.breaks.count} breaks)</span>
+                                  <span className="font-bold text-slate-900">{withUnit(agent.breaks.totalMinutes, 'm')}</span>
+                                  {agent.breaks.count != null && (
+                                    <span className="text-[11px] text-slate-500">({agent.breaks.count} breaks)</span>
+                                  )}
                                 </div>
                                 <div className="text-[10px] text-slate-400">
-                                  avg {agent.breaks.averageMinutes}m / break
+                                  {agent.breaks.averageMinutes != null ? `avg ${agent.breaks.averageMinutes}m / break` : 'No punches recorded'}
                                 </div>
                               </td>
 
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <div className="flex items-center gap-2">
                                   <span className="font-black text-sm text-slate-900">
-                                    {agent.quality.score}%
+                                    {withUnit(agent.quality.score, '%')}
                                   </span>
-                                  <Badge tone={gradeTone}>{agent.quality.grade}</Badge>
+                                  <Badge tone={gradeTone}>{agent.quality.grade === 'NO_DATA' ? 'NO CALLS' : agent.quality.grade}</Badge>
                                 </div>
                                 <div className="text-[10px] text-slate-500 mt-0.5">
-                                  Notes: {agent.quality.notesDocumentedRate}% • Substantive: {agent.quality.meaningfulDurationRate}%
+                                  Notes: {withUnit(agent.quality.notesDocumentedRate, '%')} • Substantive: {withUnit(agent.quality.meaningfulDurationRate, '%')}
                                 </div>
                               </td>
 
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <div className="font-bold text-slate-900">
-                                  {agent.uptime.uptimeHours} hrs
+                                  {withUnit(agent.uptime.uptimeHours, ' hrs')}
                                 </div>
                                 <div className="text-[11px] text-blue-600 font-semibold">
-                                  {agent.uptime.utilizationPercent}% utilization
+                                  {agent.uptime.utilizationPercent != null ? `${agent.uptime.utilizationPercent}% utilization` : 'No attendance'}
                                 </div>
                               </td>
                             </tr>
@@ -699,7 +713,7 @@ export function ReportsPage() {
         )}
 
         {/* TAB 1: LEADERBOARD */}
-        {activeTab === 'leaderboard' && (
+        {isLeaderboardAllowed && activeTab === 'leaderboard' && (
           <div className="space-y-4">
             {/* Top controls */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">

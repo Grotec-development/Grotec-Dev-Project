@@ -319,9 +319,41 @@ let LeaveService = class LeaveService {
                 action: AuditAction.LEAVE_APPLIED,
                 after: app,
             });
+            const approverIds = await this.approverIdsFor(tx, employee);
+            if (approverIds.length > 0) {
+                await tx.appNotification.createMany({
+                    data: approverIds.map((recipientId) => ({
+                        recipientId,
+                        type: NotificationType.LEAVE_STATUS,
+                        title: 'Leave Request Awaiting Approval',
+                        message: `${employee.fullName} applied for ${leaveType.name} from ${app.startDate.toISOString().slice(0, 10)} to ${app.endDate.toISOString().slice(0, 10)} (${daysCount} day${daysCount === 1 ? '' : 's'}).`,
+                        data: { leaveApplicationId: app.id, status: LeaveStatus.PENDING },
+                    })),
+                });
+            }
             return app;
         });
         return application;
+    }
+    /**
+     * Who is told about a new leave application: the applicant's active
+     * reporting manager, or — when none is set — every active employee whose
+     * role outranks the applicant's (the people allowed to approve it).
+     */
+    async approverIdsFor(db, employee) {
+        if (employee.reportingManagerId) {
+            const manager = await db.employee.findFirst({
+                where: { id: employee.reportingManagerId, status: 'ACTIVE', deletedAt: null },
+                select: { id: true },
+            });
+            if (manager)
+                return [manager.id];
+        }
+        const candidates = await db.employee.findMany({
+            where: { status: 'ACTIVE', deletedAt: null, id: { not: employee.id } },
+            select: { id: true, role: { select: { code: true } } },
+        });
+        return candidates.filter((c) => outranks(c.role.code, employee.role.code)).map((c) => c.id);
     }
     async approve(actor, id) {
         const existing = await this.prisma.leaveApplication.findUnique({

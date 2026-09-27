@@ -35,7 +35,28 @@ import {
   Table,
 } from '../../components/ui';
 
+/** Payroll runs are management-only; everyone else is pointed at their payslips. */
 export function PayrollPage() {
+  const { hasPermission } = useAuth();
+  if (!hasPermission('payroll.manage')) {
+    return (
+      <div className="mx-auto max-w-2xl p-6 text-center space-y-4">
+        <Alert tone="info">
+          Company payroll runs are restricted to management. Please view your personal payslips under Payslips.
+        </Alert>
+        <div>
+          <Link to="/hrms/payslips">
+            <Button variant="primary" size="sm">Go to My Payslips</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return <PayrollContent />;
+}
+
+function PayrollContent() {
   const { user, hasPermission } = useAuth();
   const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
@@ -61,21 +82,6 @@ export function PayrollPage() {
     reason: '',
     linkedMonth: currentMonthStr,
   });
-
-  if (!hasPermission('payroll.manage')) {
-    return (
-      <div className="mx-auto max-w-2xl p-6 text-center space-y-4">
-        <Alert tone="info">
-          Company payroll runs are restricted to management. Please view your personal payslips under Payslips.
-        </Alert>
-        <div>
-          <Link to="/hrms/payslips">
-            <Button variant="primary" size="sm">Go to My Payslips</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const fetchRuns = async () => {
     setLoading(true);

@@ -108,6 +108,9 @@ let EmployeesController = class EmployeesController {
     async resetPassword(actor, id, dto) {
         return this.employees.resetPassword(actor, id, dto);
     }
+    async delete(actor, id) {
+        await this.employees.delete(actor, id);
+    }
 };
 __decorate([
     Get(),
@@ -340,6 +343,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, typeof (_h = typeof ResetPasswordDto !== "undefined" && ResetPasswordDto) === "function" ? _h : Object]),
     __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "resetPassword", null);
+__decorate([
+    HttpCode(204),
+    Delete(':id'),
+    RequirePermission(PERMISSIONS.employeeDelete),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "delete", null);
 EmployeesController = __decorate([
     Controller('employees'),
     __metadata("design:paramtypes", [typeof (_a = typeof EmployeesService !== "undefined" && EmployeesService) === "function" ? _a : Object])

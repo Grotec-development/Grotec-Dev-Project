@@ -39,6 +39,11 @@ export function HrmsDashboardPage() {
   if (user?.roleCode === 'AGENT' || user?.roleCode === 'STAFF' || user?.roleCode === 'DELIVERY' || !hasPermission('hrms.read')) {
     return <Navigate to="/hrms/attendance" replace />;
   }
+  return <HrmsDashboardContent />;
+}
+
+function HrmsDashboardContent() {
+  const { user, hasPermission } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var _a, _b, _c, _d, _e, _f;
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ACTIVE_CALL_STATUSES, CallDirection, CallDisconnectReason, CallOutcome, CallStatus, FollowUpStatus, } from '@grotec/shared';
+import { ACTIVE_CALL_STATUSES, CallDirection, CallDisconnectReason, CallOutcome, CallStatus, FollowUpStatus, toTechnicalRole, } from '@grotec/shared';
 import { normalizePhoneToE164 } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
@@ -48,7 +48,7 @@ let CallsService = class CallsService {
                 where: {
                     id: dto.customerId,
                     deletedAt: null,
-                    ...(actor.roleCode === 'AGENT' ? {
+                    ...(toTechnicalRole(actor.roleCode) === 'AGENT' ? {
                         OR: [
                             { createdById: actor.id },
                             {
@@ -85,7 +85,7 @@ let CallsService = class CallsService {
                 throw ApiError.notFound('LEAD_NOT_FOUND', 'Lead not found');
             // Mirrors LeadsService#scopeWhere: agents may only link a call to a lead
             // they currently own; STAFF/MANAGER/FOUNDER may link across agents.
-            if (actor.roleCode === 'AGENT') {
+            if (toTechnicalRole(actor.roleCode) === 'AGENT') {
                 const owned = await this.prisma.lead.findFirst({
                     where: { id: dto.leadId, ownerships: { some: { employeeId: actor.id, releasedAt: null } } },
                     select: { id: true },
@@ -101,7 +101,7 @@ let CallsService = class CallsService {
                     customerId,
                     deletedAt: null,
                     status: 'OPEN',
-                    ...(actor.roleCode === 'AGENT' ? {
+                    ...(toTechnicalRole(actor.roleCode) === 'AGENT' ? {
                         ownerships: { some: { employeeId: actor.id, releasedAt: null } },
                     } : {}),
                 },
@@ -313,7 +313,7 @@ let CallsService = class CallsService {
     }
     // -------------------------------------------------------------- workspace
     async queue(actor, filters = {}) {
-        const scopeOwner = actor.roleCode === 'AGENT' ? actor.id : (filters.ownerId ?? undefined);
+        const scopeOwner = toTechnicalRole(actor.roleCode) === 'AGENT' ? actor.id : (filters.ownerId ?? undefined);
         const leads = await this.prisma.lead.findMany({
             where: {
                 deletedAt: null,
@@ -799,7 +799,7 @@ let CallsService = class CallsService {
         });
         if (!call)
             throw ApiError.notFound('CALL_NOT_FOUND', 'Call not found');
-        if (actor.roleCode === 'AGENT' && call.agentId !== actor.id) {
+        if (toTechnicalRole(actor.roleCode) === 'AGENT' && call.agentId !== actor.id) {
             throw ApiError.notFound('CALL_NOT_FOUND', 'Call not found');
         }
         return call;

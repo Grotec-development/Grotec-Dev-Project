@@ -7,12 +7,13 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 import { Module } from '@nestjs/common';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
+import { FollowUpReminderScheduler } from './follow-up-reminder.scheduler';
 let NotificationsModule = class NotificationsModule {
 };
 NotificationsModule = __decorate([
     Module({
         controllers: [NotificationsController],
-        providers: [NotificationsService],
+        providers: [NotificationsService, FollowUpReminderScheduler],
         exports: [NotificationsService],
     })
 ], NotificationsModule);

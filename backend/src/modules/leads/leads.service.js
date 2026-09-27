@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var _a, _b, _c;
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { AuditAction, AuditEntityType, DOMAIN_EVENTS, EmployeeStatus, LeadStatus } from '@grotec/shared';
+import { AuditAction, AuditEntityType, DOMAIN_EVENTS, EmployeeStatus, LeadStatus, toTechnicalRole } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
@@ -96,7 +96,7 @@ let LeadsService = class LeadsService {
             where: {
                 id: input.customerId,
                 deletedAt: null,
-                ...(actor.roleCode === 'AGENT' ? {
+                ...(toTechnicalRole(actor.roleCode) === 'AGENT' ? {
                     OR: [
                         { createdById: actor.id },
                         {
@@ -347,7 +347,7 @@ let LeadsService = class LeadsService {
     }
     /** Agents see only leads they currently own. (STAFF/MANAGER/FOUNDER: all.) */
     scopeWhere(actor) {
-        if (actor.roleCode === 'AGENT') {
+        if (toTechnicalRole(actor.roleCode) === 'AGENT') {
             return { ownerships: { some: { employeeId: actor.id, releasedAt: null } } };
         }
         return {};

@@ -1412,10 +1412,10 @@ export function AgentWorkspacePage() {
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-sm font-black text-purple-700">
-                {myPerf?.quality?.score ?? 92}%
+                {myPerf?.quality?.score != null ? `${myPerf.quality.score}%` : '—'}
               </span>
               <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
-                {myPerf?.quality?.grade ?? 'Grade A'}
+                {myPerf?.quality?.grade === 'NO_DATA' || !myPerf ? 'No calls yet' : myPerf.quality.grade}
               </span>
             </div>
           </div>

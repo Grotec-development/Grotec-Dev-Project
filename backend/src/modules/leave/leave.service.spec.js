@@ -6,11 +6,19 @@ const founder = { id: 'founder', roleCode: 'FOUNDER' };
 function fixture() {
     const application = { id: 'a', employeeId: 'agent', leaveTypeId: 'type', startDate: new Date('2026-09-01'), endDate: new Date('2026-09-02'), daysCount: 2, status: 'PENDING', leaveType: { isPaid: true }, employee: { fullName: 'Agent', role: { code: 'AGENT' } } };
     const db = {
-        employee: { findUnique: vi.fn(async () => ({ id: 'agent', role: { code: 'AGENT' } })) },
+        employee: {
+            findUnique: vi.fn(async () => ({ id: 'agent', fullName: 'Agent', reportingManagerId: null, role: { code: 'AGENT' } })),
+            findFirst: vi.fn(async () => null),
+            findMany: vi.fn(async () => [
+                { id: 'mgr', role: { code: 'MANAGER' } },
+                { id: 'founder', role: { code: 'FOUNDER' } },
+                { id: 'peer', role: { code: 'AGENT' } },
+            ]),
+        },
         leaveType: { findUnique: vi.fn(async () => ({ isPaid: true })) },
         leaveBalance: { findUnique: vi.fn(async () => ({ balance: 10 })), updateMany: vi.fn(async () => ({ count: 1 })) },
         leaveApplication: { findFirst: vi.fn(async () => null), findUnique: vi.fn(async () => application), updateMany: vi.fn(async () => ({ count: 1 })), create: vi.fn(async ({ data }) => ({ id: 'a', ...data })) },
-        attendanceRecord: { upsert: vi.fn() }, leaveApprovalHistory: { create: vi.fn() }, appNotification: { create: vi.fn() },
+        attendanceRecord: { upsert: vi.fn() }, leaveApprovalHistory: { create: vi.fn() }, appNotification: { create: vi.fn(), createMany: vi.fn() },
     };
     db.$transaction = fn => fn(db);
     return { db, application, service: new LeaveService(db, { record: vi.fn() }) };
@@ -21,6 +29,19 @@ describe('leave integrity', () => {
         const { service, db } = fixture();
         await expect(service.apply(actor, { ...dto, daysCount })).rejects.toMatchObject({ code: 'INVALID_LEAVE_DURATION' });
         expect(db.leaveApplication.create).not.toHaveBeenCalled();
+    });
+    it('notifies everyone who outranks the applicant when no reporting manager is set', async () => {
+        const { service, db } = fixture();
+        await service.apply(actor, dto);
+        const recipients = db.appNotification.createMany.mock.calls[0][0].data.map((n) => n.recipientId);
+        expect(recipients).toEqual(['mgr', 'founder']);
+    });
+    it('notifies only the active reporting manager when one is set', async () => {
+        const { service, db } = fixture();
+        db.employee.findUnique.mockResolvedValue({ id: 'agent', fullName: 'Agent', reportingManagerId: 'rm', role: { code: 'AGENT' } });
+        db.employee.findFirst.mockResolvedValue({ id: 'rm' });
+        await service.apply(actor, dto);
+        expect(db.appNotification.createMany.mock.calls[0][0].data.map((n) => n.recipientId)).toEqual(['rm']);
     });
     it('rejects invalid calendar dates', async () => {
         await expect(fixture().service.apply(actor, { ...dto, startDate: '2026-02-30' })).rejects.toMatchObject({ code: 'INVALID_DATE' });

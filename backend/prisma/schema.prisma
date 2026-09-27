@@ -124,6 +124,7 @@ model Tenant {
   trips             Trip[]
   callOutcomeMasters CallOutcomeMaster[]
   farmerSegments    FarmerSegment[]
+  employeeRequests  EmployeeRequest[]
 
   @@map("tenants")
 }
@@ -205,6 +206,8 @@ model Employee {
   assignedVehicles  Vehicle[]               @relation("DriverVehicle")
   drivenTrips       Trip[]                  @relation("TripDriver")
   createdSegments   FarmerSegment[]         @relation("SegmentCreatedBy")
+  submittedRequests EmployeeRequest[]       @relation("RequestRequester")
+  assignedRequests  EmployeeRequest[]       @relation("RequestAssignee")
 
   @@map("employees")
 }
@@ -765,6 +768,8 @@ enum NotificationType {
   ATTENDANCE_STATUS
   LEAVE_STATUS
   PAYROLL_STATUS
+  EMPLOYEE_REQUEST_SUBMITTED
+  EMPLOYEE_REQUEST_UPDATED
 }
 
 // Outbox event processing lifecycle.
@@ -1020,6 +1025,62 @@ model LeaveApprovalHistory {
 
   @@index([leaveApplicationId])
   @@map("leave_approval_history")
+}
+
+// Action Center requests that are not leave or shift permissions: a note to the
+// reporting manager, an HR inquiry, an office resource request or an issue report.
+enum EmployeeRequestType {
+  MANAGER_NOTE
+  HR_INQUIRY
+  OFFICE_RESOURCE
+  ISSUE_REPORT
+}
+
+enum EmployeeRequestStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+model EmployeeRequest {
+  id             String                @id @default(uuid()) @db.Uuid
+  tenantId       String?               @map("tenant_id") @db.Uuid
+  tenant         Tenant?               @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  requesterId    String                @map("requester_id") @db.Uuid
+  requester      Employee              @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  // Reporting manager for MANAGER_NOTE; null means the request sits in the shared queue
+  assigneeId     String?               @map("assignee_id") @db.Uuid
+  assignee       Employee?             @relation("RequestAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  type           EmployeeRequestType
+  message        String
+  status         EmployeeRequestStatus @default(OPEN)
+  resolutionNote String?               @map("resolution_note")
+  resolvedAt     DateTime?             @map("resolved_at")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  history EmployeeRequestHistory[]
+
+  @@index([requesterId, createdAt])
+  @@index([assigneeId, status])
+  @@index([status, createdAt])
+  @@map("employee_requests")
+}
+
+model EmployeeRequestHistory {
+  id         String          @id @default(uuid()) @db.Uuid
+  requestId  String          @map("request_id") @db.Uuid
+  request    EmployeeRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorId    String?         @map("actor_id") @db.Uuid
+  action     String          @db.VarChar(50)
+  fromStatus String?         @map("from_status") @db.VarChar(20)
+  toStatus   String          @map("to_status") @db.VarChar(20)
+  note       String?
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@index([requestId])
+  @@map("employee_request_history")
 }
 
 model SalaryRevision {

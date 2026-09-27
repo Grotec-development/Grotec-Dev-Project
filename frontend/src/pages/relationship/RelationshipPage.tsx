@@ -61,6 +61,7 @@ export function RelationshipPage() {
   // Data state
   const [items, setItems] = useState<RelationshipPortfolioItem[]>([]);
   const [holders, setHolders] = useState<RelationshipHolder[]>([]);
+  const [holdersError, setHoldersError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -78,11 +79,13 @@ export function RelationshipPage() {
   // Fetch holders (eligible RMs)
   const fetchHolders = async () => {
     try {
-      const res = await api.get('/relationship/holders');
-      setHolders(res.data.items || []);
-    } catch {
-      // For AGENT role, backend safely returns empty holders list
+      const res = await api.get<{ items: RelationshipHolder[] } | RelationshipHolder[]>('/relationship/holders');
+      // Accept both the `{ items }` envelope and a bare array (older API builds)
+      setHolders(Array.isArray(res.data) ? res.data : res.data.items ?? []);
+      setHoldersError(null);
+    } catch (err) {
       setHolders([]);
+      setHoldersError(errorMessage(err) || 'Could not load relationship managers');
     }
   };
 
@@ -683,13 +686,14 @@ export function RelationshipPage() {
                   onChange={(e) => setAssignRmId(e.target.value)}
                   required
                 >
-                  <option value="">Select Manager...</option>
+                  <option value="">{holders.length > 0 ? 'Select Manager...' : 'No active relationship managers'}</option>
                   {holders.map((h) => (
                     <option key={h.id} value={h.id}>
                       {h.fullName} ({h.email}) — {h.customerCount} assigned
                     </option>
                   ))}
                 </Select>
+                {holdersError && <p className="mt-1 text-[11px] text-red-600">{holdersError}</p>}
               </Field>
 
               <Field label="Assignment Reason / Handover Note">
@@ -708,7 +712,7 @@ export function RelationshipPage() {
                 <Button
                   size="sm"
                   type="submit"
-                  disabled={assignSubmitting || !assignRmId}
+                  disabled={assignSubmitting || !assignRmId || holders.length === 0}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                 >
                   {assignSubmitting ? 'Assigning...' : 'Confirm Assignment'}

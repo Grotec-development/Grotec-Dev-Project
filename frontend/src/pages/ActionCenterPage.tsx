@@ -33,6 +33,43 @@ import {
   cx,
 } from '../components/ui';
 
+type RequestTypeCode = 'MANAGER_NOTE' | 'HR_INQUIRY' | 'OFFICE_RESOURCE' | 'ISSUE_REPORT';
+type RequestStatusCode = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
+
+interface EmployeeRequestItem {
+  id: string;
+  type: RequestTypeCode;
+  message: string;
+  status: RequestStatusCode;
+  resolutionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requester: { id: string; fullName: string; employeeCode: string | null; role: { code: string } };
+  assignee: { id: string; fullName: string } | null;
+}
+
+const REQUEST_TYPE_LABELS: Record<RequestTypeCode, string> = {
+  MANAGER_NOTE: 'Note to Manager',
+  HR_INQUIRY: 'HR Inquiry',
+  OFFICE_RESOURCE: 'Office Resource Request',
+  ISSUE_REPORT: 'Issue Report',
+};
+
+/** Maps request statuses onto the page's Pending / Approved / Rejected filter. */
+const REQUEST_STATUS_BUCKET: Record<RequestStatusCode, 'PENDING' | 'APPROVED' | 'REJECTED'> = {
+  OPEN: 'PENDING',
+  IN_PROGRESS: 'PENDING',
+  RESOLVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+};
+
+const MODAL_REQUEST_TYPE: Record<string, RequestTypeCode> = {
+  MANAGER: 'MANAGER_NOTE',
+  HR: 'HR_INQUIRY',
+  OFFICE: 'OFFICE_RESOURCE',
+  ISSUE: 'ISSUE_REPORT',
+};
+
 interface QuickRequestModalProps {
   type: 'LEAVE' | 'PERMISSION' | 'MANAGER' | 'HR' | 'OFFICE' | 'ISSUE';
   onClose: () => void;
@@ -43,8 +80,18 @@ export function ActionCenterPage() {
   const { user, hasPermission } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const activeTab = (searchParams.get('tab') as 'actions' | 'requests') || 'actions';
-  const setActiveTab = (tab: 'actions' | 'requests') => {
+  const isFounderOrAdmin = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
+  const canManageRequests = hasPermission('request.manage') || isFounderOrAdmin;
+  const requestedTab = searchParams.get('tab') as 'actions' | 'requests' | 'inbox' | null;
+  const defaultTab = isFounderOrAdmin ? 'inbox' : 'actions';
+  const activeTab = requestedTab
+    ? requestedTab === 'inbox' && !canManageRequests
+      ? 'actions'
+      : requestedTab === 'actions' && isFounderOrAdmin
+      ? 'inbox'
+      : requestedTab
+    : defaultTab;
+  const setActiveTab = (tab: 'actions' | 'requests' | 'inbox') => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('tab', tab);
@@ -104,20 +151,20 @@ export function ActionCenterPage() {
           };
         });
 
-      // Merge with any locally stored action center requests (inquiries/office/issue only)
-      let localRequests: any[] = [];
-      try {
-        const raw = localStorage.getItem('grotec_user_requests');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const knownIds = new Set([...leaveItems.map((l: any) => l.id), ...permissionItems.map((p: any) => p.id)]);
-          localRequests = parsed.filter(
-            (r: any) => r.category !== 'PERMISSION' && r.category !== 'LEAVE' && !knownIds.has(r.id)
-          );
-        }
-      } catch {}
+      // Manager notes, HR inquiries, office requests and issue reports
+      const reqRes = await api.get<{ items: EmployeeRequestItem[] }>('/requests/my', { params: { pageSize: 50 } });
+      const otherItems = (reqRes.data?.items || []).map((item) => ({
+        id: item.id,
+        type: REQUEST_TYPE_LABELS[item.type],
+        category: item.type,
+        date: item.createdAt,
+        reason: item.resolutionNote ? `${item.message} — Reply: ${item.resolutionNote}` : item.message,
+        status: item.status,
+        bucket: REQUEST_STATUS_BUCKET[item.status],
+        updatedAt: item.updatedAt,
+      }));
 
-      const all = [...permissionItems, ...leaveItems, ...localRequests];
+      const all = [...permissionItems, ...leaveItems, ...otherItems];
       all.sort((a, b) => new Date(b.updatedAt || b.date).getTime() - new Date(a.updatedAt || a.date).getTime());
       setRequests(all);
     } catch (err: any) {
@@ -135,7 +182,7 @@ export function ActionCenterPage() {
 
   const filteredRequests = requests.filter((r) => {
     if (statusFilter === 'ALL') return true;
-    return r.status === statusFilter;
+    return (r.bucket ?? r.status) === statusFilter;
   });
 
   return (
@@ -152,24 +199,28 @@ export function ActionCenterPage() {
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">Action Center</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Submit quick requests to managers, HR, and facilities, or track your pending approvals.
+            {isFounderOrAdmin
+              ? 'Review and approve leave applications, shift permissions, and incoming requests across the company.'
+              : 'Submit quick requests to managers, HR, and facilities, or track your pending approvals.'}
           </p>
         </div>
 
         {/* Tab Toggle */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('actions')}
-            className={cx(
-              'px-4 py-1.5 rounded-md text-xs font-bold transition cursor-pointer',
-              activeTab === 'actions'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900',
-            )}
-          >
-            Quick Actions
-          </button>
+          {!isFounderOrAdmin && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('actions')}
+              className={cx(
+                'px-4 py-1.5 rounded-md text-xs font-bold transition cursor-pointer',
+                activeTab === 'actions'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900',
+              )}
+            >
+              Quick Actions
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab('requests')}
@@ -181,10 +232,22 @@ export function ActionCenterPage() {
             )}
           >
             <span>My Requests</span>
-            {requests.filter((r) => r.status === 'PENDING').length > 0 && (
+            {requests.filter((r) => (r.bucket ?? r.status) === 'PENDING').length > 0 && (
               <span className="h-2 w-2 rounded-full bg-amber-500" />
             )}
           </button>
+          {canManageRequests && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('inbox')}
+              className={cx(
+                'px-4 py-1.5 rounded-md text-xs font-bold transition cursor-pointer',
+                activeTab === 'inbox' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900',
+              )}
+            >
+              {isFounderOrAdmin ? 'Approval Requests' : 'Team Requests'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -217,7 +280,7 @@ export function ActionCenterPage() {
       )}
 
       {/* TAB 1: QUICK ACTIONS */}
-      {activeTab === 'actions' && (
+      {activeTab === 'actions' && !isFounderOrAdmin && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Card 1: Apply Leave */}
@@ -428,14 +491,14 @@ export function ActionCenterPage() {
                           <span
                             className={cx(
                               'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                              req.status === 'APPROVED'
+                              req.status === 'APPROVED' || req.status === 'RESOLVED'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : req.status === 'REJECTED'
                                 ? 'bg-red-50 text-red-700 border border-red-200'
                                 : 'bg-amber-50 text-amber-700 border border-amber-200',
                             )}
                           >
-                            {req.status}
+                            {String(req.status).replace('_', ' ')}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-slate-400 text-[11px] font-mono">
@@ -451,6 +514,9 @@ export function ActionCenterPage() {
         </div>
       )}
 
+      {/* TAB 3: TEAM REQUESTS (handlers only) */}
+      {activeTab === 'inbox' && canManageRequests && <TeamRequestsPanel currentUserId={user?.id} />}
+
       {/* MODAL HANDLERS */}
       {activeModal && (
         <QuickActionModal
@@ -462,6 +528,169 @@ export function ActionCenterPage() {
             if (activeTab === 'requests') void fetchMyRequests();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+const INBOX_FILTERS: Array<{ key: string; label: string }> = [
+  { key: 'OPEN_ALL', label: 'Open' },
+  { key: 'RESOLVED', label: 'Resolved' },
+  { key: 'REJECTED', label: 'Rejected' },
+  { key: '', label: 'All' },
+];
+
+/** Requests routed to the current handler: assigned to them or queued from lower-ranked roles. */
+function TeamRequestsPanel({ currentUserId }: { currentUserId?: string }) {
+  const [filter, setFilter] = useState('OPEN_ALL');
+  const [items, setItems] = useState<EmployeeRequestItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [decision, setDecision] = useState<{ item: EmployeeRequestItem; status: 'RESOLVED' | 'REJECTED' } | null>(null);
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get<{ items: EmployeeRequestItem[] }>('/requests', {
+        params: { pageSize: 100, ...(filter ? { status: filter } : {}) },
+      });
+      setItems(res.data.items);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
+  const update = async (item: EmployeeRequestItem, status: 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED', reply?: string) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.patch(`/requests/${item.id}/status`, { status, ...(reply?.trim() ? { note: reply.trim() } : {}) });
+      setDecision(null);
+      setNote('');
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs">
+        <div className="flex flex-wrap items-center gap-1">
+          {INBOX_FILTERS.map((f) => (
+            <button
+              key={f.label}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              className={cx(
+                'px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer',
+                filter === f.key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <Button size="xs" variant="outline" onClick={load} loading={loading}>
+          Refresh
+        </Button>
+      </div>
+
+      {error && <Alert tone="error">{error}</Alert>}
+
+      <div className="rounded-xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+        {loading ? (
+          <div className="p-10 flex justify-center">
+            <Spinner label="Loading team requests…" />
+          </div>
+        ) : items.length === 0 ? (
+          <div className="p-12 text-center text-xs text-slate-500">No requests in this view.</div>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {items.map((item) => {
+              const isOpen = item.status === 'OPEN' || item.status === 'IN_PROGRESS';
+              const isOwn = item.requester.id === currentUserId;
+              return (
+                <li key={item.id} className="p-4 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-900">{REQUEST_TYPE_LABELS[item.type]}</span>
+                      <span className="text-slate-400"> · </span>
+                      <span className="font-semibold text-slate-700">{item.requester.fullName}</span>
+                      <span className="text-slate-400"> · {formatDate(item.createdAt)}</span>
+                      {item.assignee && <span className="text-slate-400"> · to {item.assignee.fullName}</span>}
+                    </div>
+                    <Badge tone={item.status === 'RESOLVED' ? 'green' : item.status === 'REJECTED' ? 'red' : item.status === 'IN_PROGRESS' ? 'blue' : 'amber'}>
+                      {item.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-700 whitespace-pre-wrap break-words">{item.message}</p>
+                  {item.resolutionNote && <p className="text-[11px] text-slate-500">Reply: {item.resolutionNote}</p>}
+                  {isOpen && !isOwn && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {item.status === 'OPEN' && (
+                        <Button size="xs" variant="outline" disabled={saving} onClick={() => update(item, 'IN_PROGRESS')}>
+                          Mark in progress
+                        </Button>
+                      )}
+                      <Button size="xs" disabled={saving} onClick={() => setDecision({ item, status: 'RESOLVED' })}>
+                        Resolve
+                      </Button>
+                      <Button size="xs" variant="outline" disabled={saving} onClick={() => setDecision({ item, status: 'REJECTED' })}>
+                        Reject
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {decision && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-3">
+            <h2 className="text-base font-bold text-slate-900">
+              {decision.status === 'RESOLVED' ? 'Resolve request' : 'Reject request'}
+            </h2>
+            <p className="text-xs text-slate-500">
+              {REQUEST_TYPE_LABELS[decision.item.type]} from {decision.item.requester.fullName}. Your reply is sent to them.
+            </p>
+            <textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={decision.status === 'REJECTED' ? 'Reason (required)' : 'Reply (optional)'}
+              className="w-full rounded-md border border-slate-200 p-2.5 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => { setDecision(null); setNote(''); }} disabled={saving}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                loading={saving}
+                disabled={decision.status === 'REJECTED' && !note.trim()}
+                onClick={() => update(decision.item, decision.status, note)}
+              >
+                {decision.status === 'RESOLVED' ? 'Resolve' : 'Reject'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -554,40 +783,21 @@ function QuickActionModal({
         return;
       }
 
-      // For messages, inquiries, office requests, issues:
-      // Store in authentic localStorage requests list so user can see it tracked immediately
-      const newReq = {
-        id: `req-${Date.now()}`,
-        type:
-          type === 'MANAGER'
-            ? 'Manager Direct Note'
-            : type === 'HR'
-            ? 'HR Support Inquiry'
-            : type === 'OFFICE'
-            ? 'Office Resource Request'
-            : 'Operational Issue Report',
-        category: type,
-        date: new Date().toISOString(),
-        reason: reason.trim(),
-        status: 'PENDING',
-        updatedAt: new Date().toISOString(),
-      };
-
-      try {
-        const raw = localStorage.getItem('grotec_user_requests');
-        const list = raw ? JSON.parse(raw) : [];
-        list.unshift(newReq);
-        localStorage.setItem('grotec_user_requests', JSON.stringify(list));
-      } catch {}
+      // Manager notes, HR inquiries, office requests and issue reports are stored
+      // server-side (POST /requests); success is shown only after a 2xx.
+      const requestType = MODAL_REQUEST_TYPE[type];
+      const res = await api.post<EmployeeRequestItem>('/requests', { type: requestType, message: reason.trim() });
 
       const successMessages: Record<string, string> = {
-        MANAGER: 'Direct message sent to your reporting manager.',
-        HR: 'HR inquiry ticket created and queued for administration response.',
-        OFFICE: 'Office resource request recorded with operations team.',
-        ISSUE: 'Workplace issue logged and flagged for operational resolution.',
+        MANAGER: res.data.assignee
+          ? `Message sent to ${res.data.assignee.fullName}.`
+          : 'Message sent to your managers (no reporting manager is set on your profile).',
+        HR: 'HR inquiry submitted. You will be notified when it is answered.',
+        OFFICE: 'Office resource request submitted to the operations team.',
+        ISSUE: 'Issue reported. You will be notified when it is resolved.',
       };
 
-      onSuccess(successMessages[type] || 'Request submitted successfully.');
+      onSuccess(successMessages[type] || 'Request submitted.');
     } catch (err: any) {
       setError(errorMessage(err));
     } finally {

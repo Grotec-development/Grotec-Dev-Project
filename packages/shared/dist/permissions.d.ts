@@ -3,6 +3,7 @@ export namespace PERMISSIONS {
     let employeeCreate: string;
     let employeeUpdate: string;
     let employeeDeactivate: string;
+    let employeeDelete: string;
     let employeeResetPassword: string;
     let roleRead: string;
     let permissionRead: string;
@@ -65,6 +66,10 @@ export namespace PERMISSIONS {
     let deliveryRead: string;
     let deliveryExecute: string;
     let exceptionsManage: string;
+    let notificationRead: string;
+    let notificationManage: string;
+    let requestCreate: string;
+    let requestManage: string;
 }
 /** @typedef {typeof PERMISSIONS[keyof typeof PERMISSIONS]} PermissionCode */
 /** @type {PermissionCode[]} */

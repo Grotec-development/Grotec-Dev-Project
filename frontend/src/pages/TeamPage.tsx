@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, X, Edit2, Shield, Check, CheckSquare, Square } from 'lucide-react';
+import { Plus, X, Edit2, Shield, Check, CheckSquare, Square, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import type { Employee, Page } from '../lib/types';
 import { ROLE_CODES, ROLE_LABELS } from '@grotec/shared';
@@ -10,13 +10,57 @@ import { formatDate } from '../lib/format';
 
 export function TeamPage() {
   const { user, hasPermission } = useAuth();
+  const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
   const canCreate = hasPermission('employee.create');
+  const canManageEmployees = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
 
   const { data, isError, error } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => (await api.get<Page<Employee>>('/employees', { params: { pageSize: 100 } })).data,
   });
+
+  async function handleToggleStatus(employee: Employee) {
+    if (!canManageEmployees) return;
+    setTogglingId(employee.id);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const endpoint = employee.status === 'ACTIVE'
+        ? `/employees/${employee.id}/deactivate`
+        : `/employees/${employee.id}/activate`;
+      await api.post(endpoint);
+      setActionSuccess(`Employee ${employee.fullName} ${employee.status === 'ACTIVE' ? 'deactivated' : 'activated'} successfully.`);
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  async function handlePermanentDelete() {
+    if (!employeeToDelete || !canManageEmployees) return;
+    setIsDeleting(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await api.delete(`/employees/${employeeToDelete.id}`);
+      setActionSuccess(`Employee ${employeeToDelete.fullName} (${employeeToDelete.email}) permanently removed.`);
+      setEmployeeToDelete(null);
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <div className="p-8">
@@ -32,6 +76,31 @@ export function TeamPage() {
         ) : null}
       </div>
 
+      {actionSuccess && (
+        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 p-3.5 text-xs font-semibold text-emerald-800 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+          <button type="button" onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-900">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="mb-4">
+          <Alert tone="error">
+            <div className="flex items-center justify-between">
+              <span>{actionError}</span>
+              <button type="button" onClick={() => setActionError(null)}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </Alert>
+        </div>
+      )}
+
       {isError ? <Alert tone="error">{errorMessage(error)}</Alert> : null}
 
       <Card>
@@ -46,31 +115,128 @@ export function TeamPage() {
                 <TH>Role</TH>
                 <TH>Status</TH>
                 <TH>Joined</TH>
+                {canManageEmployees && <TH className="text-right">Actions</TH>}
               </tr>
             </THead>
             <tbody>
-              {data.items.map((employee) => (
-                <tr key={employee.id} className="hover:bg-slate-50">
-                  <TD className="font-medium">
-                    {employee.fullName}
-                    {employee.id === user?.id ? <span className="ml-2 text-xs text-slate-400">(you)</span> : null}
-                  </TD>
-                  <TD>{employee.email}</TD>
-                  <TD>
-                    <Badge tone={employee.role.code === 'FOUNDER' ? 'amber' : employee.role.code === 'AGENT' ? 'green' : 'slate'}>
-                      {employee.role.name}
-                    </Badge>
-                  </TD>
-                  <TD>
-                    {employee.status === 'ACTIVE' ? <Badge tone="green">Active</Badge> : <Badge tone="red">Inactive</Badge>}
-                  </TD>
-                  <TD className="text-xs text-slate-500">{formatDate(employee.createdAt)}</TD>
-                </tr>
-              ))}
+              {data.items.map((employee) => {
+                const isSelf = employee.id === user?.id;
+                const isProtected = employee.role.code === 'FOUNDER' || employee.role.code === 'SUPER_ADMIN';
+
+                return (
+                  <tr key={employee.id} className="hover:bg-slate-50">
+                    <TD className="font-medium">
+                      {employee.fullName}
+                      {isSelf ? <span className="ml-2 text-xs text-slate-400">(you)</span> : null}
+                    </TD>
+                    <TD>{employee.email}</TD>
+                    <TD>
+                      <Badge tone={employee.role.code === 'FOUNDER' ? 'amber' : employee.role.code === 'AGENT' ? 'green' : 'slate'}>
+                        {employee.role.name}
+                      </Badge>
+                    </TD>
+                    <TD>
+                      {employee.status === 'ACTIVE' ? <Badge tone="green">Active</Badge> : <Badge tone="red">Inactive</Badge>}
+                    </TD>
+                    <TD className="text-xs text-slate-500">{formatDate(employee.createdAt)}</TD>
+                    {canManageEmployees && (
+                      <TD className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={togglingId === employee.id || isSelf || isProtected}
+                            onClick={() => handleToggleStatus(employee)}
+                            title={
+                              isSelf
+                                ? 'Cannot modify your own status'
+                                : isProtected
+                                ? 'Protected account'
+                                : employee.status === 'ACTIVE'
+                                ? 'Deactivate employee'
+                                : 'Activate employee'
+                            }
+                            className={cx(
+                              'text-xs py-1 px-2.5 font-medium cursor-pointer',
+                              employee.status === 'ACTIVE'
+                                ? 'text-amber-700 border-amber-300 hover:bg-amber-50'
+                                : 'text-emerald-700 border-emerald-300 hover:bg-emerald-50',
+                            )}
+                          >
+                            {togglingId === employee.id ? (
+                              <span className="text-[10px]">Updating…</span>
+                            ) : employee.status === 'ACTIVE' ? (
+                              'Deactivate'
+                            ) : (
+                              'Activate'
+                            )}
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={isSelf || isProtected}
+                            onClick={() => setEmployeeToDelete(employee)}
+                            title={
+                              isSelf
+                                ? 'Cannot remove yourself'
+                                : isProtected
+                                ? 'Protected account'
+                                : 'Permanently remove employee'
+                            }
+                            className="text-xs py-1 px-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TD>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         )}
       </Card>
+
+      {/* Confirmation Modal for Permanent Removal */}
+      {employeeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Permanently Remove Employee</h3>
+                <p className="text-xs text-slate-500">This action archives the record and revokes access.</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to permanently remove{' '}
+              <strong className="text-slate-900">{employeeToDelete.fullName}</strong> ({employeeToDelete.email})?
+              All active sessions will be revoked.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isDeleting}
+                onClick={() => setEmployeeToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={isDeleting}
+                onClick={handlePermanentDelete}
+              >
+                {isDeleting ? 'Removing…' : 'Yes, Permanently Remove'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <RolesPermissionsCard />
 

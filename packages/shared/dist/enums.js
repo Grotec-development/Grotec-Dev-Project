@@ -1,7 +1,7 @@
 "use strict";
 /** Mirrors the PostgreSQL enums in backend/prisma/schema.prisma. */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UnitOfMeasure = exports.InvoiceStatus = exports.OrderStatus = exports.QuantityExceptionStatus = exports.DeliveryStatus = exports.TripStatus = exports.StockState = exports.OutboxStatus = exports.NotificationType = exports.KpiMetricType = exports.PayrollRunStatus = exports.PayrollStatus = exports.EmployeeHistoryType = exports.LeaveStatus = exports.ApprovalStatus = exports.AttendanceSource = exports.AttendanceStatus = exports.CROP_CATEGORIES = exports.PROBLEM_TYPES = exports.PAGINATION = exports.AuditAction = exports.AuditEntityType = exports.CallDisconnectReason = exports.MessageType = exports.EmployeeEmploymentStatus = exports.MessageStatus = exports.FollowUpStatus = exports.NextAction = exports.CALL_OUTCOMES = exports.CallOutcome = exports.CallDirection = exports.TERMINAL_CALL_STATUSES = exports.ACTIVE_CALL_STATUSES = exports.CallStatus = exports.LeadStatus = exports.PhoneKind = exports.CustomerStatus = exports.EmployeeStatus = void 0;
+exports.UnitOfMeasure = exports.InvoiceStatus = exports.OrderStatus = exports.QuantityExceptionStatus = exports.DeliveryStatus = exports.TripStatus = exports.StockState = exports.OutboxStatus = exports.EmployeeRequestStatus = exports.EmployeeRequestType = exports.NotificationType = exports.KpiMetricType = exports.PayrollRunStatus = exports.PayrollStatus = exports.EmployeeHistoryType = exports.LeaveStatus = exports.ApprovalStatus = exports.AttendanceSource = exports.AttendanceStatus = exports.CROP_CATEGORIES = exports.PROBLEM_TYPES = exports.PAGINATION = exports.AuditAction = exports.AuditEntityType = exports.CallDisconnectReason = exports.MessageType = exports.EmployeeEmploymentStatus = exports.MessageStatus = exports.FollowUpStatus = exports.NextAction = exports.CALL_OUTCOMES = exports.CallOutcome = exports.CallDirection = exports.TERMINAL_CALL_STATUSES = exports.ACTIVE_CALL_STATUSES = exports.CallStatus = exports.LeadStatus = exports.PhoneKind = exports.CustomerStatus = exports.EmployeeStatus = void 0;
 exports.EmployeeStatus = {
     ACTIVE: 'ACTIVE',
     INACTIVE: 'INACTIVE',
@@ -114,6 +114,7 @@ exports.AuditEntityType = {
     TRIP: 'TRIP',
     TRIP_STOP: 'TRIP_STOP',
     QUANTITY_EXCEPTION: 'QUANTITY_EXCEPTION',
+    EMPLOYEE_REQUEST: 'EMPLOYEE_REQUEST',
 };
 exports.AuditAction = {
     // Auth
@@ -164,6 +165,8 @@ exports.AuditAction = {
     ATTENDANCE_REJECTED: 'attendance.rejected',
     ATTENDANCE_SYNCED_ESSL: 'attendance.synced_essl',
     LEAVE_APPLIED: 'leave.applied',
+    REQUEST_SUBMITTED: 'request.submitted',
+    REQUEST_STATUS_CHANGED: 'request.status_changed',
     LEAVE_APPROVED: 'leave.approved',
     LEAVE_REJECTED: 'leave.rejected',
     KPI_TARGET_CREATED: 'kpi.target_created',
@@ -265,6 +268,22 @@ exports.NotificationType = {
     ATTENDANCE_STATUS: 'ATTENDANCE_STATUS',
     LEAVE_STATUS: 'LEAVE_STATUS',
     PAYROLL_STATUS: 'PAYROLL_STATUS',
+    EMPLOYEE_REQUEST_SUBMITTED: 'EMPLOYEE_REQUEST_SUBMITTED',
+    EMPLOYEE_REQUEST_UPDATED: 'EMPLOYEE_REQUEST_UPDATED',
+};
+/** Action Center employee request kinds (matches PostgreSQL enum EmployeeRequestType). */
+exports.EmployeeRequestType = {
+    MANAGER_NOTE: 'MANAGER_NOTE',
+    HR_INQUIRY: 'HR_INQUIRY',
+    OFFICE_RESOURCE: 'OFFICE_RESOURCE',
+    ISSUE_REPORT: 'ISSUE_REPORT',
+};
+/** Lifecycle of an employee request (matches PostgreSQL enum EmployeeRequestStatus). */
+exports.EmployeeRequestStatus = {
+    OPEN: 'OPEN',
+    IN_PROGRESS: 'IN_PROGRESS',
+    RESOLVED: 'RESOLVED',
+    REJECTED: 'REJECTED',
 };
 /** Outbox event processing status (matches PostgreSQL enum OutboxStatus). */
 exports.OutboxStatus = {

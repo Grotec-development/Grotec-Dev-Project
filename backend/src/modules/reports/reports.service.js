@@ -450,13 +450,16 @@ let ReportsService = class ReportsService {
     }
 
     async getLeaderboard(actor, query = {}) {
+        if (!isTopTier(actor.roleCode)) {
+            throw ApiError.forbidden('LEADERBOARD_FORBIDDEN', 'Operational Leaderboard is restricted to Founder and Super Admin');
+        }
         const period = query.period || 'month';
         const { startDate, endDate } = this.getLeaderboardWindow(period, query.startDate, query.endDate);
 
-        // Active telecallers/agents
+        // Active telecallers/agents only (Founder and Manager excluded from ranks)
         const agents = await this.prisma.employee.findMany({
             where: {
-                role: { code: { in: ['AGENT', 'MANAGER', 'FOUNDER'] } },
+                role: { code: { in: ['AGENT', 'FSE', 'STAFF'] } },
                 status: 'ACTIVE',
                 deletedAt: null,
             },
@@ -568,8 +571,8 @@ let ReportsService = class ReportsService {
     }
 
     async exportLeaderboardCsv(actor, query = {}) {
-        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER') {
-            throw ApiError.forbidden('LEADERBOARD_EXPORT_FORBIDDEN', 'Leaderboard export is restricted to management personnel');
+        if (!isTopTier(actor.roleCode)) {
+            throw ApiError.forbidden('LEADERBOARD_EXPORT_FORBIDDEN', 'Leaderboard export is restricted to Founder and Super Admin');
         }
 
         const data = await this.getLeaderboard(actor, query);
@@ -700,22 +703,26 @@ let ReportsService = class ReportsService {
                 const connectionRate = callsDialed > 0 ? Number(((callsConnected / callsDialed) * 100).toFixed(1)) : 0;
                 const avgTalkTimeSeconds = callsConnected > 0 ? Math.round(totalTalkTimeSeconds / callsConnected) : 0;
 
-                // Breaks calculation
+                // Only measured values are reported. With no attendance data the
+                // break and uptime figures are null (unknown), never estimated.
+                const hasAttendanceData = attendanceRecords.length > 0 || punches.length > 0;
+
+                // Breaks: each break punch lasts until the employee's next punch.
                 let breakCount = 0;
                 let breakMinutes = 0;
-                for (const p of punches) {
-                    if (p.punchType === 'BREAK_OUT' || p.punchType === 'BREAK' || (p.exceptionReason && p.exceptionReason.toLowerCase().includes('break'))) {
-                        breakCount++;
+                punches.forEach((p, index) => {
+                    const isBreak = p.punchType === 'BREAK_OUT' || p.punchType === 'BREAK' || (p.exceptionReason && p.exceptionReason.toLowerCase().includes('break'));
+                    if (!isBreak)
+                        return;
+                    breakCount++;
+                    const next = punches[index + 1];
+                    if (next) {
+                        const minutes = Math.round((new Date(next.punchTime).getTime() - new Date(p.punchTime).getTime()) / 60000);
+                        breakMinutes += Math.min(120, Math.max(0, minutes));
                     }
-                }
-                if (breakCount === 0 && (callsDialed > 3 || attendanceRecords.length > 0)) {
-                    breakCount = callsDialed >= 10 ? 3 : callsDialed >= 4 ? 2 : 1;
-                    breakMinutes = breakCount === 3 ? 45 : breakCount === 2 ? 30 : 15;
-                } else if (breakCount > 0) {
-                    breakMinutes = breakCount * 15;
-                }
+                });
 
-                // Uptime calculation (minutes)
+                // Uptime: punched-in time from attendance records only.
                 let uptimeMinutes = 0;
                 for (const att of attendanceRecords) {
                     if (att.punchIn) {
@@ -724,29 +731,25 @@ let ReportsService = class ReportsService {
                         uptimeMinutes += Math.min(600, diffMins);
                     }
                 }
-                if (uptimeMinutes === 0 && calls.length > 0) {
-                    const firstCall = new Date(calls[0].startedAt).getTime();
-                    const lastCall = calls[calls.length - 1].endedAt ? new Date(calls[calls.length - 1].endedAt).getTime() : Date.now();
-                    uptimeMinutes = Math.max(30, Math.round((lastCall - firstCall) / 60000) + 15);
-                }
+                const uptimeKnown = uptimeMinutes > 0;
 
                 const activeHandlingMinutes = Math.round(totalTalkTimeSeconds / 60);
-                const idleMinutes = Math.max(0, uptimeMinutes - activeHandlingMinutes - breakMinutes);
+                const idleMinutes = uptimeKnown ? Math.max(0, uptimeMinutes - activeHandlingMinutes - breakMinutes) : null;
                 const effectiveShift = Math.max(1, uptimeMinutes - breakMinutes);
-                const utilizationPercent = Math.min(100, Number(((activeHandlingMinutes / effectiveShift) * 100).toFixed(1)));
+                const utilizationPercent = uptimeKnown ? Math.min(100, Number(((activeHandlingMinutes / effectiveShift) * 100).toFixed(1))) : null;
 
-                // Quality Score calculation (0 - 100)
-                const notesRate = callsDialed > 0 ? callsWithNotes / callsDialed : 1;
-                const durationRate = callsConnected > 0 ? substantiveDurationCalls / callsConnected : 1;
-                const followUpRate = interestedCalls > 0 ? interestedWithFollowUp / interestedCalls : 1;
-                const positiveRate = callsDialed > 0 ? (interestedCalls + callsConnected * 0.5) / callsDialed : 0.8;
-
-                const rawScore = (notesRate * 40) + (durationRate * 30) + (followUpRate * 20) + (Math.min(1, positiveRate) * 10);
-                const qualityScore = callsDialed === 0 ? 95 : Math.max(50, Math.min(100, Math.round(rawScore)));
-
-                let qualityGrade = 'GOOD';
-                if (qualityScore >= 88) qualityGrade = 'EXCELLENT';
-                else if (qualityScore < 70) qualityGrade = 'NEEDS_REVIEW';
+                // Quality score (0 - 100) exists only when the agent made calls.
+                let qualityScore = null;
+                let qualityGrade = 'NO_DATA';
+                if (callsDialed > 0) {
+                    const notesRate = callsWithNotes / callsDialed;
+                    const durationRate = callsConnected > 0 ? substantiveDurationCalls / callsConnected : 0;
+                    const followUpRate = interestedCalls > 0 ? interestedWithFollowUp / interestedCalls : 1;
+                    const positiveRate = (interestedCalls + callsConnected * 0.5) / callsDialed;
+                    const rawScore = (notesRate * 40) + (durationRate * 30) + (followUpRate * 20) + (Math.min(1, positiveRate) * 10);
+                    qualityScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+                    qualityGrade = qualityScore >= 88 ? 'EXCELLENT' : qualityScore < 70 ? 'NEEDS_REVIEW' : 'GOOD';
+                }
 
                 return {
                     agentId: agent.id,
@@ -768,13 +771,13 @@ let ReportsService = class ReportsService {
                         },
                     },
                     breaks: {
-                        count: breakCount,
-                        totalMinutes: breakMinutes,
-                        averageMinutes: breakCount > 0 ? Math.round(breakMinutes / breakCount) : 0,
+                        count: hasAttendanceData ? breakCount : null,
+                        totalMinutes: hasAttendanceData ? breakMinutes : null,
+                        averageMinutes: breakCount > 0 ? Math.round(breakMinutes / breakCount) : null,
                     },
                     uptime: {
-                        totalMinutes: uptimeMinutes,
-                        uptimeHours: Number((uptimeMinutes / 60).toFixed(1)),
+                        totalMinutes: uptimeKnown ? uptimeMinutes : null,
+                        uptimeHours: uptimeKnown ? Number((uptimeMinutes / 60).toFixed(1)) : null,
                         activeHandlingMinutes,
                         idleMinutes,
                         utilizationPercent,
@@ -782,25 +785,31 @@ let ReportsService = class ReportsService {
                     quality: {
                         score: qualityScore,
                         grade: qualityGrade,
-                        notesDocumentedRate: callsDialed > 0 ? Math.round((callsWithNotes / callsDialed) * 100) : 100,
-                        meaningfulDurationRate: callsConnected > 0 ? Math.round((substantiveDurationCalls / callsConnected) * 100) : 100,
-                        followUpComplianceRate: interestedCalls > 0 ? Math.round((interestedWithFollowUp / interestedCalls) * 100) : 100,
+                        notesDocumentedRate: callsDialed > 0 ? Math.round((callsWithNotes / callsDialed) * 100) : null,
+                        meaningfulDurationRate: callsConnected > 0 ? Math.round((substantiveDurationCalls / callsConnected) * 100) : null,
+                        followUpComplianceRate: interestedCalls > 0 ? Math.round((interestedWithFollowUp / interestedCalls) * 100) : null,
                     },
                 };
             })
         );
 
-        performanceList.sort((a, b) => b.quality.score - a.quality.score || b.calls.connected - a.calls.connected);
+        performanceList.sort((a, b) => (b.quality.score ?? -1) - (a.quality.score ?? -1) || b.calls.connected - a.calls.connected);
 
         const totalCallsDialed = performanceList.reduce((acc, a) => acc + a.calls.dialed, 0);
         const totalCallsConnected = performanceList.reduce((acc, a) => acc + a.calls.connected, 0);
         const teamConnectionRate = totalCallsDialed > 0 ? Number(((totalCallsConnected / totalCallsDialed) * 100).toFixed(1)) : 0;
         const totalTalkTime = performanceList.reduce((acc, a) => acc + a.calls.totalTalkTimeSeconds, 0);
-        const avgQualityScore = performanceList.length > 0
-            ? Math.round(performanceList.reduce((acc, a) => acc + a.quality.score, 0) / performanceList.length)
-            : 0;
-        const totalBreakMinutes = performanceList.reduce((acc, a) => acc + a.breaks.totalMinutes, 0);
-        const totalUptimeMinutes = performanceList.reduce((acc, a) => acc + a.uptime.totalMinutes, 0);
+        // Team figures aggregate only agents with measured data; null when nobody has any.
+        const sumKnown = (values) => {
+            const known = values.filter((v) => v !== null && v !== undefined);
+            return known.length > 0 ? known.reduce((acc, v) => acc + v, 0) : null;
+        };
+        const scored = performanceList.filter((a) => a.quality.score !== null);
+        const avgQualityScore = scored.length > 0
+            ? Math.round(scored.reduce((acc, a) => acc + a.quality.score, 0) / scored.length)
+            : null;
+        const totalBreakMinutes = sumKnown(performanceList.map((a) => a.breaks.totalMinutes));
+        const totalUptimeMinutes = sumKnown(performanceList.map((a) => a.uptime.totalMinutes));
 
         return {
             period,
@@ -815,7 +824,7 @@ let ReportsService = class ReportsService {
                 avgQualityScore,
                 totalBreakMinutes,
                 totalUptimeMinutes,
-                totalUptimeHours: Number((totalUptimeMinutes / 60).toFixed(1)),
+                totalUptimeHours: totalUptimeMinutes === null ? null : Number((totalUptimeMinutes / 60).toFixed(1)),
             },
             agents: performanceList,
         };
@@ -838,8 +847,8 @@ let ReportsService = class ReportsService {
             { key: 'breakCount', header: 'Break Count', format: (_, r) => r.breaks.count },
             { key: 'breakMinutes', header: 'Break Time (Min)', format: (_, r) => r.breaks.totalMinutes },
             { key: 'uptimeHours', header: 'Uptime (Hours)', format: (_, r) => r.uptime.uptimeHours },
-            { key: 'utilizationPercent', header: 'Utilization (%)', format: (_, r) => `${r.uptime.utilizationPercent}%` },
-            { key: 'qualityScore', header: 'Quality Score (%)', format: (_, r) => `${r.quality.score}%` },
+            { key: 'utilizationPercent', header: 'Utilization (%)', format: (_, r) => (r.uptime.utilizationPercent === null ? '' : `${r.uptime.utilizationPercent}%`) },
+            { key: 'qualityScore', header: 'Quality Score (%)', format: (_, r) => (r.quality.score === null ? '' : `${r.quality.score}%`) },
             { key: 'qualityGrade', header: 'Quality Grade', format: (_, r) => r.quality.grade },
         ];
 

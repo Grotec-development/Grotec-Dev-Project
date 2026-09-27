@@ -15,6 +15,7 @@ import { normalizePhoneToE164 } from '@grotec/shared';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { parseCsv, CSV_LIMITS } from './csv-parser.util';
+import { resolveTenantId } from '../../common/utils/tenant-scope';
 
 /**
  * Common column name synonyms for automatic mapping inference.
@@ -33,7 +34,6 @@ const SYNONYMS = {
   preferredLanguage: ['language', 'lang', 'preferredlanguage', 'preferred_language'],
 };
 
-const DEFAULT_TENANT_ID = '8d42e536-8721-44b2-ace6-2a094c5ff7e2';
 
 /** Next sequential Farmer ID (GF + 8 zero-padded digits) from farmer_code_seq. */
 async function nextFarmerCode(db) {
@@ -473,7 +473,7 @@ let ImportService = class ImportService {
       };
     }
 
-    const tenantId = actor.tenantId || DEFAULT_TENANT_ID;
+    const tenantId = await resolveTenantId(this.prisma, actor);
     const agentIds = Array.isArray(options.agentIds) && options.agentIds.length > 0 ? options.agentIds : null;
     let agentIndex = 0;
 

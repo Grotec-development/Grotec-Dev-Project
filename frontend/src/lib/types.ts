@@ -470,24 +470,25 @@ export interface AgentPerformanceItem {
       notAnswered: number;
     };
   };
+  // null = not measured (no attendance punches / no calls), never an estimate
   breaks: {
-    count: number;
-    totalMinutes: number;
-    averageMinutes: number;
+    count: number | null;
+    totalMinutes: number | null;
+    averageMinutes: number | null;
   };
   uptime: {
-    totalMinutes: number;
-    uptimeHours: number;
+    totalMinutes: number | null;
+    uptimeHours: number | null;
     activeHandlingMinutes: number;
-    idleMinutes: number;
-    utilizationPercent: number;
+    idleMinutes: number | null;
+    utilizationPercent: number | null;
   };
   quality: {
-    score: number;
-    grade: 'EXCELLENT' | 'GOOD' | 'NEEDS_REVIEW';
-    notesDocumentedRate: number;
-    meaningfulDurationRate: number;
-    followUpComplianceRate: number;
+    score: number | null;
+    grade: 'EXCELLENT' | 'GOOD' | 'NEEDS_REVIEW' | 'NO_DATA';
+    notesDocumentedRate: number | null;
+    meaningfulDurationRate: number | null;
+    followUpComplianceRate: number | null;
   };
 }
 
@@ -501,10 +502,10 @@ export interface AgentPerformanceResponse {
     totalCallsConnected: number;
     teamConnectionRate: number;
     totalTalkTimeSeconds: number;
-    avgQualityScore: number;
-    totalBreakMinutes: number;
-    totalUptimeMinutes: number;
-    totalUptimeHours: number;
+    avgQualityScore: number | null;
+    totalBreakMinutes: number | null;
+    totalUptimeMinutes: number | null;
+    totalUptimeHours: number | null;
   };
   agents: AgentPerformanceItem[];
 }
@@ -623,6 +624,7 @@ export interface FarmerSegmentItem {
   name: string;
   description: string | null;
   filterCriteria: {
+    state?: string;
     district?: string;
     taluk?: string;
     village?: string;

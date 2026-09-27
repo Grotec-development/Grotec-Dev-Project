@@ -23,12 +23,17 @@ import {
   Check,
   Building2,
   Sparkles,
+  Edit2,
+  X,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Call, CustomerDetail, QueueItem, CallOutcome } from '../../lib/types';
 import { formatE164, formatDate } from '../../lib/format';
 import { getStates, getDistricts, getTaluks } from '../../lib/location-data';
 import { Alert, Badge, Button, Card, Field, Input, Select, Spinner, cx } from '../../components/ui';
+import { LocationSelector } from '../../components/LocationSelector';
 
 const CALL_TIMEOUT_SECONDS = 120; // 2 minutes per customer operation
 
@@ -74,6 +79,20 @@ export function DedicatedAgentCallingWorkspace() {
   const [editTaluk, setEditTaluk] = useState('');
   const [savingTaluk, setSavingTaluk] = useState(false);
   const [talukSuccessMsg, setTalukSuccessMsg] = useState(false);
+
+  // Full Farmer Details Edit Modal State
+  const [showEditFarmerModal, setShowEditFarmerModal] = useState(false);
+  const [farmerEditName, setFarmerEditName] = useState('');
+  const [farmerEditSoil, setFarmerEditSoil] = useState('');
+  const [farmerEditLanguage, setFarmerEditLanguage] = useState('ta');
+  const [farmerEditState, setFarmerEditState] = useState('Tamil Nadu');
+  const [farmerEditDistrict, setFarmerEditDistrict] = useState('Dharmapuri');
+  const [farmerEditTaluk, setFarmerEditTaluk] = useState('');
+  const [farmerEditVillage, setFarmerEditVillage] = useState('');
+  const [farmerEditPincode, setFarmerEditPincode] = useState('');
+  const [farmerEditSaving, setFarmerEditSaving] = useState(false);
+  const [farmerEditError, setFarmerEditError] = useState<string | null>(null);
+  const [farmerEditSuccess, setFarmerEditSuccess] = useState<string | null>(null);
 
   // Fetch agent's customer calling queue with real-time polling
   const queueQuery = useQuery({
@@ -296,6 +315,72 @@ export function DedicatedAgentCallingWorkspace() {
       alert(errorMessage(err));
     } finally {
       setSavingTaluk(false);
+    }
+  };
+
+  const handleOpenFarmerEditModal = () => {
+    if (!currentCustomer) return;
+    setFarmerEditName(currentCustomer.fullName || '');
+    setFarmerEditSoil(currentCustomer.soilType || '');
+    setFarmerEditLanguage(currentCustomer.preferredLanguage || 'ta');
+    setFarmerEditState(currentCustomer.location?.state || 'Tamil Nadu');
+    setFarmerEditDistrict(currentCustomer.location?.district || 'Dharmapuri');
+    setFarmerEditTaluk(currentCustomer.location?.taluk || '');
+    setFarmerEditVillage(currentCustomer.location?.village || '');
+    setFarmerEditPincode(currentCustomer.location?.pincode || '');
+    setFarmerEditError(null);
+    setShowEditFarmerModal(true);
+  };
+
+  const handleSaveFarmerEdit = async () => {
+    if (!currentCustomer?.id || !farmerEditName.trim()) {
+      setFarmerEditError('Farmer full name is required');
+      return;
+    }
+    setFarmerEditSaving(true);
+    setFarmerEditError(null);
+    try {
+      await api.patch(`/customers/${currentCustomer.id}`, {
+        fullName: farmerEditName.trim(),
+        soilType: farmerEditSoil.trim() || null,
+        preferredLanguage: farmerEditLanguage,
+      });
+
+      const locPayload = {
+        state: farmerEditState.trim() || undefined,
+        district: farmerEditDistrict.trim() || undefined,
+        taluk: farmerEditTaluk.trim() || undefined,
+        village: farmerEditVillage.trim() || undefined,
+        pincode: farmerEditPincode.trim() || undefined,
+      };
+
+      const existingLocId = currentCustomer.location?.id;
+      if (existingLocId) {
+        await api.patch(`/customers/${currentCustomer.id}/locations/${existingLocId}`, locPayload);
+      } else if (farmerEditDistrict || farmerEditTaluk || farmerEditVillage) {
+        await api.post(`/customers/${currentCustomer.id}/locations`, { ...locPayload, isPrimary: true });
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['calls-queue'] });
+      await queryClient.invalidateQueries({ queryKey: ['customer-direct-call'] });
+      if (currentCustomer) {
+        currentCustomer.fullName = farmerEditName.trim();
+        currentCustomer.soilType = farmerEditSoil.trim();
+        currentCustomer.preferredLanguage = farmerEditLanguage;
+        if (!currentCustomer.location) currentCustomer.location = {};
+        currentCustomer.location.state = farmerEditState;
+        currentCustomer.location.district = farmerEditDistrict;
+        currentCustomer.location.taluk = farmerEditTaluk;
+        currentCustomer.location.village = farmerEditVillage;
+        currentCustomer.location.pincode = farmerEditPincode;
+      }
+      setShowEditFarmerModal(false);
+      setFarmerEditSuccess('Farmer details updated successfully!');
+      setTimeout(() => setFarmerEditSuccess(null), 4000);
+    } catch (err: any) {
+      setFarmerEditError(errorMessage(err) || 'Failed to save farmer details');
+    } finally {
+      setFarmerEditSaving(false);
     }
   };
 
@@ -561,7 +646,20 @@ export function DedicatedAgentCallingWorkspace() {
                     <span className="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
                       Active Lead
                     </span>
+                    <button
+                      type="button"
+                      onClick={handleOpenFarmerEditModal}
+                      className="ml-1 inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 border border-slate-200 transition"
+                      title="Edit Farmer Details"
+                    >
+                      <Edit2 className="h-3 w-3 text-slate-600" /> Edit Details
+                    </button>
                   </div>
+                  {farmerEditSuccess && (
+                    <div className="mt-1.5 rounded bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs text-emerald-800 font-medium">
+                      ✓ {farmerEditSuccess}
+                    </div>
+                  )}
                   <p className="text-xs text-slate-500 font-mono mt-0.5">
                     Farmer Code: <span className="font-bold text-slate-700">{currentCustomer.farmerCode || '—'}</span>
                   </p>
@@ -676,18 +774,35 @@ export function DedicatedAgentCallingWorkspace() {
               {/* Collapsible Manual Keypad */}
               {showKeypad && (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 max-w-xs mx-auto space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <span className="font-mono text-sm font-bold text-slate-900">
-                      {dialedNumber || 'Enter digits...'}
-                    </span>
-                    {dialedNumber && (
-                      <button
-                        type="button"
-                        onClick={() => setDialedNumber((prev) => prev.slice(0, -1))}
-                        className="text-slate-400 hover:text-slate-700"
-                      >
-                        <Delete className="h-4 w-4" />
-                      </button>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">
+                      Type or Paste Phone Number
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type="tel"
+                        inputMode="tel"
+                        placeholder="e.g. 9840012345"
+                        value={dialedNumber}
+                        onChange={(e) => setDialedNumber(e.target.value.replace(/[^\d+*#]/g, ''))}
+                        className="font-mono text-sm font-bold text-slate-900 bg-white pr-8 py-2"
+                        autoFocus
+                      />
+                      {dialedNumber && (
+                        <button
+                          type="button"
+                          onClick={() => setDialedNumber('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                          title="Clear number"
+                        >
+                          <Delete className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    {dialedNumber && dialedNumber.replace(/\D/g, '').length > 0 && dialedNumber.replace(/\D/g, '').length < 10 && (
+                      <p className="text-[10px] text-amber-600 font-medium mt-1">
+                        Enter at least 10 digits before dialing ({dialedNumber.replace(/\D/g, '').length}/10)
+                      </p>
                     )}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
@@ -696,7 +811,7 @@ export function DedicatedAgentCallingWorkspace() {
                         key={d}
                         type="button"
                         onClick={() => handleKeypadPress(d)}
-                        className="rounded-lg bg-white border border-slate-200 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-100 active:scale-95 transition"
+                        className="rounded-lg bg-white border border-slate-200 py-2 text-sm font-bold text-slate-800 hover:bg-slate-100 active:scale-95 transition"
                       >
                         {d}
                       </button>
@@ -704,7 +819,7 @@ export function DedicatedAgentCallingWorkspace() {
                   </div>
                   <Button
                     size="sm"
-                    disabled={!dialedNumber || callActive}
+                    disabled={dialedNumber.replace(/\D/g, '').length < 10 || callActive}
                     onClick={() => void handleStartCall(dialedNumber)}
                     className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
                   >
@@ -957,6 +1072,93 @@ export function DedicatedAgentCallingWorkspace() {
             </Button>
           </div>
         </Card>
+      )}
+
+      {/* Edit Farmer Details Modal */}
+      {showEditFarmerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
+          <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <Edit2 className="h-4 w-4 text-emerald-700" />
+                <h2 className="text-sm font-bold text-slate-900">Edit Farmer Details</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditFarmerModal(false)}
+                className="rounded p-1 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4 text-xs">
+              {farmerEditError && <Alert tone="error">{farmerEditError}</Alert>}
+
+              <Field label="Farmer Full Name">
+                <Input
+                  value={farmerEditName}
+                  onChange={(e) => setFarmerEditName(e.target.value)}
+                  placeholder="e.g. Ramesh Patel"
+                  className="font-medium text-slate-900"
+                  autoFocus
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Soil Classification">
+                  <Input
+                    value={farmerEditSoil}
+                    onChange={(e) => setFarmerEditSoil(e.target.value)}
+                    placeholder="e.g. Red loam, Black clay"
+                    maxLength={40}
+                  />
+                </Field>
+                <Field label="Preferred Language">
+                  <Select
+                    value={farmerEditLanguage}
+                    onChange={(e) => setFarmerEditLanguage(e.target.value)}
+                    className="w-full"
+                  >
+                    <option value="ta">Tamil (தமிழ்)</option>
+                    <option value="en">English</option>
+                  </Select>
+                </Field>
+              </div>
+
+              {/* Farm Location */}
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>Farm Location / Zone</span>
+                </div>
+                <LocationSelector
+                  state={farmerEditState}
+                  district={farmerEditDistrict}
+                  taluk={farmerEditTaluk}
+                  village={farmerEditVillage}
+                  pincode={farmerEditPincode}
+                  onChange={(patch) => {
+                    if (patch.state !== undefined) setFarmerEditState(patch.state);
+                    if (patch.district !== undefined) setFarmerEditDistrict(patch.district);
+                    if (patch.taluk !== undefined) setFarmerEditTaluk(patch.taluk);
+                    if (patch.village !== undefined) setFarmerEditVillage(patch.village);
+                    if (patch.pincode !== undefined) setFarmerEditPincode(patch.pincode);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+              <Button variant="ghost" onClick={() => setShowEditFarmerModal(false)} disabled={farmerEditSaving}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleSaveFarmerEdit()} disabled={farmerEditSaving || !farmerEditName.trim()}>
+                {farmerEditSaving ? 'Saving Changes...' : 'Save Farmer Details'}
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );

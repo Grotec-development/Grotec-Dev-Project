@@ -236,7 +236,6 @@ export function CustomersPage() {
             <option value="">Status: All Statuses</option>
             <option value="ACTIVE">Status: Active</option>
             <option value="INACTIVE">Status: Inactive</option>
-            <option value="NEW">Status: New</option>
           </select>
 
           {/* Search Input */}

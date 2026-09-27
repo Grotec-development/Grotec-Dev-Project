@@ -38,7 +38,7 @@ export function NewCustomerModal({
 
   // Farm Location fields (defaulting to Tamil Nadu / Dharmapuri agricultural zone)
   const [village, setVillage] = useState('');
-  const [taluk, setTaluk] = useState('');
+  const [taluk, setTaluk] = useState('Dharmapuri');
   const [district, setDistrict] = useState('Dharmapuri');
   const [state, setState] = useState('Tamil Nadu');
   const [pincode, setPincode] = useState('636701');
@@ -179,14 +179,14 @@ export function NewCustomerModal({
             {phones.map((phone) => (
               <div key={phone.key} className={cx('flex items-center gap-2 rounded-md border p-2', phone.isPrimary ? 'border-brand-200 bg-brand-50/50' : 'border-slate-200')}>
                 <Input
-                  className="flex-1"
+                  className="flex-1 min-w-0 font-medium text-slate-900 bg-white"
                   inputMode="tel"
-                  placeholder="Mobile number"
+                  placeholder="Mobile number (e.g. 9840012345)"
                   value={phone.number}
                   onChange={(e) => updatePhone(phone.key, { number: e.target.value })}
                 />
                 <Select
-                  className="w-24"
+                  className="w-28 shrink-0 text-slate-800 font-medium"
                   value={phone.kind}
                   onChange={(e) => updatePhone(phone.key, { kind: e.target.value as 'MOBILE' | 'OTHER' })}
                   aria-label="Phone kind"
@@ -198,7 +198,7 @@ export function NewCustomerModal({
                   type="button"
                   onClick={() => updatePhone(phone.key, { isPrimary: true })}
                   title="Set primary"
-                  className={cx('rounded-md px-2 py-1.5 text-xs font-medium', phone.isPrimary ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')}
+                  className={cx('shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold', phone.isPrimary ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}
                 >
                   Primary
                 </button>
@@ -206,7 +206,7 @@ export function NewCustomerModal({
                   type="button"
                   onClick={() => setPhones((rows) => rows.filter((row) => row.key !== phone.key))}
                   disabled={phones.length === 1}
-                  className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+                  className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
                   aria-label="Remove phone"
                 >
                   <Trash2 className="h-4 w-4" />

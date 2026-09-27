@@ -104,7 +104,10 @@ describe('RelationshipService — holder visibility', () => {
 
   beforeEach(() => {
     mockPrisma = {
-      role: { findUnique: vi.fn().mockResolvedValue({ id: 'role-mgr', code: 'MANAGER' }) },
+      role: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'role-mgr', code: 'MANAGER' }),
+        findMany: vi.fn().mockResolvedValue([{ id: 'role-mgr', code: 'MANAGER' }]),
+      },
       employee: {
         findMany: vi.fn().mockResolvedValue([
           { id: 'emp-mgr-1', fullName: 'Manager One', email: 'm1@grotec.local' },
@@ -119,21 +122,21 @@ describe('RelationshipService — holder visibility', () => {
   it('returns no holders to an AGENT and does not query the employee table', async () => {
     const holders = await service.holders({ id: 'emp-agent-1', roleCode: 'AGENT' });
 
-    expect(holders).toEqual([]);
+    expect(holders).toEqual({ items: [] });
     expect(mockPrisma.employee.findMany).not.toHaveBeenCalled();
   });
 
   it('still returns the holder roster to FOUNDER', async () => {
     const holders = await service.holders({ id: 'emp-founder-1', roleCode: 'FOUNDER' });
 
-    expect(holders).toHaveLength(2);
+    expect(holders.items).toHaveLength(2);
     expect(mockPrisma.employee.findMany).toHaveBeenCalled();
   });
 
   it('still returns the holder roster to MANAGER', async () => {
     const holders = await service.holders({ id: 'emp-mgr-1', roleCode: 'MANAGER' });
 
-    expect(holders).toHaveLength(2);
+    expect(holders.items).toHaveLength(2);
   });
 });
 
