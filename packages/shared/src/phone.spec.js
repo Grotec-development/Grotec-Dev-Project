@@ -32,6 +32,8 @@ describe('normalizePhoneToE164', () => {
 
   it('rejects garbage', () => {
     expect(normalizePhoneToE164('')).toBeNull();
+    expect(normalizePhoneToE164(undefined)).toBeNull();
+    expect(normalizePhoneToE164(null)).toBeNull();
     expect(normalizePhoneToE164('abc')).toBeNull();
     expect(normalizePhoneToE164('123')).toBeNull();
     expect(normalizePhoneToE164('123456789012345678')).toBeNull();

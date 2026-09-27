@@ -27,7 +27,7 @@ function stripSeparators(value) {
  * Returns null when the input cannot be normalized unambiguously.
  */
 function normalizePhoneToE164(value) {
-    const cleaned = stripSeparators(value.trim());
+    const cleaned = stripSeparators(String(value ?? '').trim());
     if (cleaned.length === 0)
         return null;
     if (cleaned.startsWith('+')) {
