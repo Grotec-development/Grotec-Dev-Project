@@ -278,6 +278,64 @@ export function LoginPage() {
                   )}
                 </Button>
 
+                {/* Quick-fill Verified Accounts Helper (1-Tap Fill) */}
+                <div className="rounded-lg bg-slate-50 border border-slate-200/90 p-3 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                    <span>Verified Role Accounts:</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono font-medium">1-Tap Fill</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-left">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail('founder@grotec.local');
+                        setPassword('Founder@Grotec2026!');
+                        setEmailError(null);
+                      }}
+                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
+                    >
+                      <span className="block font-bold text-slate-800">Founder & CEO</span>
+                      <span className="block text-[9px] text-slate-500 truncate">founder@grotec.local</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail('manager@grotec.local');
+                        setPassword('Manager@Grotec2026!');
+                        setEmailError(null);
+                      }}
+                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
+                    >
+                      <span className="block font-bold text-slate-800">Manager</span>
+                      <span className="block text-[9px] text-slate-500 truncate">manager@grotec.local</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail('agent_1@grotec.local');
+                        setPassword('Agent1@Grotec2026!');
+                        setEmailError(null);
+                      }}
+                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
+                    >
+                      <span className="block font-bold text-slate-800">Telecaller Agent</span>
+                      <span className="block text-[9px] text-slate-500 truncate">agent_1@grotec.local</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail('delivery@grotec.local');
+                        setPassword('Delivery@Grotec2026!');
+                        setEmailError(null);
+                      }}
+                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
+                    >
+                      <span className="block font-bold text-slate-800">Field Delivery</span>
+                      <span className="block text-[9px] text-slate-500 truncate">delivery@grotec.local</span>
+                    </button>
+                  </div>
+                </div>
+
               </form>
 
               {/* Quiet Icon + Muted-Text Footnote Notice matching PDF */}
@@ -379,6 +437,40 @@ export function LoginPage() {
               >
                 {success ? 'Verified ✓ Redirecting...' : busy ? 'Signing in…' : 'Sign In'}
               </Button>
+
+              {/* Quick-fill Verified Accounts Helper (1-Tap Fill) */}
+              <div className="rounded-lg bg-slate-50 border border-slate-200/90 p-2.5 space-y-1.5 text-left">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                  <span>Verified Accounts:</span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono font-medium">1-Tap Fill</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-left">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('founder@grotec.local');
+                      setPassword('Founder@Grotec2026!');
+                      setEmailError(null);
+                    }}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left cursor-pointer"
+                  >
+                    <span className="block font-bold text-slate-800">Founder</span>
+                    <span className="block text-[9px] text-slate-500 truncate">founder@grotec.local</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('agent_1@grotec.local');
+                      setPassword('Agent1@Grotec2026!');
+                      setEmailError(null);
+                    }}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left cursor-pointer"
+                  >
+                    <span className="block font-bold text-slate-800">Agent 1</span>
+                    <span className="block text-[9px] text-slate-500 truncate">agent_1@grotec.local</span>
+                  </button>
+                </div>
+              </div>
 
             </form>
 

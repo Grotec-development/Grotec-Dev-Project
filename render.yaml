@@ -1,0 +1,39 @@
+services:
+  # -------------------------------------------------------------
+  # GROTEC FarmerOS Backend Web Service (NestJS API on Render)
+  # -------------------------------------------------------------
+  - type: web
+    name: grotec-dev-project
+    env: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install --include=dev && npm run build:backend
+    startCommand: npm run start:backend
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        value: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000,https://*.vercel.app,https://*.onrender.com
+      - key: DIALER_PROVIDER
+        value: mock
+      - key: FOUNDER_EMAIL
+        value: founder@grotec.local
+      - key: FOUNDER_PASSWORD
+        value: Founder@Grotec2026!
+      - key: FOUNDER_NAME
+        value: Grotec Founder
+      - key: SEED_EMPLOYEES
+        value: "Manager One,manager@grotec.local,MANAGER;Agent One,agent@grotec.local,AGENT;Staff One,staff@grotec.local,STAFF;Delivery One,delivery@grotec.local,DELIVERY"
