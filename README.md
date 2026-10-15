@@ -12,11 +12,10 @@ from the code here · **[unverified]** expected from inspection but never execut
 | Path | Purpose |
 |---|---|
 | `backend/` | NestJS REST API under `/api/v1`, Prisma ORM, migrations, seed |
-| `frontend/` | React + Vite + Tailwind single-page app |
+| `frontend/` | React + Vite + Tailwind single-page app, Capacitor Android build |
 | `packages/shared/` | Role codes, permission codes, enums, events, phone helpers |
-| `infrastructure/` | Standalone utility scripts (currently `scripts/extract-pdf.mjs`) |
-
-There is no `docs/` directory in this repository. **[inspected]**
+| `docs/` | Architecture, environment, and handover documentation |
+| `scripts/` | Database backup, restore, Android build, and health automation |
 
 ## Tech stack
 
@@ -100,22 +99,6 @@ npm run dev:web         # SPA on http://localhost:5173, proxying /api to port 30
 **[unverified]** These are read from the `package.json` scripts and the Vite config; they were not executed
 while writing this document. Read **Known issues** before running `dev:web`.
 
-## Running with Docker
-
-```bash
-docker compose up -d --build
-docker compose logs -f
-docker compose down
-```
-
-**[inspected]** The backend image is a multi-stage `node:20-alpine` build that generates the Prisma client,
-listens on 3000, exposes a healthcheck against `/api/v1/health`, and reads `backend/.env` via `env_file`. The
-frontend image builds the Vite bundle and serves it from `nginx:alpine`, reverse-proxying `/api/` to the backend
-container and falling back to `index.html` for client-side routes. The frontend service waits for the backend
-healthcheck to pass.
-
-**[unverified]** The stack has not been built or run here, and the frontend image build depends on the same
-bundling step noted under Known issues.
 
 ## Testing
 

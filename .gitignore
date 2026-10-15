@@ -16,10 +16,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment secrets (templates are tracked)
+# Environment secrets (templates are tracked in sub-packages)
 .env
 .env.*
-!.env.example
 backend/.env
 backend/.env.*
 !backend/.env.example

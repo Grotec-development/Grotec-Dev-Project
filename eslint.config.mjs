@@ -11,8 +11,6 @@ export default tseslint.config(
       '**/dist/**',
       'frontend/android/**',
       'frontend/ios/**',
-      'output/**',
-      'infrastructure/**',
       '**/*.d.ts',
     ],
   },
