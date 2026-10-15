@@ -42,6 +42,7 @@ import { NotificationCenter } from '../components/NotificationCenter';
 import { PageHead } from '../components/PageHead';
 import { Breadcrumb, type BreadcrumbItem } from '../components/Breadcrumb';
 import { GrotecLogo } from '../components/GrotecLogo';
+import { tenantsApi } from '../lib/api';
 
 interface NavItem {
   to: string;
@@ -343,6 +344,23 @@ export function Shell() {
   const [sidebarFocused, setSidebarFocused] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [tenantName, setTenantName] = useState<string>('GROTEC Agrotech');
+
+  useEffect(() => {
+    let cancelled = false;
+    tenantsApi.getCurrentTenant()
+      .then((res) => {
+        if (!cancelled && res.data?.name) {
+          setTenantName(res.data.name);
+        }
+      })
+      .catch(() => {
+        // Fallback to default
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Expanded whenever hovered, pinned, focused, or on mobile drawer open
   const isNavExpanded = mobileMenuOpen || sidebarPinned || sidebarHovered || sidebarFocused;
@@ -677,9 +695,9 @@ export function Shell() {
 
           <div className="flex shrink-0 items-center gap-3">
             {/* Organization Workspace Badge */}
-            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-medium">
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-medium" title={`Tenant: ${tenantName}`}>
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
-              <span>GROTEC Agrotech</span>
+              <span className="truncate max-w-[180px]">{tenantName}</span>
             </div>
 
             <div className="relative hidden md:block w-72">

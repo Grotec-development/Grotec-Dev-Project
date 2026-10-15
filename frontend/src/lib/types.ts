@@ -6,6 +6,7 @@ export interface AppUser {
   fullName: string;
   roleCode: RoleCode;
   permissions: PermissionCode[];
+  tenantId?: string;
 }
 
 export interface Page<T> {

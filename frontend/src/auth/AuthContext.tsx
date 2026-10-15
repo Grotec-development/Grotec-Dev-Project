@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PROPOSED_ROLE_PERMISSIONS } from '@grotec/shared';
-import { api, clearAccessToken, errorMessage, setAccessToken } from '../lib/api';
+import { api, clearAccessToken, clearTenantId, errorMessage, setAccessToken, setTenantId } from '../lib/api';
 import { setLogoutReason } from '../lib/idleReason';
 import type { AppUser } from '../lib/types';
 
@@ -44,6 +44,7 @@ function sanitizeUser(raw: unknown): AppUser | null {
     fullName: u.fullName ?? '',
     roleCode,
     permissions,
+    tenantId: u.tenantId,
   };
 }
 
@@ -57,12 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const res = await api.get<AppUser>('/auth/me');
         if (!cancelled) {
-          setUser(sanitizeUser(res.data));
+          const sanitized = sanitizeUser(res.data);
+          if (sanitized?.tenantId) {
+            setTenantId(sanitized.tenantId);
+          }
+          setUser(sanitized);
           setStatus('authed');
         }
       } catch {
         if (!cancelled) {
           clearAccessToken();
+          clearTenantId();
           setStatus('anon');
         }
       }
@@ -76,7 +82,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post<LoginResult>('/auth/login', { email, password });
     setAccessToken(res.data.accessToken);
-    setUser(sanitizeUser(res.data.employee));
+    const sanitized = sanitizeUser(res.data.employee);
+    const tenantId = sanitized?.tenantId || (res.data as any)?.tenantId;
+    if (tenantId) {
+      setTenantId(tenantId);
+    }
+    setUser(sanitized);
     setStatus('authed');
   }, []);
 
@@ -87,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // best effort — session cookie may already be gone
     }
     clearAccessToken();
+    clearTenantId();
     setUser(null);
     setStatus('anon');
   }, []);

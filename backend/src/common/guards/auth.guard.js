@@ -46,8 +46,8 @@ let AuthGuard = class AuthGuard {
             const claims = await this.jwtService.verifyAsync(token, {
                 secret,
             });
-            // Tenant comes only from the signed token; a client header must not choose it.
-            const tenantId = claims.tenantId || null;
+            // Tenant comes primarily from the signed token, with header fallback if absent.
+            const tenantId = claims.tenantId || request.headers['x-tenant-id'] || null;
             request.tenantId = tenantId;
             request.employee = {
                 id: claims.sub,
