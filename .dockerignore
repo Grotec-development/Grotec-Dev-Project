@@ -1,9 +1,0 @@
-node_modules
-.git
-.github
-frontend
-docs
-dist
-.env
-.env.backup
-*.log
