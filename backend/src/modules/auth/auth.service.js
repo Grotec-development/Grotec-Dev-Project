@@ -40,7 +40,8 @@ let AuthService = class AuthService {
             const aliasMap = {
                 founder: 'founder@grotec.local',
                 manager: 'manager@grotec.local',
-                agent: 'agent@grotec.local',
+                agent: 'agent_1@grotec.local',
+                agent_1: 'agent_1@grotec.local',
                 agent1: 'agent_1@grotec.local',
                 agent2: 'agent_2@grotec.local',
                 agent3: 'agent_3@grotec.local',
