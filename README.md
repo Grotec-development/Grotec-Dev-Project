@@ -15,7 +15,6 @@ from the code here · **[unverified]** expected from inspection but never execut
 | `frontend/` | React + Vite + Tailwind single-page app, Capacitor Android build |
 | `packages/shared/` | Role codes, permission codes, enums, events, phone helpers |
 | `docs/` | Architecture, environment, and handover documentation |
-| `scripts/` | Database backup, restore, Android build, and health automation |
 
 ## Tech stack
 
