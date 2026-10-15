@@ -25,6 +25,16 @@ export async function configureApp(app, options = {}) {
 
     const isOriginAllowed = (requestOrigin) => {
         if (!requestOrigin) return true;
+        if (origins.length > 0) {
+            for (const allowed of origins) {
+                if (allowed === '*' || allowed === requestOrigin || requestOrigin.startsWith(allowed + '/')) return true;
+                if (allowed.includes('*')) {
+                    const escaped = allowed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+                    if (new RegExp(`^${escaped}$`).test(requestOrigin)) return true;
+                }
+            }
+            return false;
+        }
         if (ALLOWED_ORIGIN_REGEX.test(requestOrigin)) return true;
         try {
             const url = new URL(requestOrigin);
@@ -33,13 +43,6 @@ export async function configureApp(app, options = {}) {
             }
         } catch {
             // ignore URL parsing error
-        }
-        for (const allowed of origins) {
-            if (allowed === '*' || allowed === requestOrigin) return true;
-            if (allowed.includes('*')) {
-                const escaped = allowed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-                if (new RegExp(`^${escaped}$`).test(requestOrigin)) return true;
-            }
         }
         return false;
     };
