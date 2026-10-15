@@ -80,7 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post<LoginResult>('/auth/login', { email, password });
+    const trimmed = email.trim();
+    const res = await api.post<LoginResult>('/auth/login', {
+      email: trimmed,
+      identifier: trimmed,
+      password,
+    });
     setAccessToken(res.data.accessToken);
     const sanitized = sanitizeUser(res.data.employee);
     const tenantId = sanitized?.tenantId || (res.data as any)?.tenantId;

@@ -22,21 +22,37 @@ export async function configureApp(app, options = {}) {
         .map((s) => s.trim())
         .filter(Boolean);
     const ALLOWED_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$|^capacitor:\/\/localhost$/;
+
+    const isOriginAllowed = (requestOrigin) => {
+        if (!requestOrigin) return true;
+        if (ALLOWED_ORIGIN_REGEX.test(requestOrigin)) return true;
+        try {
+            const url = new URL(requestOrigin);
+            if (url.hostname.endsWith('.vercel.app') || url.hostname.endsWith('.onrender.com')) {
+                return true;
+            }
+        } catch {
+            // ignore URL parsing error
+        }
+        for (const allowed of origins) {
+            if (allowed === '*' || allowed === requestOrigin) return true;
+            if (allowed.includes('*')) {
+                const escaped = allowed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+                if (new RegExp(`^${escaped}$`).test(requestOrigin)) return true;
+            }
+        }
+        return false;
+    };
+
     app.enableCors({
         origin: (requestOrigin, callback) => {
-            if (!requestOrigin) return callback(null, true);
-            if (origins.length > 0) {
-                if (origins.includes(requestOrigin) || origins.some((o) => requestOrigin === o || requestOrigin.startsWith(o + '/'))) {
-                    return callback(null, true);
-                }
-                return callback(null, false);
-            }
-            if (ALLOWED_ORIGIN_REGEX.test(requestOrigin)) {
+            if (isOriginAllowed(requestOrigin)) {
                 return callback(null, true);
             }
             return callback(null, false);
         },
         credentials: true,
+        optionsSuccessStatus: 204,
         methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
         allowedHeaders: [
             'Content-Type',

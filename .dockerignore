@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.git
+.github
+.env*
+frontend
+docs
+dist
+coverage
+*.md
+scratch
+.gemini
+.agents
+*.tar.gz
+*.apk

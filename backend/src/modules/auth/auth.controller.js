@@ -26,7 +26,8 @@ let AuthController = class AuthController {
         this.config = config;
     }
     async login(dto, req, res) {
-        const result = await this.auth.login(dto.email, dto.password, req.ip, req.headers['user-agent']);
+        const identifier = (dto.identifier ?? dto.email ?? '').trim();
+        const result = await this.auth.login(identifier, dto.password, req.ip, req.headers['user-agent']);
         this.setRefreshCookie(res, result.newRefreshToken);
         return publicLogin(result);
     }
