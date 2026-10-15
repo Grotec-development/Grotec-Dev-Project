@@ -11,6 +11,8 @@ services:
     startCommand: npm run start:backend
     healthCheckPath: /api/v1/health
     envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
       - key: NODE_ENV
         value: production
       - key: PORT
