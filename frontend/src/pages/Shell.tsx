@@ -77,6 +77,9 @@ const AGENT_PRIMARY_NAV = new Set([
   '/agent',
   '/action-center',
   '/customers',
+  '/tickets',
+  '/knowledge-base',
+  '/reports',
 ]);
 
 /**
@@ -410,8 +413,8 @@ export function Shell() {
       (!isManager || !MANAGER_HIDDEN_NAV.has(i.to)) &&
       (!i.permission || hasPermission(i.permission)),
   );
-  const hrmsVisible = isAgent ? [] : getHrmsNavItems(user.roleCode, hasPermission);
-  const supplyVisible = isAgent ? [] : SUPPLY_CHAIN_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+  const hrmsVisible = getHrmsNavItems(user.roleCode, hasPermission);
+  const supplyVisible = SUPPLY_CHAIN_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
   const adminVisible = ADMIN_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
 
   const handleCrmItemClick = () => {

@@ -254,6 +254,7 @@ let CustomersService = class CustomersService {
                     farmerCode: await nextFarmerCode(tx),
                     fullName: dto.fullName,
                     soilType,
+                    preferredLanguage: dto.preferredLanguage || 'ta',
                     createdById: actor.id,
                     tenantId,
                 },

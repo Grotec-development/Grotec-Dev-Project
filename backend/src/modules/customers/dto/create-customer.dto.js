@@ -26,6 +26,12 @@ __decorate([
     __metadata("design:type", String)
 ], CreateCustomerDto.prototype, "soilType", void 0);
 __decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(10),
+    __metadata("design:type", String)
+], CreateCustomerDto.prototype, "preferredLanguage", void 0);
+__decorate([
     ValidateNested(),
     Type(() => PhoneListInputDto),
     __metadata("design:type", typeof (_a = typeof PhoneListInputDto !== "undefined" && PhoneListInputDto) === "function" ? _a : Object)
