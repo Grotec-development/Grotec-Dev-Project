@@ -107,6 +107,9 @@ api.interceptors.response.use(
     const isAuthCall = url.includes('/auth/login') || url.includes('/auth/refresh');
 
     if (status === 401 && original && !isAuthCall && !original._retried) {
+      if (!getAccessToken()) {
+        return Promise.reject(error);
+      }
       try {
         const token = await refreshAccessToken();
         original._retried = true;
@@ -119,7 +122,7 @@ api.interceptors.response.use(
         redirectToLogin();
       }
     }
-    if (status === 401 && !isAuthCall) {
+    if (status === 401 && !isAuthCall && getAccessToken()) {
       redirectToLogin();
     }
     return Promise.reject(error);

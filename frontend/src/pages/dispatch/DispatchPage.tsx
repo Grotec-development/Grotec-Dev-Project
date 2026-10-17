@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { RegionalRoutesView } from './RegionalRoutesView';
+import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 
 export function DispatchPage() {
   const queryClient = useQueryClient();
@@ -40,7 +41,7 @@ export function DispatchPage() {
       const res = await api.get('/dispatch/trips');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   // Fetch vehicles
@@ -59,7 +60,7 @@ export function DispatchPage() {
       const res = await api.get('/orders?status=CONFIRMED');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   // Create trip mutation

@@ -21,6 +21,7 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Menu,
   X,
   Briefcase,
@@ -240,9 +241,25 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
     ? 'Your salary slips, statutory deductions, and payment records.'
     : 'Salary slips and deductions.';
 
+  const homeTitle = isFounder
+    ? 'Founder Workspace'
+    : roleCode === 'MANAGER'
+    ? 'Operations Manager'
+    : roleCode === 'DELIVERY'
+    ? 'Field Delivery'
+    : roleCode === 'STAFF'
+    ? 'Office Staff'
+    : 'Telecaller Workstation';
+
+  const homeDesc = isFounder
+    ? 'Executive CRM overview, performance telemetry, and team activity.'
+    : roleCode === 'MANAGER'
+    ? 'Operations dashboard, call queue status, and pipeline conversion.'
+    : 'Call queue, follow-ups, and farmer engagements.';
+
   const map: Record<string, PageMeta> = {
-    '/': { title: 'Telecaller Workstation', description: 'Call queue, follow-ups, and farmer engagements.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Telecaller Workstation' }] },
-    '/dashboard': { title: 'Telecaller Workstation', description: 'Call queue, follow-ups, and farmer engagements.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Telecaller Workstation' }] },
+    '/': { title: homeTitle, description: homeDesc, crumbs: [{ label: 'Home', href: '/' }, { label: homeTitle }] },
+    '/dashboard': { title: homeTitle, description: homeDesc, crumbs: [{ label: 'Home', href: '/' }, { label: homeTitle }] },
     '/agent': { title: 'Agent Calling Workspace', description: 'Telecaller agent calling workspace — keypad phone dialing, Windows Phone Link, and live farmer note-taking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }] },
     '/calling': { title: 'Active Outbound Call', description: 'Live outbound calling and customer note-taking session.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }, { label: 'Active Call' }] },
     '/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Action Center' }] },
@@ -339,17 +356,37 @@ export function Shell() {
 
   const isHrmsPath = location.pathname.startsWith('/hrms');
   const isStaffOrDelivery = user?.roleCode === 'STAFF' || user?.roleCode === 'DELIVERY';
-
-  // For Staff & Delivery, HRMS is their primary workspace and stays visible.
-  // For Agent, Founder, and Manager, HRMS opens cleanly on tap or when on an /hrms/* route.
   const [hrmsExpanded, setHrmsExpanded] = useState<boolean>(() => isHrmsPath || Boolean(isStaffOrDelivery));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('grotec_sidebar_pinned');
+      if (stored !== null) return stored === 'true';
+    } catch {}
+    return true;
+  });
   const [sidebarHovered, setSidebarHovered] = useState(false);
-  const [sidebarPinned, setSidebarPinned] = useState(false);
+  const [hoverSuppressed, setHoverSuppressed] = useState(false);
   const [sidebarFocused, setSidebarFocused] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tenantName, setTenantName] = useState<string>('GROTEC Agrotech');
+
+  const toggleSidebar = () => {
+    setSidebarPinned((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('grotec_sidebar_pinned', String(next));
+      } catch {}
+      if (!next) {
+        setSidebarHovered(false);
+        setHoverSuppressed(true);
+      } else {
+        setHoverSuppressed(false);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -367,8 +404,8 @@ export function Shell() {
     };
   }, []);
 
-  // Expanded whenever hovered, pinned, focused, or on mobile drawer open
-  const isNavExpanded = mobileMenuOpen || sidebarPinned || sidebarHovered || sidebarFocused;
+  // Expanded whenever hovered (if not suppressed), pinned, focused, or on mobile drawer open
+  const isNavExpanded = mobileMenuOpen || sidebarPinned || (!hoverSuppressed && sidebarHovered) || sidebarFocused;
 
   // Synchronize expansion with active route
   useEffect(() => {
@@ -444,8 +481,13 @@ export function Shell() {
 
       {/* Sidebar (Compact Icon Rail by default, Smoothly Expands on Hover / Focus / Pin) */}
       <aside
-        onMouseEnter={() => setSidebarHovered(true)}
-        onMouseLeave={() => setSidebarHovered(false)}
+        onMouseEnter={() => {
+          if (!hoverSuppressed) setSidebarHovered(true);
+        }}
+        onMouseLeave={() => {
+          setSidebarHovered(false);
+          setHoverSuppressed(false);
+        }}
         onFocusCapture={() => setSidebarFocused(true)}
         onBlurCapture={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) {
@@ -463,11 +505,11 @@ export function Shell() {
         aria-label="Main navigation"
       >
         {/* Header Brand Logo */}
-        <div className="flex items-center justify-between border-b border-slate-200/90 px-3.5 py-3 bg-white h-16">
+        <div className={cx('flex items-center border-b border-slate-200/90 px-3.5 py-3 bg-white h-16', isNavExpanded ? 'justify-between' : 'justify-between md:justify-center gap-1')}>
           <div className="flex items-center gap-2 min-w-0">
             <GrotecLogo
               to="/dashboard"
-              size="md"
+              size={isNavExpanded ? 'md' : 'xs'}
               variant={isNavExpanded ? 'full' : 'mark-only'}
               // AGENT workspace hides the version line; '' overrides GrotecLogo's
               // default (undefined would fall back to it). Other roles and the
@@ -476,24 +518,29 @@ export function Shell() {
             />
           </div>
           <div className="flex items-center gap-1">
-            {/* Desktop Pin / Collapse Accessible Toggle */}
+            {/* Desktop Pin / Collapse Accessible Toggle (Arrow Button) */}
             <button
               type="button"
-              onClick={() => setSidebarPinned((p) => !p)}
+              onClick={toggleSidebar}
               className={cx(
-                'hidden md:inline-flex p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition',
-                !isNavExpanded && 'hidden',
-                sidebarPinned && 'text-emerald-700 bg-emerald-50',
+                'hidden md:inline-flex p-1.5 rounded-lg transition-colors cursor-pointer',
+                sidebarPinned
+                  ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                  : 'text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-900',
               )}
-              title={sidebarPinned ? 'Unpin navigation' : 'Pin navigation expanded'}
-              aria-label={sidebarPinned ? 'Unpin navigation' : 'Pin navigation expanded'}
+              title={isNavExpanded ? 'Collapse navigation' : 'Expand navigation'}
+              aria-label={isNavExpanded ? 'Collapse navigation' : 'Expand navigation'}
             >
-              <ChevronRight className={cx('h-4 w-4 transition-transform', sidebarPinned && 'rotate-180')} />
+              {isNavExpanded ? (
+                <ChevronLeft className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
             </button>
             {/* Mobile Close Button */}
             <button
               type="button"
-              className="md:hidden p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              className="md:hidden p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
               onClick={() => setMobileMenuOpen(false)}
               aria-label="Close menu"
             >
@@ -673,8 +720,8 @@ export function Shell() {
         </div>
       </aside>
 
-      {/* Main Content Area — Desktop offset matches compact icon rail w-16 to preserve wide workspace */}
-      <main className="md:ml-16 flex-1 min-w-0 bg-canvas min-h-screen pb-20 md:pb-0 transition-all">
+      {/* Main Content Area — Desktop offset matches compact icon rail w-16 or expanded pinned w-60 */}
+      <main className={cx('flex-1 min-w-0 bg-canvas min-h-screen pb-28 sm:pb-32 transition-[margin] duration-300', sidebarPinned ? 'md:ml-60' : 'md:ml-16')}>
         {/* Top Header Bar */}
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/90 bg-white/95 px-4 md:px-6 backdrop-blur shadow-xs">
           <div className="flex min-w-0 items-center gap-3">

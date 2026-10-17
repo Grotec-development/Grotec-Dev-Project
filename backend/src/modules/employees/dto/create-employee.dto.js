@@ -18,7 +18,10 @@ __decorate([
 __decorate([
     IsString(),
     MinLength(2),
-    MaxLength(200),
+    MaxLength(60),
+    Matches(/^[\p{L}][\p{L}\p{M}\s.'’-]{1,59}$/u, {
+        message: 'Full name must start with a letter and contain only letters, spaces, hyphens, and apostrophes',
+    }),
     __metadata("design:type", String)
 ], CreateEmployeeDto.prototype, "fullName", void 0);
 __decorate([

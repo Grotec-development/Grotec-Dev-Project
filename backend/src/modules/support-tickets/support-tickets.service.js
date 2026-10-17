@@ -176,7 +176,7 @@ let SupportTicketsService = class SupportTicketsService {
                 where: { id: ticket.id },
                 include: TICKET_INCLUDE,
             });
-        });
+        }, { timeout: 25000, maxWait: 15000 });
     }
 
     async assign(actor, id, data) {
@@ -233,7 +233,7 @@ let SupportTicketsService = class SupportTicketsService {
                 where: { id },
                 include: TICKET_INCLUDE,
             });
-        });
+        }, { timeout: 25000, maxWait: 15000 });
     }
 
     async updateStatus(actor, id, data) {
@@ -283,7 +283,7 @@ let SupportTicketsService = class SupportTicketsService {
                 where: { id },
                 include: TICKET_INCLUDE,
             });
-        });
+        }, { timeout: 25000, maxWait: 15000 });
     }
 
     async getSummary(actor) {
@@ -295,19 +295,34 @@ let SupportTicketsService = class SupportTicketsService {
             ];
         }
 
-        const [total, open, inProgress, resolved, overdue] = await Promise.all([
-            this.prisma.supportTicket.count({ where }),
-            this.prisma.supportTicket.count({ where: { ...where, status: { in: ['OPEN', 'ASSIGNED'] } } }),
-            this.prisma.supportTicket.count({ where: { ...where, status: 'IN_PROGRESS' } }),
-            this.prisma.supportTicket.count({ where: { ...where, status: 'RESOLVED' } }),
+        const now = new Date();
+        const [grouped, overdue] = await Promise.all([
+            this.prisma.supportTicket.groupBy({
+                by: ['status'],
+                where,
+                _count: { id: true },
+            }),
             this.prisma.supportTicket.count({
                 where: {
                     ...where,
-                    dueDate: { lt: new Date() },
+                    dueDate: { lt: now },
                     status: { notIn: ['RESOLVED', 'CLOSED'] },
                 },
             }),
         ]);
+
+        let total = 0;
+        let open = 0;
+        let inProgress = 0;
+        let resolved = 0;
+
+        for (const g of grouped) {
+            const count = g._count.id;
+            total += count;
+            if (g.status === 'OPEN' || g.status === 'ASSIGNED') open += count;
+            else if (g.status === 'IN_PROGRESS') inProgress += count;
+            else if (g.status === 'RESOLVED') resolved += count;
+        }
 
         return { total, open, inProgress, resolved, overdue };
     }

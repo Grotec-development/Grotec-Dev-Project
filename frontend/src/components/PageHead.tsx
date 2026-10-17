@@ -6,6 +6,7 @@ interface PageHeadProps {
   title: string;
   description?: string;
   jsonLd?: object | object[];
+  robots?: string;
 }
 
 /**
@@ -13,7 +14,7 @@ interface PageHeadProps {
  * Injects a JSON-LD script block when jsonLd is provided.
  * Renders nothing into the DOM.
  */
-export function PageHead({ title, description, jsonLd }: PageHeadProps) {
+export function PageHead({ title, description, jsonLd, robots }: PageHeadProps) {
   const fullTitle = title.includes(BRAND) ? title : `${title} — ${BRAND}`;
 
   useEffect(() => {
@@ -33,6 +34,19 @@ export function PageHead({ title, description, jsonLd }: PageHeadProps) {
     meta.content = description;
     return () => { if (meta) meta.content = prev; };
   }, [description]);
+
+  useEffect(() => {
+    if (!robots) return;
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'robots';
+      document.head.appendChild(meta);
+    }
+    const prev = meta.content;
+    meta.content = robots;
+    return () => { if (meta) meta.content = prev; };
+  }, [robots]);
 
   useEffect(() => {
     if (!jsonLd) return;

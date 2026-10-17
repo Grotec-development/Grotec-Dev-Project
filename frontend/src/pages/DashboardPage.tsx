@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import type { DashboardSummary, FollowUp } from '../lib/types';
-import { formatDate, formatE164 } from '../lib/format';
+import { formatDate, formatE164, formatNumber } from '../lib/format';
+import { POLL_INTERVAL_LIVE, POLL_INTERVAL_REPORTS } from '../lib/polling';
 import { useAuth } from '../auth/AuthContext';
 import { Alert, Badge, Button, Spinner, StatusBadge, cx } from '../components/ui';
 
@@ -50,7 +51,7 @@ function DashboardContent() {
   const summaryQuery = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: async () => (await api.get<DashboardSummary>('/dashboard/summary', { params: { range: 'day' } })).data,
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVAL_LIVE,
   });
 
   // 2. 7-Day call report (real historical calls)
@@ -64,7 +65,7 @@ function DashboardContent() {
     queryFn: async () => (await api.get<{ items: any[]; total: number }>('/reports/calls', {
       params: { startDate: sevenDaysAgo, pageSize: 200 },
     })).data,
-    refetchInterval: 30_000,
+    refetchInterval: POLL_INTERVAL_REPORTS,
   });
 
   const isLeaderboardAllowed = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
@@ -76,7 +77,7 @@ function DashboardContent() {
       params: { period: leaderboardPeriod },
     })).data,
     enabled: isLeaderboardAllowed,
-    refetchInterval: 20_000,
+    refetchInterval: POLL_INTERVAL_REPORTS,
   });
 
   // 4. Agent Performance query (breaks, calls, quality, uptime)
@@ -85,7 +86,7 @@ function DashboardContent() {
     queryFn: async () => (await api.get<{ teamSummary: any; agents: any[] }>('/reports/agent-performance', {
       params: { period: 'today' },
     })).data,
-    refetchInterval: 15_000,
+    refetchInterval: POLL_INTERVAL_LIVE,
   });
   const perfData = agentPerformanceQuery.data;
 
@@ -207,15 +208,15 @@ function DashboardContent() {
             </p>
             <div className="mt-1 flex items-baseline gap-1.5">
               <span className="text-xl sm:text-2xl font-black text-slate-900 leading-none">
-                {completedToday}
+                {formatNumber(completedToday)}
               </span>
               <span className="text-xs font-semibold text-slate-400">
-                / {dialedToday > 0 ? dialedToday : (completedToday || '0')} calls
+                / {dialedToday > 0 ? formatNumber(dialedToday) : (formatNumber(completedToday) || '0')} calls
               </span>
             </div>
             <p className="text-[11px] text-emerald-700 font-bold mt-2 flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" />
-              <span>{connectedToday} connected today</span>
+              <span>{formatNumber(connectedToday)} connected today</span>
             </p>
           </div>
 
@@ -251,123 +252,175 @@ function DashboardContent() {
         </div>
 
         {/* KPI 2: Existing Customers */}
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs hover:border-emerald-500 transition flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Existing Customers
-              </p>
-              <Users className="h-3.5 w-3.5 text-slate-400" />
-            </div>
-            <div className="mt-1 flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 leading-none">
-                {(s?.customers?.total ?? 0).toLocaleString()}
-              </span>
-              <span className="text-[11px] font-semibold text-emerald-700">
-                Active Directory
-              </span>
-            </div>
-            {/* Progress bar */}
-            <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-                style={{ width: s?.customers?.total ? '100%' : '15%' }}
-              />
-            </div>
-          </div>
+        {(() => {
+          const customersTotal = s?.customers?.total ?? 0;
+          const customersConverted = s?.customers?.converted ?? 0;
+          const customerRatio = customersTotal > 0 ? Math.min(100, Math.round((customersConverted / customersTotal) * 100)) : 0;
+          return (
+            <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs hover:border-emerald-500 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Existing Customers
+                  </p>
+                  <Users className="h-3.5 w-3.5 text-slate-400" />
+                </div>
+                <div className="mt-1 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-slate-900 leading-none">
+                    {formatNumber(customersTotal)}
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-700">
+                    Active Directory
+                  </span>
+                </div>
+                {/* Progress bar */}
+                <div
+                  className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={customerRatio}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Customer repeat conversion rate"
+                >
+                  <div
+                    className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${customerRatio}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {customerRatio}% converted to repeat buyers
+                </p>
+              </div>
 
-          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-            <Link
-              to="/customers"
-              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
-            >
-              <span>View directory</span>
-              <ChevronRight className="h-3 w-3" />
-            </Link>
-            <Link
-              to="/agent"
-              className="text-[11px] font-bold text-slate-600 hover:text-slate-900"
-            >
-              Call now &rarr;
-            </Link>
-          </div>
-        </div>
+              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                <Link
+                  to="/customers"
+                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
+                >
+                  <span>View directory</span>
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+                <Link
+                  to="/agent"
+                  className="text-[11px] font-bold text-slate-600 hover:text-slate-900"
+                >
+                  Call now &rarr;
+                </Link>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* KPI 3: Prospects / Open Pipeline */}
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs hover:border-emerald-500 transition flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Prospects &amp; Leads
-              </p>
-              <Contact className="h-3.5 w-3.5 text-slate-400" />
-            </div>
-            <div className="mt-1 flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 leading-none">
-                {s?.leads?.open ?? 0}
-              </span>
-              <span className="text-[11px] font-semibold text-blue-600">
-                Open Pipeline
-              </span>
-            </div>
-            {/* Progress bar */}
-            <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-600 h-full rounded-full transition-all duration-500"
-                style={{ width: s?.leads?.open ? '72%' : '20%' }}
-              />
-            </div>
-          </div>
+        {(() => {
+          const leadsOpen = s?.leads?.open ?? 0;
+          const leadsClosed = s?.leads?.closedTotal ?? 0;
+          const totalLeads = leadsOpen + leadsClosed;
+          const closedRatio = totalLeads > 0 ? Math.min(100, Math.round((leadsClosed / totalLeads) * 100)) : 0;
+          return (
+            <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs hover:border-emerald-500 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Prospects &amp; Leads
+                  </p>
+                  <Contact className="h-3.5 w-3.5 text-slate-400" />
+                </div>
+                <div className="mt-1 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-slate-900 leading-none">
+                    {formatNumber(leadsOpen)}
+                  </span>
+                  <span className="text-[11px] font-semibold text-blue-600">
+                    Open Pipeline
+                  </span>
+                </div>
+                {/* Progress bar */}
+                <div
+                  className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={closedRatio}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Closed leads proportion"
+                >
+                  <div
+                    className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${closedRatio}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {closedRatio}% of all leads converted/closed
+                </p>
+              </div>
 
-          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Closed: {s?.leads?.closedTotal ?? 0}</span>
-            <Link
-              to="/leads"
-              className="font-bold text-blue-700 hover:text-blue-800 flex items-center gap-0.5"
-            >
-              <span>View pipeline</span>
-              <ChevronRight className="h-3 w-3" />
-            </Link>
-          </div>
-        </div>
+              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Closed: {formatNumber(leadsClosed)}</span>
+                <Link
+                  to="/leads"
+                  className="font-bold text-blue-700 hover:text-blue-800 flex items-center gap-0.5"
+                >
+                  <span>View pipeline</span>
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* KPI 4: New Leads (This Week) */}
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs hover:border-emerald-500 transition flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                New Leads (This Week)
-              </p>
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-            </div>
-            <div className="mt-1 flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 leading-none">
-                {s?.leads?.newThisWeek ?? 0}
-              </span>
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-                Recent Ingestion
-              </span>
-            </div>
-            {/* Progress bar */}
-            <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{ width: s?.leads?.newThisWeek ? '85%' : '25%' }}
-              />
-            </div>
-          </div>
+        {(() => {
+          const leadsOpen = s?.leads?.open ?? 0;
+          const newThisWeek = s?.leads?.newThisWeek ?? 0;
+          const newLeadsRatio = leadsOpen > 0 ? Math.min(100, Math.round((newThisWeek / leadsOpen) * 100)) : (newThisWeek > 0 ? 100 : 0);
+          return (
+            <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs hover:border-emerald-500 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    New Leads (This Week)
+                  </p>
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                </div>
+                <div className="mt-1 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-slate-900 leading-none">
+                    {formatNumber(newThisWeek)}
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                    Recent Ingestion
+                  </span>
+                </div>
+                {/* Progress bar */}
+                <div
+                  className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={newLeadsRatio}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="New ingestion pipeline ratio"
+                >
+                  <div
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${newLeadsRatio}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {newLeadsRatio}% of active open pipeline
+                </p>
+              </div>
 
-          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Pending follow-ups: {s?.followUps?.pending ?? 0}</span>
-            <Link
-              to="/leads"
-              className="font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
-            >
-              <span>Open leads</span>
-              <ChevronRight className="h-3 w-3" />
-            </Link>
-          </div>
-        </div>
+              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Pending follow-ups: {formatNumber(s?.followUps?.pending ?? 0)}</span>
+                <Link
+                  to="/leads"
+                  className="font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
+                >
+                  <span>Open leads</span>
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* 7-Day Call Pulse Trend Graph & Quick Queue Grid */}
@@ -637,10 +690,10 @@ function DashboardContent() {
               Calls Completed
             </p>
             <p className="text-2xl font-black text-slate-900 mt-1">
-              {completedToday}
+              {formatNumber(completedToday)}
             </p>
             <p className="text-[10px] text-slate-500 mt-1">
-              {dialedToday} dialed today
+              {formatNumber(dialedToday)} dialed today
             </p>
           </div>
 
@@ -650,7 +703,7 @@ function DashboardContent() {
               Connected Conversations
             </p>
             <p className="text-2xl font-black text-emerald-700 mt-1">
-              {connectedToday}
+              {formatNumber(connectedToday)}
             </p>
             <p className="text-[10px] text-emerald-600 font-semibold mt-1">
               {dialedToday > 0 ? `${Math.round((connectedToday / dialedToday) * 100)}% reach rate` : 'Active session'}
@@ -663,7 +716,7 @@ function DashboardContent() {
               Interested Farmers
             </p>
             <p className="text-2xl font-black text-blue-700 mt-1">
-              {s?.customers?.interested ?? 0}
+              {formatNumber(s?.customers?.interested ?? 0)}
             </p>
             <p className="text-[10px] text-blue-600 font-semibold mt-1">
               Follow-up scheduled
@@ -676,7 +729,7 @@ function DashboardContent() {
               Converted Farmers
             </p>
             <p className="text-2xl font-black text-emerald-800 mt-1">
-              {s?.customers?.converted ?? 0}
+              {formatNumber(s?.customers?.converted ?? 0)}
             </p>
             <p className="text-[10px] text-emerald-600 font-semibold mt-1">
               Active Client Accounts

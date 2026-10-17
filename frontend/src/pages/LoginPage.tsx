@@ -6,6 +6,7 @@ import { Alert, Button, Card, Field, Input, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
 import { clearLogoutReason, peekLogoutReason } from '../lib/idleReason';
 import { isNativeApp } from '../lib/native-calling';
+import { DEMO_ACCOUNTS, DEMO_ALIASES, isDemoAccountsEnabled } from '../lib/demoAccounts';
 
 const LOCAL_BUSINESS_LD = {
   '@context': 'https://schema.org',
@@ -78,36 +79,16 @@ export function LoginPage() {
     e?.preventDefault();
     setError(null);
 
-    const ALIAS_MAP: Record<string, string> = {
-      founder: 'founder@grotec.local',
-      manager: 'manager@grotec.local',
-      agent: 'agent_1@grotec.local',
-      agent1: 'agent_1@grotec.local',
-      agent2: 'agent_2@grotec.local',
-      agent3: 'agent_3@grotec.local',
-      staff: 'staff@grotec.local',
-      hr: 'staff@grotec.local',
-      delivery: 'delivery@grotec.local',
-      driver: 'delivery@grotec.local',
-      admin: 'superadmin@grotec.local',
-      superadmin: 'superadmin@grotec.local',
-    };
-
     let targetEmail = (creds?.email ?? email).trim();
     const lower = targetEmail.toLowerCase();
-    if (ALIAS_MAP[lower]) {
-      targetEmail = ALIAS_MAP[lower];
+    if (DEMO_ALIASES[lower]) {
+      targetEmail = DEMO_ALIASES[lower];
     } else if (!targetEmail.includes('@') && !targetEmail.toUpperCase().startsWith('EMP')) {
       targetEmail = `${lower}@grotec.local`;
     }
 
-    let targetPass = (creds?.password ?? password).trim();
-    const passLower = targetPass.toLowerCase();
-    if (passLower === 'founder@grotec2026' || passLower === 'founder@grotec2026!') targetPass = 'Founder@Grotec2026!';
-    else if (passLower === 'manager@grotec2026' || passLower === 'manager@grotec2026!') targetPass = 'Manager@Grotec2026!';
-    else if (passLower === 'agent1@grotec2026' || passLower === 'agent1@grotec2026!' || passLower === 'agent@grotec2026' || passLower === 'agent@grotec2026!') targetPass = 'Agent1@Grotec2026!';
-    else if (passLower === 'staff@grotec2026' || passLower === 'staff@grotec2026!') targetPass = 'Staff@Grotec2026!';
-    else if (passLower === 'delivery@grotec2026' || passLower === 'delivery@grotec2026!') targetPass = 'Delivery@Grotec2026!';
+    // BUG-001: Passwords sent exactly as typed without hardcoded password rewriting
+    const targetPass = (creds?.password ?? password).trim();
 
     if (!validateEmail(targetEmail)) return;
     if (!targetPass) {
@@ -157,7 +138,7 @@ export function LoginPage() {
       {!isMinimal ? (
         <div className="flex min-h-screen w-full flex-col lg:flex-row bg-white">
           {/* Left Panel (~45% width) - Solid Forest Green Branded Area */}
-          <div className="relative flex min-h-[320px] lg:min-h-screen lg:w-[45%] flex-col justify-between bg-gradient-to-b from-[#134423] via-[#0e351b] to-[#0a2714] p-8 lg:p-14 text-white overflow-hidden shadow-2xl">
+          <div className="relative flex min-h-0 lg:min-h-screen lg:w-[45%] flex-col justify-between bg-gradient-to-b from-[#134423] via-[#0e351b] to-[#0a2714] p-5 lg:p-14 text-white overflow-hidden shadow-2xl">
             {/* Subtle textured grid overlay */}
             <div
               className="pointer-events-none absolute inset-0 opacity-[0.04]"
@@ -170,8 +151,8 @@ export function LoginPage() {
 
             {/* Top Brand Wordmark with Authentic Grotec Brand Logo */}
             <div className="relative z-10">
-              <div className="relative inline-block mb-5">
-                <div className="h-16 w-16 rounded-2xl bg-white p-2 shadow-xl flex items-center justify-center border border-white/60">
+              <div className="relative inline-block mb-2 lg:mb-5">
+                <div className="h-10 w-10 lg:h-16 lg:w-16 rounded-xl lg:rounded-2xl bg-white p-1.5 lg:p-2 shadow-xl flex items-center justify-center border border-white/60">
                   <img
                     src="/grotec_logo.webp"
                     alt="GROTEC — Science for Crops"
@@ -183,24 +164,24 @@ export function LoginPage() {
                 </div>
               </div>
 
-              <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-white leading-none">
+              <h1 className="text-2xl lg:text-4xl font-black tracking-tight text-white leading-none">
                 GROTEC
               </h1>
-              <p className="text-xl lg:text-2xl font-bold tracking-tight text-emerald-300 mt-1">
+              <p className="text-base lg:text-2xl font-bold tracking-tight text-emerald-300 mt-0.5 lg:mt-1">
                 FarmerOS
               </p>
-              <p className="text-xs text-amber-200/95 font-semibold mt-1 tracking-wide">
+              <p className="hidden lg:block text-xs text-amber-200/95 font-semibold mt-1 tracking-wide">
                 Science for Crops · To get the soil alive...
               </p>
               
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-800/60 border border-emerald-700/60 px-3 py-1 text-[11px] font-semibold tracking-wider text-emerald-200">
+              <div className="hidden lg:inline-flex mt-3 items-center gap-1.5 rounded-full bg-emerald-800/60 border border-emerald-700/60 px-3 py-1 text-[11px] font-semibold tracking-wider text-emerald-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse" />
                 Internal Operations Portal
               </div>
             </div>
 
             {/* Bottom Version Tag */}
-            <div className="relative z-10 mt-8 pt-6 border-t border-emerald-800/60 text-xs text-emerald-300/80 flex justify-between items-center font-medium">
+            <div className="hidden lg:flex relative z-10 mt-8 pt-6 border-t border-emerald-800/60 text-xs text-emerald-300/80 justify-between items-center font-medium">
               <span>GROTEC FarmerOS v2.4</span>
             </div>
           </div>
@@ -220,13 +201,14 @@ export function LoginPage() {
               {notice ? <Alert tone="info">{notice}</Alert> : null}
               {error ? <Alert tone="error">{error}</Alert> : null}
 
-              <form onSubmit={(e) => signIn(e)} className="space-y-4.5" aria-label="Sign in form">
+              <form onSubmit={(e) => signIn(e)} className="space-y-5" aria-label="Sign in form">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Employee ID or Email
                   </label>
                   <Input
                     type="text"
+                    name="username"
                     autoComplete="username"
                     disabled={busy || success}
                     value={email}
@@ -235,7 +217,7 @@ export function LoginPage() {
                       setEmail(e.target.value);
                       if (emailError) validateEmail(e.target.value);
                     }}
-                    placeholder="e.g. priya.s@grotec.in"
+                    placeholder="Employee ID or email"
                     className={cx(
                       'py-2 text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-brand-600 transition-all duration-200',
                       emailError ? 'border-red-500' : '',
@@ -266,6 +248,7 @@ export function LoginPage() {
                   <div className="relative">
                     <Input
                       type={showPassword ? 'text' : 'password'}
+                      name="password"
                       autoComplete="current-password"
                       disabled={busy || success}
                       value={password}
@@ -277,7 +260,7 @@ export function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1 cursor-pointer"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -289,7 +272,7 @@ export function LoginPage() {
                 <Button
                   type="submit"
                   disabled={busy || success}
-                  className="w-full py-2.5 text-xs font-bold shadow-sm bg-gradient-to-r from-brand-600 via-emerald-600 to-brand-700 hover:brightness-105 active:scale-[0.99] text-white transition-all duration-200 flex items-center justify-center gap-2"
+                  className="w-full mt-2 py-2.5 text-xs font-bold shadow-sm bg-gradient-to-r from-brand-600 via-emerald-600 to-brand-700 hover:brightness-105 active:scale-[0.99] text-white transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {success ? (
                     <span className="inline-flex items-center gap-2 animate-pulse">
@@ -306,63 +289,32 @@ export function LoginPage() {
                   )}
                 </Button>
 
-                {/* Quick-fill Verified Accounts Helper (1-Tap Fill) */}
-                <div className="rounded-lg bg-slate-50 border border-slate-200/90 p-3 space-y-2">
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
-                    <span>Verified Role Accounts:</span>
-                    <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono font-medium">1-Tap Fill</span>
+                {/* Quick-fill Verified Accounts Helper (Dev/Demo Only) */}
+                {isDemoAccountsEnabled() && DEMO_ACCOUNTS.length > 0 && (
+                  <div className="rounded-lg bg-slate-50 border border-slate-200/90 p-3 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                      <span>Dev Demo Accounts:</span>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono font-medium">1-Tap Fill</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 text-left">
+                      {DEMO_ACCOUNTS.map((acc) => (
+                        <button
+                          key={acc.email}
+                          type="button"
+                          onClick={() => {
+                            setEmail(acc.email);
+                            setPassword(acc.password || 'Grotec@2026');
+                            setEmailError(null);
+                          }}
+                          className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
+                        >
+                          <span className="block font-bold text-slate-800">{acc.label}</span>
+                          <span className="block text-[9px] text-slate-500 truncate">{acc.email}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5 text-left">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail('founder@grotec.local');
-                        setPassword('Founder@Grotec2026!');
-                        setEmailError(null);
-                      }}
-                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
-                    >
-                      <span className="block font-bold text-slate-800">Founder & CEO</span>
-                      <span className="block text-[9px] text-slate-500 truncate">founder@grotec.local</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail('manager@grotec.local');
-                        setPassword('Manager@Grotec2026!');
-                        setEmailError(null);
-                      }}
-                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
-                    >
-                      <span className="block font-bold text-slate-800">Manager</span>
-                      <span className="block text-[9px] text-slate-500 truncate">manager@grotec.local</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail('agent_1@grotec.local');
-                        setPassword('Agent1@Grotec2026!');
-                        setEmailError(null);
-                      }}
-                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
-                    >
-                      <span className="block font-bold text-slate-800">Telecaller Agent</span>
-                      <span className="block text-[9px] text-slate-500 truncate">agent_1@grotec.local</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail('delivery@grotec.local');
-                        setPassword('Delivery@Grotec2026!');
-                        setEmailError(null);
-                      }}
-                      className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left shadow-2xs cursor-pointer"
-                    >
-                      <span className="block font-bold text-slate-800">Field Delivery</span>
-                      <span className="block text-[9px] text-slate-500 truncate">delivery@grotec.local</span>
-                    </button>
-                  </div>
-                </div>
+                )}
 
               </form>
 
@@ -405,17 +357,19 @@ export function LoginPage() {
             {notice ? <Alert tone="info">{notice}</Alert> : null}
             {error ? <Alert tone="error">{error}</Alert> : null}
 
-            <form onSubmit={(e) => signIn(e)} className="space-y-4">
+            <form onSubmit={(e) => signIn(e)} className="space-y-5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Employee ID or Email
                 </label>
                 <Input
                   type="text"
+                  name="username"
+                  autoComplete="username"
                   disabled={busy || success}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. priya.s@grotec.in"
+                  placeholder="Employee ID or email"
                   className="py-2 text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-brand-600 transition-all"
                   required
                 />
@@ -440,6 +394,8 @@ export function LoginPage() {
                 <div className="relative">
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    autoComplete="current-password"
                     disabled={busy || success}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -450,7 +406,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1 cursor-pointer"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -461,44 +417,37 @@ export function LoginPage() {
               <Button
                 type="submit"
                 disabled={busy || success}
-                className="w-full py-2.5 text-xs font-bold shadow-xs bg-brand-600 hover:bg-brand-700 text-white transition-all active:scale-[0.99]"
+                className="w-full mt-2 py-2.5 text-xs font-bold shadow-xs bg-brand-600 hover:bg-brand-700 text-white transition-all active:scale-[0.99] cursor-pointer"
               >
                 {success ? 'Verified ✓ Redirecting...' : busy ? 'Signing in…' : 'Sign In'}
               </Button>
 
-              {/* Quick-fill Verified Accounts Helper (1-Tap Fill) */}
-              <div className="rounded-lg bg-slate-50 border border-slate-200/90 p-2.5 space-y-1.5 text-left">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
-                  <span>Verified Accounts:</span>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono font-medium">1-Tap Fill</span>
+              {/* Quick-fill Verified Accounts Helper (Dev/Demo Only) */}
+              {isDemoAccountsEnabled() && DEMO_ACCOUNTS.length > 0 && (
+                <div className="rounded-lg bg-slate-50 border border-slate-200/90 p-2.5 space-y-1.5 text-left">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                    <span>Dev Demo Accounts:</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono font-medium">1-Tap Fill</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 text-left">
+                    {DEMO_ACCOUNTS.map((acc) => (
+                      <button
+                        key={acc.email}
+                        type="button"
+                        onClick={() => {
+                          setEmail(acc.email);
+                          setPassword(acc.password || 'Grotec@2026');
+                          setEmailError(null);
+                        }}
+                        className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left cursor-pointer"
+                      >
+                        <span className="block font-bold text-slate-800">{acc.label}</span>
+                        <span className="block text-[9px] text-slate-500 truncate">{acc.email}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-1 text-left">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('founder@grotec.local');
-                      setPassword('Founder@Grotec2026!');
-                      setEmailError(null);
-                    }}
-                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left cursor-pointer"
-                  >
-                    <span className="block font-bold text-slate-800">Founder</span>
-                    <span className="block text-[9px] text-slate-500 truncate">founder@grotec.local</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('agent_1@grotec.local');
-                      setPassword('Agent1@Grotec2026!');
-                      setEmailError(null);
-                    }}
-                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-900 transition-colors text-left cursor-pointer"
-                  >
-                    <span className="block font-bold text-slate-800">Agent 1</span>
-                    <span className="block text-[9px] text-slate-500 truncate">agent_1@grotec.local</span>
-                  </button>
-                </div>
-              </div>
+              )}
 
             </form>
 

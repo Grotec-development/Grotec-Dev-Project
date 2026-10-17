@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 
 export function ExceptionCentrePage() {
   const queryClient = useQueryClient();
@@ -26,7 +27,7 @@ export function ExceptionCentrePage() {
       const res = await api.get('/exceptions/pending');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   // Review exception mutation

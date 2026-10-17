@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import { Alert } from '../../components/ui';
+import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 
 export function OrdersPage() {
   const queryClient = useQueryClient();
@@ -39,7 +40,7 @@ export function OrdersPage() {
       const res = await api.get('/orders');
       return Array.isArray(res.data) ? res.data : (res.data?.items || []);
     },
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   // Fetch products

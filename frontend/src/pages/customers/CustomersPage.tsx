@@ -12,6 +12,7 @@ import { Alert, Button, Card, ConfirmModal, EmptyState, Input, Select, StatusBad
 import { NewCustomerModal } from './NewCustomerModal';
 import { ImportCustomersModal } from './ImportCustomersModal';
 import { FarmerSegmentsModal } from './FarmerSegmentsModal';
+import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 
 export function CustomersPage() {
   const { hasPermission, user } = useAuth();
@@ -45,7 +46,7 @@ export function CustomersPage() {
       });
       return res.data;
     },
-    refetchInterval: 12_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   const canCreate = hasPermission('customer.create');

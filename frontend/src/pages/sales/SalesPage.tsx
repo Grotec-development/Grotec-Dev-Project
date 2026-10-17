@@ -19,6 +19,7 @@ import {
 import { api, errorMessage } from '../../lib/api';
 import { formatDate } from '../../lib/format';
 import { Button, Card, Field, Input, Select, Spinner } from '../../components/ui';
+import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 
 interface SaleItem {
   id: string;
@@ -77,7 +78,7 @@ export function SalesPage() {
       const res = await api.get<SaleItem[]>('/sales', { params });
       return res.data;
     },
-    refetchInterval: 15_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   const rawSales = salesQuery.data || [];

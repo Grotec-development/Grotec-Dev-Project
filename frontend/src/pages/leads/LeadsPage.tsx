@@ -4,6 +4,7 @@ import { Phone } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Lead, Page } from '../../lib/types';
 import { formatDate } from '../../lib/format';
+import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 import { Alert, Card, Select, Spinner, StatusBadge, Table, TD, TH, THead } from '../../components/ui';
 import { useState } from 'react';
 
@@ -15,7 +16,7 @@ export function LeadsPage() {
       const res = await api.get<Page<Lead>>('/leads', { params: { status: status || undefined, page: 1, pageSize: 50 } });
       return res.data;
     },
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   return (

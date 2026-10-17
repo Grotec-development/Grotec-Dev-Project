@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsEmail, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 export class UpdateEmployeeDto {
 }
 __decorate([
@@ -20,7 +20,10 @@ __decorate([
     IsOptional(),
     IsString(),
     MinLength(2),
-    MaxLength(200),
+    MaxLength(60),
+    Matches(/^[\p{L}][\p{L}\p{M}\s.'’-]{1,59}$/u, {
+        message: 'Full name must start with a letter and contain only letters, spaces, hyphens, and apostrophes',
+    }),
     __metadata("design:type", String)
 ], UpdateEmployeeDto.prototype, "fullName", void 0);
 __decorate([

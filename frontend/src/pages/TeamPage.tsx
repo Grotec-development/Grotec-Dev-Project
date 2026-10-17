@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, X, Edit2, Shield, Check, CheckSquare, Square, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
+import { validatePersonName } from '../lib/validation';
+import { describeApiError } from '../lib/errors';
+import { PasswordInput } from '../components/PasswordInput';
 import type { Employee, Page } from '../lib/types';
 import { ROLE_CODES, ROLE_LABELS } from '@grotec/shared';
 import { useAuth } from '../auth/AuthContext';
@@ -39,7 +42,7 @@ export function TeamPage() {
       setActionSuccess(`Employee ${employee.fullName} ${employee.status === 'ACTIVE' ? 'deactivated' : 'activated'} successfully.`);
       await queryClient.invalidateQueries({ queryKey: ['employees'] });
     } catch (err) {
-      setActionError(errorMessage(err));
+      setActionError(describeApiError(err));
     } finally {
       setTogglingId(null);
     }
@@ -56,7 +59,7 @@ export function TeamPage() {
       setEmployeeToDelete(null);
       await queryClient.invalidateQueries({ queryKey: ['employees'] });
     } catch (err) {
-      setActionError(errorMessage(err));
+      setActionError(describeApiError(err));
     } finally {
       setIsDeleting(false);
     }
@@ -410,7 +413,7 @@ function EditRolePermissionsModal({ role, onClose }: EditRolePermissionsModalPro
       await queryClient.invalidateQueries({ queryKey: ['roles'] });
       onClose();
     } catch (err) {
-      setError(errorMessage(err) || 'Failed to update permissions');
+      setError(describeApiError(err, 'Failed to update permissions'));
     } finally {
       setBusy(false);
     }
@@ -539,6 +542,9 @@ function CreateEmployeeModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -552,13 +558,36 @@ function CreateEmployeeModal({ onClose }: { onClose: () => void }) {
   const effectiveRoleId = roleId || defaultRoleId || '';
 
   async function submit() {
+    if (busy) return;
+
+    // Validate person name (BUG-016)
+    const nameVal = validatePersonName(fullName);
+    if (!nameVal.valid) {
+      setNameError(nameVal.error || 'Invalid full name');
+      return;
+    }
+    setNameError(null);
+
+    // Validate password if provided (BUG-018)
+    if (password) {
+      if (password.length < 8) {
+        setPasswordError('Password must be at least 8 characters');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setPasswordError('Passwords do not match');
+        return;
+      }
+    }
+    setPasswordError(null);
+
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       const res = await api.post<{ employee: Employee; temporaryPassword?: string }>('/employees', {
-        fullName,
-        email,
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
         roleId: effectiveRoleId,
         password: password || undefined,
       });
@@ -569,7 +598,7 @@ function CreateEmployeeModal({ onClose }: { onClose: () => void }) {
         onClose();
       }
     } catch (err) {
-      setError(errorMessage(err));
+      setError(describeApiError(err, 'Failed to create employee'));
     } finally {
       setBusy(false);
     }
@@ -585,13 +614,32 @@ function CreateEmployeeModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="space-y-4 px-5 py-4">
-          {error ? <Alert tone="error">{error}</Alert> : null}
+          {error ? (
+            <div className="flex items-center justify-between rounded-lg bg-red-50 border border-red-200 p-3 text-xs font-medium text-red-800">
+              <span>{error}</span>
+              <button type="button" onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
           {notice ? <Alert tone="info">{notice}</Alert> : null}
-          <Field label="Full name">
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <Field label="Full name" error={nameError}>
+            <Input
+              value={fullName}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+              placeholder="e.g. Ramesh Patel"
+            />
           </Field>
           <Field label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. ramesh@grotec.local"
+            />
           </Field>
           <Field label="Role">
             <Select value={roleId || defaultRoleId || ''} onChange={(e) => setRoleId(e.target.value)}>
@@ -605,16 +653,34 @@ function CreateEmployeeModal({ onClose }: { onClose: () => void }) {
               ))}
             </Select>
           </Field>
-          <Field label="Password (optional)" hint="Leave blank to receive a generated temporary password.">
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </Field>
+          <PasswordInput
+            label="Password (optional)"
+            hint="Leave blank to receive a generated temporary password."
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (passwordError) setPasswordError(null);
+            }}
+            error={passwordError}
+          />
+          {password ? (
+            <PasswordInput
+              label="Confirm Password *"
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (passwordError) setPasswordError(null);
+              }}
+              placeholder="Re-enter password to confirm"
+            />
+          ) : null}
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
             Close
           </Button>
           <Button
-            disabled={busy || fullName.trim().length < 2 || !email.includes('@') || !effectiveRoleId}
+            disabled={busy || !fullName.trim() || !email.includes('@') || !effectiveRoleId}
             onClick={() => void submit()}
           >
             {busy ? 'Saving…' : notice ? 'Done' : 'Create'}

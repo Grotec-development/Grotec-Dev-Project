@@ -17,6 +17,7 @@ import {
 import { api, errorMessage } from '../../lib/api';
 import { formatDate } from '../../lib/format';
 import { Button, Card, Field, Input, Select, Spinner } from '../../components/ui';
+import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 
 interface SupportTicketItem {
   id: string;
@@ -82,7 +83,7 @@ export function SupportTicketsPage() {
       const res = await api.get<SupportTicketItem[]>('/support-tickets', { params });
       return res.data;
     },
-    refetchInterval: 12_000,
+    refetchInterval: POLL_INTERVAL_LISTS,
   });
 
   const rawTickets = ticketsQuery.data || [];

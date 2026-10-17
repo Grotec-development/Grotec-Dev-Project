@@ -8,8 +8,9 @@ export function NotFoundPage() {
   return (
     <>
       <PageHead
-        title="Page Not Found — GROTEC FarmerOS"
+        title="Page Not Found (404) — GROTEC FarmerOS"
         description="The page you are looking for does not exist. Return to GROTEC FarmerOS."
+        robots="noindex, nofollow"
       />
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="text-center max-w-md">
@@ -26,7 +27,7 @@ export function NotFoundPage() {
               className="h-full w-full object-contain aspect-square"
             />
           </Link>
-          <p className="text-8xl font-black text-slate-100 select-none" aria-hidden="true">404</p>
+          <p className="text-8xl font-black text-emerald-700/90 select-none tracking-tight" aria-hidden="true">404</p>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">Page Not Found</h1>
           <p className="mt-3 text-slate-500 leading-relaxed">
             The page you&apos;re looking for doesn&apos;t exist, or you may not have permission to view it.

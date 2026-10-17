@@ -155,6 +155,7 @@ let EmployeesService = class EmployeesService {
         await this.assertEmailAvailable(email);
         const role = await this.requireRole(dto.roleId);
         this.assertRoleAssignmentAllowed(actor, role.code);
+        const fullName = dto.fullName ? dto.fullName.trim().replace(/\s+/g, ' ') : dto.fullName;
         if (dto.joiningDate) {
             const jd = new Date(dto.joiningDate);
             if (isNaN(jd.getTime()))
@@ -187,7 +188,7 @@ let EmployeesService = class EmployeesService {
             const employee = await tx.employee.create({
                 data: {
                     email,
-                    fullName: dto.fullName,
+                    fullName,
                     phone: dto.phone ?? null,
                     passwordHash,
                     roleId: role.id,
@@ -213,7 +214,7 @@ let EmployeesService = class EmployeesService {
                 entityId: employee.id,
                 entityLabel: employee.email,
                 action: AuditAction.CREATED,
-                after: { email, fullName: dto.fullName, roleCode: role.code, employeeCode },
+                after: { email, fullName, roleCode: role.code, employeeCode },
             });
             return employee;
         });
@@ -286,6 +287,9 @@ let EmployeesService = class EmployeesService {
         const email = dto.email?.trim().toLowerCase();
         if (email && email !== existing.email)
             await this.assertEmailAvailable(email);
+        const fullName = dto.fullName !== undefined
+            ? (dto.fullName ? dto.fullName.trim().replace(/\s+/g, ' ') : dto.fullName)
+            : undefined;
         let roleId = dto.roleId;
         if (dto.roleId && dto.roleId !== existing.roleId) {
             const role = await this.requireRole(dto.roleId);
@@ -299,7 +303,7 @@ let EmployeesService = class EmployeesService {
                 where: { id },
                 data: {
                     email: email ?? undefined,
-                    fullName: dto.fullName ?? undefined,
+                    fullName: fullName ?? undefined,
                     phone: dto.phone === undefined ? undefined : dto.phone,
                     roleId,
                     employeeCode: dto.employeeCode === undefined ? undefined : dto.employeeCode,

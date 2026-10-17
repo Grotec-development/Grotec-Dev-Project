@@ -11,6 +11,13 @@ export async function configureApp(app, options = {}) {
     app.use(express.json({ limit: '50mb' }));
     app.use(express.urlencoded({ limit: '50mb', extended: true }));
     app.use(cookieParser());
+    app.use((req, res, next) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('X-XSS-Protection', '1; mode=block');
+        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        next();
+    });
     app.useGlobalFilters(new HttpExceptionFilter());
     app.useGlobalPipes(new ValidationPipe({
         whitelist: true,
@@ -73,6 +80,7 @@ export async function configureApp(app, options = {}) {
             'x-tenant-slug',
         ],
         exposedHeaders: ['Set-Cookie'],
+        maxAge: 86400,
     });
     if (options.swagger !== false) {
         const swaggerConfig = new DocumentBuilder()

@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { api } from '../../lib/api';
+import { validatePersonName } from '../../lib/validation';
+import { describeApiError } from '../../lib/errors';
+import { PasswordInput } from '../../components/PasswordInput';
 import {
   Alert,
   Badge,
@@ -64,6 +67,9 @@ export function EmployeesPage() {
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -85,7 +91,7 @@ export function EmployeesPage() {
       setEmployees(empRes.data.items || []);
       setRoles(roleRes?.data || []);
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Failed to load employees');
+      setError(describeApiError(err, 'Failed to load employees'));
     } finally {
       setLoading(false);
     }
@@ -100,7 +106,7 @@ export function EmployeesPage() {
       fullName: '',
       email: '',
       phone: '',
-      password: 'Password@123',
+      password: '',
       roleId: roles[0]?.id || '',
       employeeCode: `EMP${String(employees.length + 1).padStart(3, '0')}`,
       designation: '',
@@ -112,6 +118,9 @@ export function EmployeesPage() {
       aadhaarNumber: '',
       notes: '',
     });
+    setConfirmPassword('');
+    setNameError(null);
+    setPasswordError(null);
     setFormError(null);
     setModalTab('personal');
     setIsModalOpen(true);
@@ -119,14 +128,50 @@ export function EmployeesPage() {
 
   const handleSaveEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+
+    // Validate person name (BUG-016)
+    const nameVal = validatePersonName(formData.fullName);
+    if (!nameVal.valid) {
+      setNameError(nameVal.error || 'Invalid full name');
+      setModalTab('personal');
+      return;
+    }
+    setNameError(null);
+
+    // Validate password if supplied (BUG-018)
+    if (formData.password) {
+      if (formData.password.length < 8) {
+        setPasswordError('Password must be at least 8 characters');
+        setModalTab('personal');
+        return;
+      }
+      if (formData.password !== confirmPassword) {
+        setPasswordError('Passwords do not match');
+        setModalTab('personal');
+        return;
+      }
+    }
+    setPasswordError(null);
+
     setSaving(true);
     setFormError(null);
     try {
-      await api.post('/employees', formData);
+      const payload = {
+        ...formData,
+        fullName: formData.fullName.trim(),
+        password: formData.password || undefined,
+      };
+      const res = await api.post('/employees', payload);
       setIsModalOpen(false);
+      if (res.data?.temporaryPassword) {
+        alert(
+          `Employee created successfully!\n\nTemporary Password: ${res.data.temporaryPassword}\n\nPlease share this one-time password securely with the employee.`
+        );
+      }
       void fetchEmployees();
     } catch (err: any) {
-      setFormError(err.response?.data?.error?.message || 'Failed to create employee');
+      setFormError(describeApiError(err, 'Failed to create employee'));
     } finally {
       setSaving(false);
     }
@@ -337,15 +382,29 @@ export function EmployeesPage() {
 
             {/* Form */}
             <form onSubmit={handleSaveEmployee} className="flex-1 overflow-y-auto p-6 space-y-4">
-              {formError && <Alert tone="error">{formError}</Alert>}
+              {formError && (
+                <div className="flex items-center justify-between rounded-lg bg-red-50 border border-red-200 p-3 text-xs font-medium text-red-800">
+                  <span>{formError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormError(null)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
 
               {modalTab === 'personal' && (
                 <div className="space-y-4">
-                  <Field label="Full Name *">
+                  <Field label="Full Name *" error={nameError}>
                     <Input
                       required
                       value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, fullName: e.target.value });
+                        if (nameError) setNameError(null);
+                      }}
                       placeholder="e.g. Ramesh Patel"
                     />
                   </Field>
@@ -365,14 +424,27 @@ export function EmployeesPage() {
                       placeholder="e.g. +91 9876543210"
                     />
                   </Field>
-                  <Field label="Password * (min 8 chars, 1 letter, 1 number)">
-                    <Input
-                      type="password"
-                      required
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  <PasswordInput
+                    label="Password (optional)"
+                    hint="Leave blank to let the system generate a secure temporary password."
+                    value={formData.password}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      if (passwordError) setPasswordError(null);
+                    }}
+                    error={passwordError}
+                  />
+                  {formData.password ? (
+                    <PasswordInput
+                      label="Confirm Password *"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (passwordError) setPasswordError(null);
+                      }}
+                      placeholder="Re-enter password to confirm"
                     />
-                  </Field>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-4">
                     <Field label="Blood Group">
                       <Select

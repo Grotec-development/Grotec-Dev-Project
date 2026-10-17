@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PROPOSED_ROLE_PERMISSIONS } from '@grotec/shared';
-import { api, clearAccessToken, clearTenantId, errorMessage, setAccessToken, setTenantId } from '../lib/api';
+import { api, clearAccessToken, clearTenantId, errorMessage, getAccessToken, setAccessToken, setTenantId } from '../lib/api';
 import { setLogoutReason } from '../lib/idleReason';
 import type { AppUser } from '../lib/types';
 
@@ -55,6 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     async function bootstrap() {
+      const token = getAccessToken();
+      if (!token) {
+        if (!cancelled) {
+          setStatus('anon');
+        }
+        return;
+      }
+
       try {
         const res = await api.get<AppUser>('/auth/me');
         if (!cancelled) {

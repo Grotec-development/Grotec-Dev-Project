@@ -26,3 +26,12 @@ export function initialsOf(fullName: string): string {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 }
+
+/** Formats numbers with Indian grouping system (en-IN), e.g. 5,004 or 1,50,000. */
+export function formatNumber(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '0';
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (Number.isNaN(num)) return '0';
+  return num.toLocaleString('en-IN');
+}
+
