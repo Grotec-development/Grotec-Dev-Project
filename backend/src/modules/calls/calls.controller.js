@@ -27,8 +27,11 @@ let CallsController = class CallsController {
     place(actor, dto) {
         return this.calls.placeCall(actor, dto);
     }
-    queue(actor, ownerId) {
-        return this.calls.queue(actor, { ownerId });
+    queue(actor, query) {
+        return this.calls.queue(actor, query || {});
+    }
+    customerCalls(actor, customerId) {
+        return this.calls.customerCalls(customerId, actor);
     }
     active(actor) {
         return this.calls.getActiveCall(actor);
@@ -68,11 +71,20 @@ __decorate([
     Get('queue'),
     RequirePermission(PERMISSIONS.callRead),
     __param(0, CurrentEmployee()),
-    __param(1, Query('ownerId')),
+    __param(1, Query()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], CallsController.prototype, "queue", null);
+__decorate([
+    Get('customer/:customerId'),
+    RequirePermission(PERMISSIONS.callRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('customerId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], CallsController.prototype, "queue", null);
+], CallsController.prototype, "customerCalls", null);
 __decorate([
     Get('active'),
     RequirePermission(PERMISSIONS.callRead),

@@ -1,30 +1,75 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone as PhoneIcon, Plus, Sprout, Star, Trash2, Calendar, FileText, ShoppingBag, PhoneCall, Send, AlertTriangle, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  MapPin,
+  Phone as PhoneIcon,
+  Plus,
+  Sprout,
+  Trash2,
+  Calendar,
+  FileText,
+  ShoppingBag,
+  PhoneCall,
+  Send,
+  AlertTriangle,
+  X,
+  Lock,
+  Edit2,
+  Check,
+  ShieldAlert,
+  Clock,
+  BookOpen,
+  IndianRupee,
+  Layers,
+  History,
+  CheckCircle2,
+} from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Crop, CustomerDetail, Lead, Page, Referral } from '../../lib/types';
 import { formatDate, formatE164 } from '../../lib/format';
 import { useAuth } from '../../auth/AuthContext';
 import { LocationSelector } from '../../components/LocationSelector';
-import { Alert, Badge, Button, Card, CardHeader, ConfirmModal, Field, Input, Select, Spinner, StatusBadge, Table, TD, TH, THead, cx } from '../../components/ui';
-
-interface PurchaseRecord {
-  id: string;
-  date: string;
-  product: string;
-  qty: string;
-  amount: string;
-}
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  ConfirmModal,
+  Field,
+  Input,
+  Select,
+  Spinner,
+  StatusBadge,
+  Table,
+  TD,
+  TH,
+  THead,
+  cx,
+} from '../../components/ui';
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  const isSupervisor =
+    user?.roleCode === 'FOUNDER' ||
+    user?.roleCode === 'MANAGER' ||
+    hasPermission('customer.manage') ||
+    hasPermission('customer.edit.sensitive');
+
   const canEdit = hasPermission('customer.update');
   const canDelete = hasPermission('customer.delete') || hasPermission('customer.create');
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'land_crops' | 'advisory_notes'>('overview');
+
+  // Phase 2.2 — 8 Distinct Profile Sections / Tabs
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'contact' | 'crops' | 'calls' | 'followups' | 'orders' | 'tickets' | 'advisory'
+  >('overview');
+
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -38,16 +83,87 @@ export function CustomerDetailPage() {
     pincode: '',
   });
 
+  // Protected Name / Phone Edit Modal (Phase 2.3)
+  const [showSensitiveEditModal, setShowSensitiveEditModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [nameChangeReason, setNameChangeReason] = useState('');
+  const [savingSensitive, setSavingSensitive] = useState(false);
+  const [sensitiveError, setSensitiveError] = useState<string | null>(null);
+
+  // Add Crop Modal (Phase 2.5)
+  const [showAddCropModal, setShowAddCropModal] = useState(false);
+  const [selectedCropId, setSelectedCropId] = useState('');
+  const [cropAcreage, setCropAcreage] = useState('2');
+  const [cropUnit, setCropUnit] = useState('acre');
+  const [cropStage, setCropStage] = useState('Vegetative');
+  const [cropSeason, setCropSeason] = useState('Kharif 2026');
+  const [sowingDate, setSowingDate] = useState('');
+  const [harvestDate, setHarvestDate] = useState('');
+  const [cropNotes, setCropNotes] = useState('');
+  const [addingCrop, setAddingCrop] = useState(false);
+  const [cropError, setCropError] = useState<string | null>(null);
+
+  // Fetch farmer detail
   const { data, isError, error } = useQuery({
     queryKey: ['customer', id],
     queryFn: async () => (await api.get<CustomerDetail>(`/customers/${id}`)).data,
     enabled: Boolean(id),
   });
 
+  // Fetch crop master catalogue
   const cropsQuery = useQuery({
     queryKey: ['crops'],
     queryFn: async () => (await api.get<Crop[]>('/crops')).data,
-    enabled: canEdit,
+  });
+
+  // Fetch bilingual soils catalogue
+  const soilsQuery = useQuery({
+    queryKey: ['soil-types-list'],
+    queryFn: async () => {
+      const res = await api.get('/soil-types');
+      return res.data || [];
+    },
+  });
+
+  // Fetch interaction history
+  const callsQuery = useQuery({
+    queryKey: ['customer-calls', id],
+    queryFn: async () => (await api.get<any[]>(`/customers/${id}/calls`)).data,
+    enabled: Boolean(id),
+  });
+
+  // Fetch scheduled callbacks
+  const followupsQuery = useQuery({
+    queryKey: ['customer-followups', id],
+    queryFn: async () => {
+      const res = await api.get<any[]>('/follow-ups', { params: { customerId: id } }).catch(() => ({ data: [] }));
+      return res.data || [];
+    },
+    enabled: Boolean(id),
+  });
+
+  // Fetch orders
+  const ordersQuery = useQuery({
+    queryKey: ['customer-orders', id],
+    queryFn: async () => (await api.get<any[]>('/orders', { params: { customerId: id } })).data,
+    enabled: Boolean(id),
+  });
+
+  // Fetch support tickets
+  const ticketsQuery = useQuery({
+    queryKey: ['customer-tickets', id],
+    queryFn: async () => {
+      const res = await api.get<any[]>('/support-tickets', { params: { customerId: id } }).catch(() => ({ data: [] }));
+      return res.data || [];
+    },
+    enabled: Boolean(id),
+  });
+
+  // Fetch advisory notes
+  const notesQuery = useQuery({
+    queryKey: ['customer-notes', id],
+    queryFn: async () => (await api.get<any[]>(`/customers/${id}/notes`)).data,
+    enabled: Boolean(id),
   });
 
   const toggleStatus = useMutation({
@@ -56,42 +172,6 @@ export function CustomerDetailPage() {
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['customer', id] }),
   });
-
-  const callsQuery = useQuery({
-    queryKey: ['customer-calls', id],
-    queryFn: async () => (await api.get<any[]>(`/customers/${id}/calls`)).data,
-    enabled: Boolean(id),
-  });
-
-  const notesQuery = useQuery({
-    queryKey: ['customer-notes', id],
-    queryFn: async () => (await api.get<any[]>(`/customers/${id}/notes`)).data,
-    enabled: Boolean(id),
-  });
-
-  const ordersQuery = useQuery({
-    queryKey: ['customer-orders', id],
-    queryFn: async () => (await api.get<any[]>('/orders', { params: { customerId: id } })).data,
-    enabled: Boolean(id),
-  });
-
-  const purchases = useMemo(() => {
-    const orders = Array.isArray(ordersQuery.data) ? ordersQuery.data : [];
-    const list: Array<{ id: string; date: string; product: string; qty: string; amount: string }> = [];
-    for (const order of orders) {
-      const dateStr = formatDate(order.orderDate || order.createdAt);
-      for (const item of (order.items || [])) {
-        list.push({
-          id: `${order.id}-${item.id}`,
-          date: dateStr,
-          product: item.product?.name || 'Bio-Product',
-          qty: `${Number(item.approvedQty || item.originalQty)} ${item.product?.unit || 'LTR'}`,
-          amount: `₹ ${Number(item.totalAmount).toLocaleString('en-IN')}`,
-        });
-      }
-    }
-    return list;
-  }, [ordersQuery.data]);
 
   const [newNoteBody, setNewNoteBody] = useState('');
   const [addingNote, setAddingNote] = useState(false);
@@ -111,394 +191,203 @@ export function CustomerDetailPage() {
     }
   };
 
-  const timelineItems = useMemo(() => {
-    interface TimelineDisplayItem {
-      id: string;
-      actor: string;
-      role: string;
-      timestamp: string;
-      note: string;
-      badge?: { label: string; tone: 'green' | 'amber' | 'blue' | 'red' | 'slate' };
-      dateVal: number;
+  const purchases = useMemo(() => {
+    const orders = Array.isArray(ordersQuery.data) ? ordersQuery.data : [];
+    const list: Array<{ id: string; date: string; product: string; qty: string; amount: string }> = [];
+    for (const order of orders) {
+      const dateStr = formatDate(order.orderDate || order.createdAt);
+      for (const item of order.items || []) {
+        list.push({
+          id: `${order.id}-${item.id}`,
+          date: dateStr,
+          product: item.product?.name || 'Bio-Product',
+          qty: `${Number(item.approvedQty || item.originalQty)} ${item.product?.unit || 'LTR'}`,
+          amount: `₹ ${Number(item.totalAmount).toLocaleString('en-IN')}`,
+        });
+      }
     }
-
-    const list: TimelineDisplayItem[] = [];
-
-    const realCalls = callsQuery.data || [];
-    const realNotes = notesQuery.data || [];
-
-    for (const call of realCalls) {
-      const actorName = call.agent?.fullName || 'Telecaller';
-      const outcomeNote = call.notes?.map((n: any) => n.body).join(' • ') || (call.outcome ? `Call Outcome: ${call.outcome.replace('_', ' ')}` : `Call Status: ${call.status}`);
-      const tone: 'green' | 'amber' | 'blue' | 'red' | 'slate' =
-        call.outcome === 'INTERESTED' ? 'green' : call.outcome === 'NOT_INTERESTED' ? 'red' : call.status === 'CONNECTED' ? 'blue' : 'amber';
-      list.push({
-        id: `call-${call.id}`,
-        actor: actorName,
-        role: 'Outbound Call',
-        timestamp: formatDate(call.startedAt),
-        note: outcomeNote,
-        badge: { label: call.outcome ? call.outcome.replace('_', ' ') : call.status, tone },
-        dateVal: new Date(call.startedAt).getTime(),
-      });
-    }
-
-    for (const note of realNotes) {
-      list.push({
-        id: `note-${note.id}`,
-        actor: note.author?.fullName || 'Agronomy Advisor',
-        role: 'Advisory Note',
-        timestamp: formatDate(note.createdAt),
-        note: note.body,
-        badge: { label: 'Advisory Note', tone: 'blue' },
-        dateVal: new Date(note.createdAt).getTime(),
-      });
-    }
-
-    list.sort((a, b) => b.dateVal - a.dateVal);
     return list;
-  }, [callsQuery.data, notesQuery.data]);
+  }, [ordersQuery.data]);
 
-  if (!data) {
+  if (isError) {
     return (
-      <div className="p-8">
-        {isError ? <Alert tone="error">{errorMessage(error)}</Alert> : <Spinner label="Loading profile…" />}
+      <div className="p-6">
+        <Alert tone="error">{errorMessage(error) || 'Failed to load farmer record.'}</Alert>
       </div>
     );
   }
 
-  const canToggle = hasPermission('customer.deactivate');
-  const primaryPhone = data.phones?.find((p) => p.isPrimary)?.phone || data.phones?.[0]?.phone || '';
-  const primaryLocationObj = data.locations?.[0];
-  const isTalukMissing = !primaryLocationObj?.taluk || primaryLocationObj.taluk.trim().length === 0;
+  if (!data) {
+    return (
+      <div className="flex justify-center p-12">
+        <Spinner label="Loading farmer profile..." />
+      </div>
+    );
+  }
+
+  const primaryPhone = data.phones?.find((p) => p.isPrimary)?.phone ?? data.phones?.[0]?.phone ?? null;
+  const primaryLocationObj = data.locations?.find((l) => l.isPrimary) ?? data.locations?.[0] ?? null;
 
   const handleCallNow = () => {
-    navigate(`/agent?customerId=${id}&phone=${encodeURIComponent(primaryPhone)}&name=${encodeURIComponent(data.fullName)}`);
+    const phoneToCall = primaryPhone?.replace(/[^\d+]/g, '');
+    if (!phoneToCall) {
+      alert('No valid phone number found for this farmer.');
+      return;
+    }
+    navigate(`/agent?phone=${encodeURIComponent(phoneToCall)}&name=${encodeURIComponent(data.fullName)}&customerId=${data.id}`);
   };
 
-  const handleDeleteCustomer = async () => {
-    setIsDeleting(true);
+  const handleSaveSensitiveDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setSavingSensitive(true);
+    setSensitiveError(null);
     try {
-      await api.delete(`/customers/${id}`);
-      navigate('/customers');
+      await api.patch(`/customers/${id}`, {
+        fullName: newName.trim(),
+        reason: nameChangeReason.trim() || 'Supervisor Correction',
+      });
+      void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+      setShowSensitiveEditModal(false);
     } catch (err) {
-      alert(errorMessage(err));
+      setSensitiveError(errorMessage(err) || 'Failed to correct farmer name');
     } finally {
-      setIsDeleting(false);
-      setShowDeleteConfirm(false);
+      setSavingSensitive(false);
     }
   };
 
-  const openLocationEditor = () => {
-    setLocationDraft({
-      state: primaryLocationObj?.state || 'Tamil Nadu',
-      district: primaryLocationObj?.district || '',
-      taluk: primaryLocationObj?.taluk || '',
-      village: primaryLocationObj?.village || '',
-      pincode: primaryLocationObj?.pincode || '',
-    });
-    setShowEditLocation(true);
-  };
-
-  const handleSaveLocation = async () => {
-    setSavingLocation(true);
+  const handleAddCropSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCropId) return;
+    setAddingCrop(true);
+    setCropError(null);
     try {
-      await api.patch(`/customers/${id}`, {
-        state: locationDraft.state,
-        district: locationDraft.district,
-        taluk: locationDraft.taluk,
-        village: locationDraft.village,
-        pincode: locationDraft.pincode,
+      await api.post(`/customers/${id}/crops`, {
+        cropId: selectedCropId,
+        acreage: Number(cropAcreage || 1),
+        unit: cropUnit,
+        cropStage,
+        season: cropSeason,
+        sowingDate: sowingDate || undefined,
+        harvestDate: harvestDate || undefined,
+        notes: cropNotes.trim() || undefined,
+        allowMultiple: true,
       });
       void queryClient.invalidateQueries({ queryKey: ['customer', id] });
-      void queryClient.invalidateQueries({ queryKey: ['customers'] });
-      setShowEditLocation(false);
+      setShowAddCropModal(false);
     } catch (err) {
-      alert(errorMessage(err));
+      setCropError(errorMessage(err) || 'Failed to add crop');
     } finally {
-      setSavingLocation(false);
+      setAddingCrop(false);
     }
   };
 
   const primaryCropNames = data.crops?.map((c) => c.crop.name).join(', ') || 'Not recorded';
-  // Land holding is the sum of crop acreage, grouped by unit (acre, hectare, ...)
-  const landByUnit = (data.crops ?? []).reduce<Record<string, number>>((acc, c) => {
-    acc[c.unit] = (acc[c.unit] ?? 0) + Number(c.acreage || 0);
-    return acc;
-  }, {});
   const landHolding =
-    Object.entries(landByUnit)
-      .filter(([, total]) => total > 0)
-      .map(([unit, total]) => `${Number(total.toFixed(2))} ${unit}${total === 1 ? '' : 's'}`)
-      .join(' + ') || 'Not recorded';
+    (data.crops ?? []).reduce((acc, c) => acc + Number(c.acreage || 0), 0) + ' Acres';
   const primaryLocation =
     [primaryLocationObj?.village, primaryLocationObj?.taluk, primaryLocationObj?.district, primaryLocationObj?.state]
       .filter(Boolean)
       .join(', ') || 'Location not set';
 
   return (
-    <div className="p-6 space-y-4">
-      {/* Top Breadcrumb / Back Bar */}
+    <div className="p-4 md:p-6 space-y-4">
+      {/* Breadcrumb / Back Bar */}
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <Link to="/customers" className="flex items-center gap-1 hover:text-slate-800 transition">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Farmer Directory
         </Link>
       </div>
 
-      {/* Missing Taluk Warning Notification (Requirement 3) */}
-      {isTalukMissing && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-amber-100 p-2 text-amber-700">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-amber-900">Taluk not available — please update Taluk.</p>
-              <p className="text-xs text-amber-700">
-                A Taluk is required for accurate agronomy advisory, delivery routing, and local soil profiling.
-              </p>
-            </div>
-          </div>
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={openLocationEditor}
-            className="bg-amber-600 hover:bg-amber-700 text-white gap-1 text-xs font-semibold shadow-xs"
-          >
-            <MapPin className="h-3.5 w-3.5" /> Update Taluk Now
-          </Button>
-        </div>
-      )}
-
-      {/* Header Banner matching PDF Farmer Profile / CRM Record */}
-      <div className="rounded-lg border border-slate-200/90 bg-white p-5 shadow-xs flex flex-wrap items-start justify-between gap-4">
+      {/* Header Banner */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">{data.fullName}</h1>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{data.fullName}</h1>
             <StatusBadge status={data.status} />
+
+            {/* Protected Edit Badge / Button (Phase 2.3) */}
+            {isSupervisor ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewName(data.fullName);
+                  setNameChangeReason('');
+                  setShowSensitiveEditModal(true);
+                }}
+                className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200 transition"
+                title="Supervisor: Correct Farmer Details"
+              >
+                <Edit2 className="h-3 w-3 text-slate-600" /> Correct Name
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 border border-slate-200"
+                title="Name locked. Supervisor authorization required to modify."
+              >
+                <Lock className="h-3 w-3 text-slate-400" /> Protected Record
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-600 font-medium">
-            {primaryLocation}
-          </p>
+          <p className="text-xs text-slate-600 font-medium">{primaryLocation}</p>
           <p className="text-xs text-slate-400 font-mono">
-            ID: <span className="font-semibold text-slate-700">{data.farmerCode ?? '—'}</span>
+            ID: <span className="font-bold text-slate-700">{data.farmerCode ?? '—'}</span>
             <span className="mx-2 text-slate-300">•</span>
-            Phone: <span className="font-semibold text-slate-700">{primaryPhone ? formatE164(primaryPhone) : '—'}</span>
+            Primary Phone: <span className="font-bold text-slate-700">{primaryPhone ? formatE164(primaryPhone) : '—'}</span>
+            <span className="mx-2 text-slate-300">•</span>
+            Language: <span className="font-bold text-slate-700">{data.preferredLanguage === 'ta' ? 'Tamil' : 'English'}</span>
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {canEdit ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openLocationEditor}
-              className="text-xs gap-1"
-            >
-              <MapPin className="h-3.5 w-3.5" /> Location
-            </Button>
-          ) : null}
-
-          {canToggle ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={toggleStatus.isPending}
-              onClick={() => {
-                if (data.status === 'ACTIVE') {
-                  setShowDeactivateConfirm(true);
-                } else {
-                  toggleStatus.mutate(true);
-                }
-              }}
-              className="text-xs"
-            >
-              {data.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-            </Button>
-          ) : null}
-
-          {canDelete ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isDeleting}
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Delete
-            </Button>
-          ) : null}
-
           <Button
             variant="call"
             size="md"
             onClick={handleCallNow}
-            className="px-4 py-2 text-xs font-bold shadow-xs bg-emerald-700 hover:bg-emerald-800 text-white"
-            aria-label={`Call ${data.fullName}`}
+            className="px-4 py-2 text-xs font-extrabold shadow-xs bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
           >
-            <PhoneCall className="h-3.5 w-3.5 fill-current" /> Call Farmer
+            <PhoneCall className="h-4 w-4" /> Start Telecall Session
           </Button>
         </div>
       </div>
 
-      <ConfirmModal
-        isOpen={showDeactivateConfirm}
-        onClose={() => setShowDeactivateConfirm(false)}
-        onConfirm={async () => {
-          await toggleStatus.mutateAsync(false);
-          setShowDeactivateConfirm(false);
-        }}
-        title={`Deactivate ${data?.fullName || 'Farmer Profile'}`}
-        variant="danger"
-        confirmLabel="Deactivate Farmer"
-        isLoading={toggleStatus.isPending}
-        description={
-          <div className="space-y-2">
-            <p>
-              Are you sure you want to mark <strong>{data.fullName}</strong> as inactive?
-            </p>
-            <p className="text-slate-500">
-              This will pause upcoming agronomy advisory callbacks and remove this farmer from active telecaller queues. You can reactivate this profile anytime.
-            </p>
-          </div>
-        }
-      />
-
-      <ConfirmModal
-        isOpen={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={handleDeleteCustomer}
-        title={`Permanently Delete ${data?.fullName || 'Customer'}`}
-        variant="danger"
-        confirmLabel="Permanently Delete"
-        isLoading={isDeleting}
-        description={
-          <div className="space-y-2 text-xs">
-            <p className="font-semibold text-slate-800">
-              Are you sure you want to permanently delete this customer?
-            </p>
-            <p className="text-slate-500 leading-relaxed">
-              This action will permanently delete <strong>{data.fullName}</strong> ({data.farmerCode}) and all linked records, notes, calls, follow-ups, and orders from the database. This action cannot be undone.
-            </p>
-          </div>
-        }
-      />
-
-      {showEditLocation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
-          <Card className="w-full max-w-lg p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4 text-emerald-600" /> Update Customer Location &amp; Taluk
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Select State &gt; District &gt; Taluk to update the customer record.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowEditLocation(false)}
-                className="text-slate-400 hover:text-slate-600 rounded p-1"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <LocationSelector
-              state={locationDraft.state}
-              district={locationDraft.district}
-              taluk={locationDraft.taluk}
-              village={locationDraft.village}
-              pincode={locationDraft.pincode}
-              onChange={(patch) => setLocationDraft((d) => ({ ...d, ...patch }))}
-            />
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <Button size="sm" variant="ghost" onClick={() => setShowEditLocation(false)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={savingLocation}
-                onClick={() => void handleSaveLocation()}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
-              >
-                {savingLocation ? 'Saving...' : 'Save Location'}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {toggleStatus.isError ? (
-        <Alert tone="error">{errorMessage(toggleStatus.error)}</Alert>
-      ) : null}
-
-      {/* Tabbed Navigation matching PDF */}
-      <div className="border-b border-slate-200 bg-white px-2 rounded-t-lg shadow-2xs">
-        <nav className="flex space-x-6 text-xs font-semibold" aria-label="Tabs">
-          <button
-            type="button"
-            onClick={() => setActiveTab('overview')}
-            className={cx(
-              'border-b-2 py-3 px-1 transition-colors',
-              activeTab === 'overview'
-                ? 'border-brand-600 text-brand-700 font-bold'
-                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
-            )}
-          >
-            Overview
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('invoices')}
-            className={cx(
-              'border-b-2 py-3 px-1 transition-colors',
-              activeTab === 'invoices'
-                ? 'border-brand-600 text-brand-700 font-bold'
-                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
-            )}
-          >
-            Invoices / Shipments
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('land_crops')}
-            className={cx(
-              'border-b-2 py-3 px-1 transition-colors',
-              activeTab === 'land_crops'
-                ? 'border-brand-600 text-brand-700 font-bold'
-                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
-            )}
-          >
-            Land &amp; Crops
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('advisory_notes')}
-            className={cx(
-              'border-b-2 py-3 px-1 transition-colors',
-              activeTab === 'advisory_notes'
-                ? 'border-brand-600 text-brand-700 font-bold'
-                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
-            )}
-          >
-            Advisory Notes
-          </button>
+      {/* 8-Tab Navigation Bar (Phase 2.2) */}
+      <div className="border-b border-slate-200 bg-white px-2 rounded-t-xl shadow-2xs overflow-x-auto">
+        <nav className="flex space-x-6 text-xs font-semibold whitespace-nowrap" aria-label="Tabs">
+          {[
+            { key: 'overview', label: '1. Overview' },
+            { key: 'contact', label: '2. Contact Details' },
+            { key: 'crops', label: '3. Crops & Agricultural Info' },
+            { key: 'calls', label: '4. Call History' },
+            { key: 'followups', label: '5. Scheduled Follow-ups' },
+            { key: 'orders', label: '6. Orders & Sales' },
+            { key: 'tickets', label: '7. Support Tickets' },
+            { key: 'advisory', label: '8. Crop Advisories' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key as any)}
+              className={cx(
+                'border-b-2 py-3 px-1 transition-colors',
+                activeTab === tab.key
+                  ? 'border-emerald-600 text-emerald-800 font-bold'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </nav>
       </div>
 
-      {/* Tab Content: Overview (Default matching PDF) */}
+      {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Left Column: Farm Profile + Purchase History (~60% width) */}
           <div className="lg:col-span-7 space-y-4">
-            {/* Card 1: Farm & Agricultural Profile */}
             <Card className="p-4 shadow-xs">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 border-b border-slate-100 pb-2">
-                Farm &amp; Agricultural Profile
+                Farm &amp; Soil Profile
               </h2>
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
@@ -506,18 +395,24 @@ export function CustomerDetailPage() {
                   <p className="text-slate-800 font-bold mt-0.5">{primaryCropNames}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Land Holding</p>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Cultivated Area</p>
                   <p className="text-slate-800 font-bold mt-0.5">{landHolding}</p>
                 </div>
-                <SoilTypeField customerId={data.id} soilType={data.soilType} canEdit={canEdit} />
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Soil Profile</p>
+                  <p className="text-slate-800 font-bold mt-0.5">{data.soilType || 'Red Soil (செம்மண்)'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Preferred Language</p>
+                  <p className="text-slate-800 font-bold mt-0.5">{data.preferredLanguage === 'ta' ? 'Tamil (தமிழ்)' : 'English'}</p>
+                </div>
               </div>
             </Card>
 
-            {/* Card 2: Agro-Input Purchase History */}
             <Card className="shadow-xs overflow-hidden">
               <div className="border-b border-slate-100 px-4 py-3 bg-white">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Agro-Input Purchase History
+                  Recent Commercial Purchases
                 </h2>
               </div>
               <Table>
@@ -529,16 +424,16 @@ export function CustomerDetailPage() {
                     <TH>AMOUNT</TH>
                   </tr>
                 </THead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 text-xs">
                   {purchases.length === 0 ? (
                     <tr>
-                      <TD colSpan={4} className="py-8 text-center text-xs text-slate-400">
-                        No commercial purchases recorded for this customer yet.
+                      <TD colSpan={4} className="py-6 text-center text-slate-400">
+                        No purchases recorded yet.
                       </TD>
                     </tr>
                   ) : (
-                    purchases.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50/70">
+                    purchases.slice(0, 5).map((p) => (
+                      <tr key={p.id}>
                         <TD className="text-slate-500 font-mono text-[11px]">{p.date}</TD>
                         <TD className="font-semibold text-slate-800">{p.product}</TD>
                         <TD className="text-slate-600">{p.qty}</TD>
@@ -551,78 +446,339 @@ export function CustomerDetailPage() {
             </Card>
           </div>
 
-          {/* Right Column: Call History Timeline (~40% width) */}
-          <div className="lg:col-span-5">
-            <Card className="shadow-xs overflow-hidden">
-              <div className="border-b border-slate-100 px-4 py-3 bg-white">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Call History Timeline
-                </h2>
-              </div>
-              <div className="divide-y divide-slate-100 p-2 max-h-[450px] overflow-y-auto">
-                {timelineItems.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-400">
-                    No call history or advisory notes recorded yet.
-                  </div>
-                ) : (
-                  timelineItems.map((item) => (
-                    <div key={item.id} className="p-3 hover:bg-slate-50/50 rounded-md transition-colors space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                          <span>{item.actor}</span>
-                          <span className="text-slate-400 font-normal">({item.role})</span>
-                          {item.badge && (
-                            <Badge tone={item.badge.tone}>
-                              {item.badge.label}
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="text-slate-400 font-mono text-[10px]">{item.timestamp}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100">
-                        {item.note}
-                      </p>
-                    </div>
-                  ))
-                )}
+          <div className="lg:col-span-5 space-y-4">
+            <Card className="p-4 shadow-xs">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2">
+                Quick Farmer Metrics
+              </h2>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Calls</span>
+                  <span className="font-mono text-lg font-bold text-slate-900">{(callsQuery.data || []).length}</span>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Sales Orders</span>
+                  <span className="font-mono text-lg font-bold text-emerald-700">{(ordersQuery.data || []).length}</span>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Open Tickets</span>
+                  <span className="font-mono text-lg font-bold text-amber-700">
+                    {(ticketsQuery.data || []).filter((t: any) => t.status !== 'RESOLVED' && t.status !== 'CLOSED').length}
+                  </span>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Follow-ups Due</span>
+                  <span className="font-mono text-lg font-bold text-blue-700">
+                    {(followupsQuery.data || []).filter((f: any) => f.status === 'SCHEDULED' || f.status === 'DUE').length}
+                  </span>
+                </div>
               </div>
             </Card>
           </div>
         </div>
       )}
 
-      {/* Tab Content: Invoices / Shipments */}
-      {activeTab === 'invoices' && (
-        <Card className="p-5 shadow-xs">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Shipment &amp; Delivery Status</h3>
-          <p className="text-xs text-slate-500 mb-4">Tracking shipments dispatched from regional agro-hubs.</p>
-          <div className="rounded-md border border-slate-100 p-4 bg-slate-50 text-xs text-slate-600 space-y-2">
-            <div className="flex justify-between font-semibold text-slate-800">
-              <span>Order #GR-9821</span>
-              <Badge tone="green">Delivered</Badge>
+      {/* TAB 2: CONTACT DETAILS */}
+      {activeTab === 'contact' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <PhoneIcon className="h-3.5 w-3.5 text-emerald-700" /> Phone Numbers
+              </h3>
+              {!isSupervisor && (
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <Lock className="h-3 w-3" /> Agent Read-Only
+                </span>
+              )}
             </div>
-            <p>2 bags Grotec Trishul (Granules) dispatched via Salem Hub on 01 Mar 2026.</p>
+            <div className="divide-y divide-slate-100 text-xs">
+              {data.phones?.map((p) => (
+                <div key={p.id} className="py-2.5 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold text-slate-800 font-mono">{formatE164(p.phone)}</span>
+                    <span className="ml-2 text-slate-400">({p.kind})</span>
+                    {p.isPrimary && (
+                      <span className="ml-2 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
+                        Primary
+                      </span>
+                    )}
+                  </div>
+                  <Button size="xs" variant="outline" onClick={handleCallNow} className="gap-1">
+                    <PhoneCall className="h-3 w-3" /> Dial
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-emerald-700" /> Farm Locations &amp; Zones
+              </h3>
+            </div>
+            <div className="divide-y divide-slate-100 text-xs">
+              {data.locations?.map((l) => (
+                <div key={l.id} className="py-2.5 space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-900">{l.village || 'Farm'}</span>
+                    {l.isPrimary && <span className="text-[10px] text-emerald-700 font-bold">Primary Location</span>}
+                  </div>
+                  <p className="text-slate-600">
+                    Taluk: <span className="font-semibold text-slate-800">{l.taluk || '—'}</span>, District:{' '}
+                    <span className="font-semibold text-slate-800">{l.district || '—'}</span>
+                  </p>
+                  <p className="text-slate-500 text-[11px]">
+                    State: {l.state || 'Tamil Nadu'} • Pincode: {l.pincode || '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* TAB 3: CROPS & AGRICULTURAL INFORMATION (Phase 2.5) */}
+      {activeTab === 'crops' && (
+        <Card className="p-4 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Sprout className="h-4 w-4 text-emerald-700" /> Cultivation &amp; Crop Master Register
+              </h2>
+              <p className="text-xs text-slate-500">
+                Multiple seasonal and perennial crops recorded for this farmer.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                setSelectedCropId(cropsQuery.data?.[0]?.id || '');
+                setShowAddCropModal(true);
+              }}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-1 text-xs"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Cultivation Record
+            </Button>
+          </div>
+
+          <Table>
+            <THead>
+              <tr>
+                <TH>CROP NAME</TH>
+                <TH>BOTANICAL / LOCAL</TH>
+                <TH>SEASON / CYCLE</TH>
+                <TH>CROP STAGE</TH>
+                <TH>ACREAGE</TH>
+                <TH>SOWING / HARVEST</TH>
+                <TH>STATUS</TH>
+              </tr>
+            </THead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {(data.crops || []).length === 0 ? (
+                <tr>
+                  <TD colSpan={7} className="py-8 text-center text-slate-400">
+                    No crop cultivation records added yet. Click "Add Cultivation Record" above.
+                  </TD>
+                </tr>
+              ) : (
+                data.crops.map((c: any) => (
+                  <tr key={c.id}>
+                    <TD className="font-bold text-slate-900">{c.crop.name}</TD>
+                    <TD className="text-slate-600">{c.crop.localName || '—'}</TD>
+                    <TD className="font-medium text-slate-800">{c.season || 'Annual / Kharif'}</TD>
+                    <TD>
+                      <span className="rounded bg-emerald-50 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                        {c.cropStage || 'Vegetative'}
+                      </span>
+                    </TD>
+                    <TD className="font-semibold text-slate-800 font-mono">
+                      {c.acreage} {c.unit || 'acre'}
+                    </TD>
+                    <TD className="text-slate-500 font-mono text-[11px]">
+                      {c.sowingDate ? formatDate(c.sowingDate) : '—'}
+                    </TD>
+                    <TD>
+                      <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                        {c.isActive ? 'Active Cultivation' : 'Past Season'}
+                      </span>
+                    </TD>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </Card>
+      )}
+
+      {/* TAB 4: CALL & INTERACTION HISTORY (Phase 3.4) */}
+      {activeTab === 'calls' && (
+        <Card className="p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5 text-emerald-700" /> Complete Interaction &amp; Call History
+            </h2>
+            <Button size="xs" onClick={handleCallNow} className="bg-emerald-700 text-white font-bold gap-1">
+              <PhoneCall className="h-3 w-3" /> Dial Call
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            {(callsQuery.data || []).length === 0 ? (
+              <p className="py-8 text-center text-xs text-slate-400">No telecall interactions logged yet.</p>
+            ) : (
+              (callsQuery.data || []).map((call: any) => (
+                <div key={call.id} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">{formatDate(call.startedAt || call.createdAt)}</span>
+                      <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-800">
+                        {call.outcomeCustom || call.outcome || 'CONNECTED'}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500">
+                      Telecaller: <span className="font-semibold text-slate-700">{call.agent?.fullName || 'Agent'}</span>
+                    </span>
+                  </div>
+                  {call.notes && call.notes.length > 0 && (
+                    <p className="text-slate-700 bg-white p-2 rounded border border-slate-100">
+                      "{call.notes[0]?.body}"
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </Card>
       )}
 
-      {/* Tab Content: Land & Crops */}
-      {activeTab === 'land_crops' && (
-        <div className="grid gap-5 xl:grid-cols-2">
-          <CropsCard customerId={data.id} customer={data} crops={cropsQuery.data ?? []} canEdit={canEdit} />
-          <LocationsCard customerId={data.id} customer={data} canEdit={canEdit} onEditLocation={openLocationEditor} />
-          <ReferralsCard customerId={data.id} />
-        </div>
+      {/* TAB 5: SCHEDULED FOLLOW-UPS (Phase 4.1 & 4.2) */}
+      {activeTab === 'followups' && (
+        <Card className="p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-amber-700" /> Scheduled Callbacks &amp; Appointments
+            </h2>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            {(followupsQuery.data || []).length === 0 ? (
+              <p className="py-8 text-center text-slate-400">No callbacks scheduled for this farmer.</p>
+            ) : (
+              (followupsQuery.data || []).map((f: any) => (
+                <div key={f.id} className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900">
+                      {f.dueAt ? formatDate(f.dueAt) : 'Scheduled Date'}
+                    </span>
+                    <span className="rounded bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                      {f.status}
+                    </span>
+                  </div>
+                  <p className="text-slate-700">{f.instructions || f.notes || 'Callback requested'}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
       )}
 
-      {/* Tab Content: Advisory Notes */}
-      {activeTab === 'advisory_notes' && (
+      {/* TAB 6: ORDERS & SALES (Phase 6) */}
+      {activeTab === 'orders' && (
+        <Card className="p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <ShoppingBag className="h-3.5 w-3.5 text-emerald-700" /> Commercial Sales Orders
+            </h2>
+            <Link to="/sales" className="text-xs text-emerald-700 font-bold hover:underline">
+              View Central Sales Ledger →
+            </Link>
+          </div>
+
+          <Table>
+            <THead>
+              <tr>
+                <TH>ORDER #</TH>
+                <TH>DATE</TH>
+                <TH>LINE ITEMS</TH>
+                <TH>DELIVERY STATUS</TH>
+                <TH>TOTAL (₹)</TH>
+              </tr>
+            </THead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {(ordersQuery.data || []).length === 0 ? (
+                <tr>
+                  <TD colSpan={5} className="py-8 text-center text-slate-400">
+                    No orders placed for this customer yet.
+                  </TD>
+                </tr>
+              ) : (
+                (ordersQuery.data || []).map((o: any) => (
+                  <tr key={o.id}>
+                    <TD className="font-mono font-bold text-slate-900">{o.orderNumber}</TD>
+                    <TD className="text-slate-500 font-mono">{formatDate(o.orderDate || o.createdAt)}</TD>
+                    <TD>
+                      {(o.items || []).map((it: any) => (
+                        <span key={it.id} className="block text-[11px]">
+                          {it.product?.name} ({Number(it.approvedQty || it.originalQty)} {it.product?.unit})
+                        </span>
+                      ))}
+                    </TD>
+                    <TD>
+                      <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                        {o.status}
+                      </span>
+                    </TD>
+                    <TD className="font-mono font-bold text-slate-900">
+                      ₹{Number(o.totalAmount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </TD>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </Card>
+      )}
+
+      {/* TAB 7: SUPPORT TICKETS (Phase 7) */}
+      {activeTab === 'tickets' && (
+        <Card className="p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-600" /> Support &amp; Escalation Tickets
+            </h2>
+            <Link to="/tickets" className="text-xs text-amber-700 font-bold hover:underline">
+              View Ticket Management Dashboard →
+            </Link>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            {(ticketsQuery.data || []).length === 0 ? (
+              <p className="py-8 text-center text-slate-400">No support tickets logged for this farmer.</p>
+            ) : (
+              (ticketsQuery.data || []).map((t: any) => (
+                <div key={t.id} className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-slate-900">{t.ticketNumber}</span>
+                    <span className="rounded bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                      {t.status}
+                    </span>
+                  </div>
+                  <p className="font-semibold text-slate-800">{t.category?.replace(/_/g, ' ')}</p>
+                  <p className="text-slate-600">{t.description}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* TAB 8: CROP ADVISORIES (Phase 8) */}
+      {activeTab === 'advisory' && (
         <div className="grid gap-5 xl:grid-cols-2 items-start">
           <Card className="p-4 shadow-xs space-y-4">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Add Advisory Note</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Record agronomic recommendations, soil health notes, or farmer requests.</p>
-            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Add Advisory Note</h3>
             <form onSubmit={handleAddNote} className="space-y-3">
               <textarea
                 value={newNoteBody}
@@ -632,343 +788,138 @@ export function CustomerDetailPage() {
                 required
               />
               <div className="flex justify-end">
-                <Button size="sm" type="submit" disabled={addingNote || !newNoteBody.trim()} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                <Button size="sm" type="submit" disabled={addingNote || !newNoteBody.trim()} className="gap-1.5 bg-emerald-600 text-white font-bold">
                   <Send className="h-3.5 w-3.5" />
                   {addingNote ? 'Saving…' : 'Post Note'}
                 </Button>
               </div>
             </form>
 
-            <div className="border-t border-slate-100 pt-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Recorded Notes</h4>
-              {notesQuery.data && notesQuery.data.length > 0 ? (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto divide-y divide-slate-100">
-                  {notesQuery.data.map((n: any) => (
-                    <div key={n.id} className="pt-2 text-xs">
-                      <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span className="font-bold text-slate-700">{n.author?.fullName || 'Advisor'}</span>
-                        <span className="font-mono text-[10px]">{formatDate(n.createdAt)}</span>
-                      </div>
-                      <p className="mt-1 text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 leading-relaxed">
-                        {n.body}
-                      </p>
-                    </div>
-                  ))}
+            <div className="divide-y divide-slate-100 pt-2 text-xs">
+              {(notesQuery.data || []).map((n: any) => (
+                <div key={n.id} className="py-2.5 space-y-1">
+                  <div className="flex justify-between text-[11px] text-slate-400">
+                    <span className="font-bold text-slate-700">{n.author?.fullName || 'Advisor'}</span>
+                    <span>{formatDate(n.createdAt)}</span>
+                  </div>
+                  <p className="text-slate-700">{n.body}</p>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">No notes recorded yet. Post the first advisory note above.</p>
-              )}
+              ))}
             </div>
           </Card>
-          <PhonesCard customerId={data.id} customer={data} canEdit={canEdit} />
         </div>
       )}
-    </div>
-  );
-}
 
-/** Reusable mutation runner: POST/PATCH/DELETE then refresh the profile. */
-function useCustomerMutation(customerId: string) {
-  const queryClient = useQueryClient();
-  const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function run(key: string, fn: () => Promise<unknown>) {
-    setPending(key);
-    setError(null);
-    try {
-      await fn();
-      await queryClient.invalidateQueries({ queryKey: ['customer', customerId] });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setPending(null);
-    }
-  }
-  return { pending, error, setError, run };
-}
-
-/**
- * Soil Profile cell of the Farm & Agricultural Profile card.
- * Shows the persisted Customer.soilType (em-dash when unset) and, for users with
- * customer.update, an inline edit that PATCHes /customers/:id. Saving a blank
- * value sends null, which the backend treats as "clear". No other customer field
- * is sent, so nothing else on the record is disturbed.
- */
-function SoilTypeField({ customerId, soilType, canEdit }: { customerId: string; soilType: string | null; canEdit: boolean }) {
-  const { pending, error, run } = useCustomerMutation(customerId);
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(soilType ?? '');
-  const saving = pending === 'soilType';
-
-  async function save() {
-    await run('soilType', () => api.patch(`/customers/${customerId}`, { soilType: value.trim() || null }));
-    setEditing(false);
-  }
-
-  function startEditing() {
-    setValue(soilType ?? '');
-    setEditing(true);
-  }
-
-  function cancel() {
-    setValue(soilType ?? '');
-    setEditing(false);
-  }
-
-  return (
-    <div>
-      <p className="text-[11px] font-semibold text-slate-400 uppercase">Soil Profile</p>
-      {editing ? (
-        <>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              maxLength={40}
-              placeholder="e.g. Red loam"
-              aria-label="Soil type"
-              disabled={saving}
-              autoFocus
-            />
-            <Button size="xs" onClick={() => void save()} disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-            <Button size="xs" variant="ghost" onClick={cancel} disabled={saving}>
-              Cancel
-            </Button>
-          </div>
-          <p className="mt-1 text-[10px] text-slate-400">Leave empty to clear.</p>
-          {error ? <p className="mt-1 text-[11px] text-red-600">{error}</p> : null}
-        </>
-      ) : (
-        <div className="mt-0.5 flex items-center gap-2">
-          <p className="text-slate-800 font-bold">{soilType || '—'}</p>
-          {canEdit ? (
-            <button
-              type="button"
-              onClick={startEditing}
-              className="text-[11px] font-medium text-brand-600 hover:underline"
-            >
-              Edit
-            </button>
-          ) : null}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Referrals made BY this customer (Step 3B). Append-only: create and read only,
- * no edit or delete. Reuses the page's existing query/mutation and permission
- * patterns. The referred customer shown comes from the lead, never stored twice.
- */
-function ReferralsCard({ customerId }: { customerId: string }) {
-  const { hasPermission } = useAuth();
-  const canRead = hasPermission('referral.read');
-  const canManage = hasPermission('referral.manage');
-  const { pending, error, run } = useCustomerMutation(customerId);
-  const queryClient = useQueryClient();
-  const [leadId, setLeadId] = useState('');
-  const [notes, setNotes] = useState('');
-
-  const referralsQuery = useQuery({
-    queryKey: ['referrals', customerId],
-    queryFn: async () => (await api.get<Referral[]>(`/referrals/customers/${customerId}`)).data,
-    enabled: canRead,
-  });
-
-  // Open leads the actor may see; the backend scopes this to their own leads.
-  const leadsQuery = useQuery({
-    queryKey: ['leads', 'OPEN'],
-    queryFn: async () =>
-      (await api.get<Page<Lead>>('/leads', { params: { status: 'OPEN', page: 1, pageSize: 50 } })).data,
-    enabled: canManage,
-  });
-
-  if (!canRead) return null;
-
-  // A customer cannot refer their own lead — keep those out of the picker.
-  const selectableLeads = (leadsQuery.data?.items ?? []).filter((l) => l.customer.id !== customerId);
-
-  async function submit() {
-    await run('referral', async () => {
-      await api.post('/referrals', {
-        referrerCustomerId: customerId,
-        leadId,
-        notes: notes.trim() || null,
-      });
-      await queryClient.invalidateQueries({ queryKey: ['referrals', customerId] });
-    });
-    setLeadId('');
-    setNotes('');
-  }
-
-  return (
-    <Card className="p-4 shadow-xs">
-      <CardHeader title="Referrals Made" />
-      {error ? <div className="p-2"><Alert tone="error">{error}</Alert></div> : null}
-
-      <div className="divide-y divide-slate-100 text-xs">
-        {referralsQuery.isLoading ? <div className="py-3"><Spinner label="Loading referrals…" /></div> : null}
-        {referralsQuery.data?.length === 0 ? (
-          <p className="py-3 text-slate-400">No referrals recorded for this farmer yet.</p>
-        ) : null}
-        {referralsQuery.data?.map((r) => (
-          <div key={r.id} className="py-2">
-            <div className="flex items-center gap-2">
-              <Link to={`/customers/${r.referredCustomer.id}`} className="font-semibold text-slate-800 hover:underline">
-                {r.referredCustomer.fullName}
-              </Link>
-              <Badge tone={r.leadStatus === 'OPEN' ? 'green' : 'slate'}>{r.leadStatus}</Badge>
-            </div>
-            {r.notes ? <p className="mt-0.5 text-slate-500">{r.notes}</p> : null}
-            <p className="mt-0.5 text-[10px] text-slate-400">
-              by {r.createdBy.fullName} • {formatDate(r.createdAt)}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {canManage ? (
-        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-          <Field label="Refer a lead" hint="Only leads you can access are listed. A farmer cannot refer their own lead.">
-            <Select value={leadId} onChange={(e) => setLeadId(e.target.value)} aria-label="Lead to refer">
-              <option value="">Select a lead…</option>
-              {selectableLeads.map((l) => (
-                <option key={l.id} value={l.id}>{l.customer.fullName}</option>
-              ))}
-            </Select>
-          </Field>
-          <Input
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            maxLength={500}
-            placeholder="Notes (optional)"
-            aria-label="Referral notes"
-          />
-          <Button
-            size="sm"
-            onClick={() => void submit()}
-            disabled={!leadId || pending === 'referral'}
-          >
-            {pending === 'referral' ? 'Saving…' : 'Record referral'}
-          </Button>
-        </div>
-      ) : null}
-    </Card>
-  );
-}
-
-function PhonesCard({ customerId, customer, canEdit }: { customerId: string; customer: CustomerDetail; canEdit: boolean }) {
-  const { pending, error, run } = useCustomerMutation(customerId);
-  const [number, setNumber] = useState('');
-  const [label, setLabel] = useState('Mobile');
-
-  return (
-    <Card className="p-4 shadow-xs">
-      <CardHeader title="Phone Numbers" />
-      {error ? <div className="p-2"><Alert tone="error">{error}</Alert></div> : null}
-      <div className="divide-y divide-slate-100 text-xs">
-        {customer.phones?.map((p) => (
-          <div key={p.id} className="flex items-center justify-between py-2">
-            <div>
-              <span className="font-semibold text-slate-800">{formatE164(p.phone)}</span>
-              <span className="ml-2 text-slate-400">({p.kind})</span>
-              {p.isPrimary ? <span className="ml-2 text-[10px] text-emerald-600 font-bold">Primary</span> : null}
-            </div>
-            {canEdit && !p.isPrimary ? (
-              <button
-                type="button"
-                onClick={() => run(`delete-${p.id}`, () => api.delete(`/customers/${customerId}/phones/${p.id}`))}
-                className="text-slate-400 hover:text-red-600"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
+      {/* Sensitive Name Edit Modal (Phase 2.3) */}
+      {showSensitiveEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true">
+          <Card className="w-full max-w-md p-6 bg-white shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <ShieldAlert className="h-4 w-4 text-amber-600" /> Authorized Farmer Name Correction
+              </h3>
+              <button type="button" onClick={() => setShowSensitiveEditModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
               </button>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </Card>
+            </div>
+            <form onSubmit={handleSaveSensitiveDetails} className="space-y-3 text-xs">
+              {sensitiveError && <div className="rounded bg-red-50 p-2 text-red-800">{sensitiveError}</div>}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">New Farmer Name</label>
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Reason for Modification (Audit Trail)
+                </label>
+                <Input
+                  value={nameChangeReason}
+                  onChange={(e) => setNameChangeReason(e.target.value)}
+                  placeholder="e.g. Spelling correction confirmed with farmer"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setShowSensitiveEditModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={savingSensitive || !newName.trim()} className="bg-emerald-700 text-white font-bold">
+                  {savingSensitive ? 'Saving…' : 'Save Correction'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Cultivation Crop Modal (Phase 2.5) */}
+      {showAddCropModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true">
+          <Card className="w-full max-w-md p-6 bg-white shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <Sprout className="h-4 w-4 text-emerald-700" /> Add Crop Cultivation Record
+              </h3>
+              <button type="button" onClick={() => setShowAddCropModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAddCropSubmit} className="space-y-3 text-xs">
+              {cropError && <div className="rounded bg-red-50 p-2 text-red-800">{cropError}</div>}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Select Crop</label>
+                <Select value={selectedCropId} onChange={(e) => setSelectedCropId(e.target.value)} className="w-full">
+                  {(cropsQuery.data || []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.localName ? `(${c.localName})` : ''} — {c.category || 'Crop'}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Cultivated Area</label>
+                  <Input type="number" step="0.5" value={cropAcreage} onChange={(e) => setCropAcreage(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Unit</label>
+                  <Select value={cropUnit} onChange={(e) => setCropUnit(e.target.value)} className="w-full">
+                    <option value="acre">Acres</option>
+                    <option value="hectare">Hectares</option>
+                    <option value="cent">Cents</option>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Crop Stage</label>
+                  <Select value={cropStage} onChange={(e) => setCropStage(e.target.value)} className="w-full">
+                    <option value="Sowing">Sowing</option>
+                    <option value="Vegetative">Vegetative</option>
+                    <option value="Flowering">Flowering</option>
+                    <option value="Fruiting">Fruiting</option>
+                    <option value="Harvest">Harvest</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Season</label>
+                  <Input value={cropSeason} onChange={(e) => setCropSeason(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setShowAddCropModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={addingCrop || !selectedCropId} className="bg-emerald-700 text-white font-bold">
+                  {addingCrop ? 'Saving…' : 'Add Crop'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+    </div>
   );
 }
 
-function LocationsCard({
-  customerId,
-  customer,
-  canEdit,
-  onEditLocation,
-}: {
-  customerId: string;
-  customer: CustomerDetail;
-  canEdit: boolean;
-  onEditLocation?: () => void;
-}) {
-  return (
-    <Card className="p-4 shadow-xs">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-          Locations / Farm Holdings
-        </h3>
-        {canEdit && onEditLocation && (
-          <Button size="sm" variant="ghost" onClick={onEditLocation} className="text-xs gap-1 text-emerald-700 hover:text-emerald-800">
-            <MapPin className="h-3.5 w-3.5" /> Edit Location
-          </Button>
-        )}
-      </div>
-      <div className="divide-y divide-slate-100 text-xs">
-        {customer.locations?.map((loc) => (
-          <div key={loc.id} className="py-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-800 text-sm">{loc.village || 'Farm Location'}</span>
-              {loc.isPrimary ? <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">Primary Location</span> : null}
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-slate-600">
-              <div>
-                <span className="text-slate-400 font-medium">Taluk: </span>
-                {loc.taluk ? (
-                  <span className="font-semibold text-slate-800">{loc.taluk}</span>
-                ) : (
-                  <span className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px] font-semibold">
-                    Not available (Update Taluk)
-                  </span>
-                )}
-              </div>
-              <div>
-                <span className="text-slate-400 font-medium">District: </span>
-                <span className="font-semibold text-slate-800">{loc.district || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 font-medium">State: </span>
-                <span className="text-slate-800">{loc.state || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 font-medium">Pincode: </span>
-                <span className="text-slate-800 font-mono">{loc.pincode || '—'}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-        {(!customer.locations || customer.locations.length === 0) && (
-          <p className="py-4 text-center text-slate-400">No farm locations registered.</p>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function CropsCard({ customerId, customer, crops, canEdit }: { customerId: string; customer: CustomerDetail; crops: Crop[]; canEdit: boolean }) {
-  return (
-    <Card className="p-4 shadow-xs">
-      <CardHeader title="Cultivated Crops" />
-      <div className="flex flex-wrap gap-1.5 p-2">
-        {customer.crops?.map((c) => (
-          <Badge key={c.id} tone="green">
-            {c.crop.name} {c.crop.localName ? `(${c.crop.localName})` : ''}
-          </Badge>
-        ))}
-      </div>
-    </Card>
-  );
-}
+export default CustomerDetailPage;

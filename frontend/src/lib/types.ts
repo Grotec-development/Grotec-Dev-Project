@@ -53,10 +53,15 @@ export interface CustomerLocation {
 
 export interface CustomerCrop {
   id: string;
-  crop: { id: string; code: string; name: string; localName: string | null };
+  crop: { id: string; code: string; name: string; localName: string | null; category?: string | null };
   acreage: number;
   unit: string;
   notes: string | null;
+  sowingDate?: string | null;
+  harvestDate?: string | null;
+  cropStage?: string | null;
+  season?: string | null;
+  isActive?: boolean;
 }
 
 export interface CustomerLead {
@@ -74,6 +79,7 @@ export interface CustomerDetail {
   fullName: string;
   /** Free-text farm soil description. Null when not recorded. */
   soilType: string | null;
+  preferredLanguage?: string | null;
   status: 'ACTIVE' | 'INACTIVE';
   createdBy: { id: string; fullName: string } | null;
   createdAt: string;

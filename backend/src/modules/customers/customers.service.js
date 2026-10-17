@@ -365,9 +365,19 @@ let CustomersService = class CustomersService {
         const after = {};
         // Falsy fullName is ignored, matching the previous behaviour.
         if (dto.fullName && dto.fullName !== existing.fullName) {
+            const techRole = toTechnicalRole(actor.roleCode);
+            const isAuthorized = isTopTier(actor.roleCode) || actor.roleCode === 'MANAGER' || actor.permissions?.includes('customer.manage') || actor.permissions?.includes('customer.edit.sensitive');
+            if (techRole === 'AGENT' && !isAuthorized) {
+                throw ApiError.forbidden('NAME_EDIT_RESTRICTED', 'Only authorized personnel (Team Leader or Administrator) can edit farmer name');
+            }
             data.fullName = dto.fullName;
             before.fullName = existing.fullName;
             after.fullName = dto.fullName;
+        }
+        if (dto.preferredLanguage !== undefined && dto.preferredLanguage !== existing.preferredLanguage) {
+            data.preferredLanguage = dto.preferredLanguage || null;
+            before.preferredLanguage = existing.preferredLanguage;
+            after.preferredLanguage = dto.preferredLanguage || null;
         }
         if (dto.soilType !== undefined) {
             const nextSoilType = normalizeSoilType(dto.soilType);
@@ -552,6 +562,11 @@ let CustomersService = class CustomersService {
     // -------------------------------------------------------------------- phones
     async addPhone(actor, customerId, input) {
         await this.scopedCustomer(customerId, actor);
+        const techRole = toTechnicalRole(actor.roleCode);
+        const isAuthorized = isTopTier(actor.roleCode) || actor.roleCode === 'MANAGER' || actor.permissions?.includes('customer.manage') || actor.permissions?.includes('customer.edit.sensitive');
+        if (techRole === 'AGENT' && !isAuthorized) {
+            throw ApiError.forbidden('PHONE_EDIT_RESTRICTED', 'Only authorized supervisors (Team Leader or Administrator) can add or change farmer phone numbers');
+        }
         const e164 = this.normalizeOne(input.number);
         const dup = await this.prisma.customerPhone.findFirst({
             where: { ...LIVE_PHONE, phoneE164: e164 },
@@ -650,6 +665,11 @@ let CustomersService = class CustomersService {
     }
     async removePhone(actor, customerId, phoneId) {
         await this.scopedCustomer(customerId, actor);
+        const techRole = toTechnicalRole(actor.roleCode);
+        const isAuthorized = isTopTier(actor.roleCode) || actor.roleCode === 'MANAGER' || actor.permissions?.includes('customer.manage') || actor.permissions?.includes('customer.edit.sensitive');
+        if (techRole === 'AGENT' && !isAuthorized) {
+            throw ApiError.forbidden('PHONE_EDIT_RESTRICTED', 'Only authorized supervisors (Team Leader or Administrator) can remove farmer phone numbers');
+        }
         const phone = await this.livePhoneOf(customerId, phoneId);
         await this.prisma.$transaction(async (tx) => {
             const liveCount = await tx.customerPhone.count({ where: { customerId, deletedAt: null } });
@@ -752,18 +772,29 @@ let CustomersService = class CustomersService {
     async addCrop(actor, customerId, input) {
         await this.scopedCustomer(customerId, actor);
         await this.requireActiveCrop(input.cropId);
+        // Master prompt §2.5: Allow multiple cultivation records for the same crop across different seasons/years
         const existing = await this.prisma.customerCrop.findFirst({
-            where: { customerId, cropId: input.cropId, deletedAt: null },
+            where: {
+                customerId,
+                cropId: input.cropId,
+                season: input.season || null,
+                deletedAt: null,
+            },
         });
-        if (existing)
-            throw ApiError.conflict('CUSTOMER_CROP_EXISTS', 'This crop is already recorded for the customer');
+        if (existing && !input.allowMultiple)
+            throw ApiError.conflict('CUSTOMER_CROP_EXISTS', 'This crop for this season is already recorded for the customer');
         await this.prisma.$transaction(async (tx) => {
             const created = await tx.customerCrop.create({
                 data: {
                     customerId,
                     cropId: input.cropId,
-                    acreage: input.acreage,
+                    acreage: input.acreage ?? 1,
                     unit: input.unit ?? 'acre',
+                    sowingDate: input.sowingDate ? new Date(input.sowingDate) : null,
+                    harvestDate: input.harvestDate ? new Date(input.harvestDate) : null,
+                    cropStage: input.cropStage ?? null,
+                    season: input.season ?? null,
+                    isActive: input.isActive !== undefined ? Boolean(input.isActive) : true,
                     notes: input.notes ?? null,
                     createdById: actor.id,
                 },
@@ -774,7 +805,7 @@ let CustomersService = class CustomersService {
                 entityId: created.id,
                 entityLabel: `${input.cropId}`,
                 action: 'created',
-                after: { customerId, cropId: input.cropId, acreage: input.acreage, unit: input.unit ?? 'acre' },
+                after: { customerId, cropId: input.cropId, acreage: input.acreage, unit: input.unit ?? 'acre', season: input.season },
             });
         });
         return this.detailOrThrow(customerId, actor);
@@ -788,8 +819,13 @@ let CustomersService = class CustomersService {
             const updated = await tx.customerCrop.update({
                 where: { id: customerCropId },
                 data: {
-                    acreage: input.acreage ?? undefined,
+                    acreage: input.acreage !== undefined ? Number(input.acreage) : undefined,
                     unit: input.unit ?? undefined,
+                    sowingDate: input.sowingDate !== undefined ? (input.sowingDate ? new Date(input.sowingDate) : null) : undefined,
+                    harvestDate: input.harvestDate !== undefined ? (input.harvestDate ? new Date(input.harvestDate) : null) : undefined,
+                    cropStage: input.cropStage !== undefined ? input.cropStage : undefined,
+                    season: input.season !== undefined ? input.season : undefined,
+                    isActive: input.isActive !== undefined ? Boolean(input.isActive) : undefined,
                     notes: input.notes === undefined ? undefined : input.notes,
                 },
             });
@@ -799,8 +835,8 @@ let CustomersService = class CustomersService {
                 entityId: customerCropId,
                 entityLabel: row.cropId,
                 action: 'updated',
-                before: { acreage: row.acreage.toNumber(), unit: row.unit },
-                after: { acreage: updated.acreage.toNumber(), unit: updated.unit },
+                before: { acreage: row.acreage?.toNumber ? row.acreage.toNumber() : row.acreage, unit: row.unit, season: row.season },
+                after: { acreage: updated.acreage?.toNumber ? updated.acreage.toNumber() : updated.acreage, unit: updated.unit, season: updated.season },
             });
         });
         return this.detailOrThrow(customerId, actor);

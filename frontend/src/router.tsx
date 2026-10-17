@@ -36,6 +36,9 @@ const FactoryPage = lazy(() => import('./pages/factory/FactoryPage').then((m) =>
 const DispatchPage = lazy(() => import('./pages/dispatch/DispatchPage').then((m) => ({ default: m.DispatchPage })));
 const DeliveryMobilePage = lazy(() => import('./pages/delivery/DeliveryMobilePage').then((m) => ({ default: m.DeliveryMobilePage })));
 const ExceptionCentrePage = lazy(() => import('./pages/exceptions/ExceptionCentrePage').then((m) => ({ default: m.ExceptionCentrePage })));
+const SalesPage = lazy(() => import('./pages/sales/SalesPage').then((m) => ({ default: m.SalesPage })));
+const SupportTicketsPage = lazy(() => import('./pages/tickets/SupportTicketsPage').then((m) => ({ default: m.SupportTicketsPage })));
+const RegionalRoutesPage = lazy(() => import('./pages/dispatch/RegionalRoutesView').then((m) => ({ default: m.RegionalRoutesView })));
 
 import { DedicatedAgentCallingWorkspace } from './pages/calling/DedicatedAgentCallingWorkspace';
 
@@ -76,9 +79,12 @@ export const router = createBrowserRouter([
       { path: 'restricted', element: <RestrictedPage /> },
       // Phase 2 Factory, Supply Chain & Delivery
       { path: 'orders', element: <RequirePermission anyOf={['orders.read']}><OrdersPage /></RequirePermission> },
+      { path: 'sales', element: <RequirePermission anyOf={['orders.read']}><SalesPage /></RequirePermission> },
       { path: 'inventory', element: <RequirePermission anyOf={['inventory.read']}><InventoryPage /></RequirePermission> },
       { path: 'factory', element: <RequirePermission anyOf={['production.read']}><FactoryPage /></RequirePermission> },
       { path: 'dispatch', element: <RequirePermission anyOf={['dispatch.read']}><DispatchPage /></RequirePermission> },
+      { path: 'routes', element: <RequirePermission anyOf={['dispatch.read']}><RegionalRoutesPage /></RequirePermission> },
+      { path: 'tickets', element: <RequirePermission anyOf={['customer.read']}><SupportTicketsPage /></RequirePermission> },
       { path: 'delivery', element: <RequirePermission anyOf={['delivery.execute', 'delivery.read']}><DeliveryMobilePage /></RequirePermission> },
       { path: 'delivery/mobile', element: <RequirePermission anyOf={['delivery.execute', 'delivery.read']}><DeliveryMobilePage /></RequirePermission> },
       { path: 'exceptions', element: <RequirePermission anyOf={['exceptions.manage']}><ExceptionCentrePage /></RequirePermission> },

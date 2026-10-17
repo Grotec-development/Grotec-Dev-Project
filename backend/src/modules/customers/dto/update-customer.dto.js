@@ -53,3 +53,15 @@ __decorate([
     MaxLength(10),
     __metadata("design:type", String)
 ], UpdateCustomerDto.prototype, "pincode", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(500),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "nameEditReason", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(10),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "preferredLanguage", void 0);

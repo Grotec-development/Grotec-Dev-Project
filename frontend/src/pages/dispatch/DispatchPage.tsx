@@ -15,10 +15,11 @@ import {
   Boxes,
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { RegionalRoutesView } from './RegionalRoutesView';
 
 export function DispatchPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'TRIPS' | 'VEHICLES'>('TRIPS');
+  const [activeTab, setActiveTab] = useState<'ROUTES' | 'TRIPS' | 'VEHICLES'>('ROUTES');
   const [isCreateTripOpen, setIsCreateTripOpen] = useState(false);
   const [isVerifyLoadingOpen, setIsVerifyLoadingOpen] = useState(false);
   const [isCloseTripOpen, setIsCloseTripOpen] = useState(false);
@@ -168,21 +169,32 @@ export function DispatchPage() {
       {/* Tabs */}
       <div className="flex border-b border-slate-200 bg-white px-6 pt-3 rounded-xl shadow-sm">
         <button
+          onClick={() => setActiveTab('ROUTES')}
+          className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'ROUTES'
+              ? 'border-emerald-600 text-emerald-700 font-extrabold'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <MapPin className="w-4 h-4" />
+          4 Regional Routes &amp; Consolidation
+        </button>
+        <button
           onClick={() => setActiveTab('TRIPS')}
           className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
             activeTab === 'TRIPS'
-              ? 'border-blue-600 text-blue-700'
+              ? 'border-blue-600 text-blue-700 font-extrabold'
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
           <Truck className="w-4 h-4" />
-          Trip Manifests & Runs
+          Trip Manifests &amp; Runs
         </button>
         <button
           onClick={() => setActiveTab('VEHICLES')}
           className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
             activeTab === 'VEHICLES'
-              ? 'border-blue-600 text-blue-700'
+              ? 'border-blue-600 text-blue-700 font-extrabold'
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -190,6 +202,9 @@ export function DispatchPage() {
           Fleet Vehicles ({vehicles.length})
         </button>
       </div>
+
+      {/* Tab 0: Regional Routes */}
+      {activeTab === 'ROUTES' && <RegionalRoutesView />}
 
       {/* Tab 1: Trips */}
       {activeTab === 'TRIPS' && (

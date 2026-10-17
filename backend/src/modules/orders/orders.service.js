@@ -25,17 +25,20 @@ let OrdersService = class OrdersService {
         if (query.customerId) where.customerId = query.customerId;
         if (query.status) where.status = query.status;
         if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
+        if (query.routeId) where.routeId = query.routeId;
+        if (query.agentId) where.createdById = query.agentId;
 
         return this.prisma.salesOrder.findMany({
             where,
             include: {
-                customer: { select: { id: true, fullName: true, farmerCode: true, phones: { where: { isPrimary: true }, select: { phoneE164: true } } } },
+                customer: { select: { id: true, fullName: true, farmerCode: true, phones: { where: { isPrimary: true }, select: { phoneE164: true } }, locations: { where: { deletedAt: null }, select: { district: true, taluk: true, village: true } } } },
                 items: {
                     include: {
                         product: { select: { id: true, name: true, sku: true, unit: true } },
                     },
                 },
                 invoice: true,
+                route: { select: { id: true, name: true, code: true } },
                 createdBy: { select: { id: true, fullName: true } },
             },
             orderBy: { createdAt: 'desc' },
@@ -134,11 +137,12 @@ let OrdersService = class OrdersService {
         const deliveryAddress = input.deliveryAddress || customer.locations[0]?.addressLine || 'Farm address';
 
         return this.prisma.$transaction(async (tx) => {
+            const orderStatus = input.status || (input.submitOnly ? 'SUBMITTED' : OrderStatus.CONFIRMED);
             const order = await tx.salesOrder.create({
                 data: {
                     orderNumber,
                     customerId: customer.id,
-                    status: OrderStatus.CONFIRMED,
+                    status: orderStatus,
                     subtotal,
                     discountAmount: 0,
                     taxAmount: totalTax,
@@ -146,6 +150,9 @@ let OrdersService = class OrdersService {
                     paymentStatus: input.paymentStatus || 'UNPAID',
                     paymentMethod: input.paymentMethod || 'CASH_ON_DELIVERY',
                     deliveryAddress,
+                    routeId: input.routeId || null,
+                    requestedDeliveryDate: input.requestedDeliveryDate ? new Date(input.requestedDeliveryDate) : null,
+                    deliveryConfirmationStatus: 'PENDING',
                     notes: input.notes || null,
                     createdById: actor.id,
                     tenantId: actor.tenantId || null,
@@ -153,7 +160,7 @@ let OrdersService = class OrdersService {
                         create: processedItems,
                     },
                 },
-                include: { items: { include: { product: true } } },
+                include: { items: { include: { product: true } }, route: true },
             });
 
             // Create initial Invoice

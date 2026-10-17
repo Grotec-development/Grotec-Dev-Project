@@ -60,6 +60,7 @@ const CRM_NAV_ITEMS: NavItem[] = [
   { to: '/customers', label: 'Farmers', icon: Users, permission: 'customer.read' },
   { to: '/relationship', label: 'Relationship Manager', icon: Contact, permission: 'relationship.read' },
   { to: '/leads', label: 'Leads Pipeline', icon: Contact, permission: 'lead.read' },
+  { to: '/tickets', label: 'Support Tickets', icon: AlertTriangle, permission: 'customer.read' },
   { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, permission: 'assistant.use' },
   { to: '/crops', label: 'Crop Catalog', icon: Sprout, permission: 'crop.read' },
   { to: '/reports', label: 'Reports & Rankings', icon: Trophy, permission: 'call.read' },
@@ -97,9 +98,10 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 // Phase 2 Factory, Supply Chain & Logistics items (PRD §18)
 const SUPPLY_CHAIN_NAV_ITEMS: NavItem[] = [
   { to: '/orders', label: 'Sales Orders', icon: ShoppingCart, permission: 'orders.read' },
+  { to: '/sales', label: 'Completed Sales & Invoices', icon: IndianRupee, permission: 'orders.read' },
   { to: '/inventory', label: 'Inventory Ledger', icon: Boxes, permission: 'inventory.read' },
   { to: '/factory', label: 'Factory & Batches', icon: Factory, permission: 'production.read' },
-  { to: '/dispatch', label: 'Dispatch Manifests', icon: Truck, permission: 'dispatch.read' },
+  { to: '/dispatch', label: '4 Regional Routes & Dispatch', icon: Truck, permission: 'dispatch.read' },
   { to: '/delivery', label: 'Field Delivery', icon: Navigation, permission: 'delivery.execute' },
   { to: '/exceptions', label: 'Exception Centre', icon: AlertTriangle, permission: 'exceptions.manage' },
 ];

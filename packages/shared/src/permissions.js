@@ -216,6 +216,8 @@ export const PROPOSED_ROLE_PERMISSIONS = {
     PERMISSIONS.kpiRead,
     PERMISSIONS.hrmsKpiRead,
     PERMISSIONS.tenantRead,
+    PERMISSIONS.ordersRead,
+    PERMISSIONS.ordersManage,
     PERMISSIONS.notificationRead,
     PERMISSIONS.requestCreate,
   ],

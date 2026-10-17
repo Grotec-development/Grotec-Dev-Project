@@ -354,11 +354,21 @@ export function ConfirmModal({
   );
 }
 
-export function Spinner({ label = 'Loading…' }: { label?: string }) {
+export function Spinner({ label, className }: { label?: string; className?: string }) {
+  if (!label && className) {
+    return (
+      <span
+        className={cx(
+          'inline-block animate-spin rounded-full border-2 border-slate-300 border-t-brand-600',
+          className,
+        )}
+      />
+    );
+  }
   return (
-    <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+    <div className={cx('flex items-center justify-center gap-2 py-10 text-sm text-slate-500', className)}>
       <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600" />
-      {label}
+      {label || 'Loading…'}
     </div>
   );
 }

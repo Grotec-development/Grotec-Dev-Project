@@ -216,6 +216,8 @@ exports.PROPOSED_ROLE_PERMISSIONS = {
         exports.PERMISSIONS.kpiRead,
         exports.PERMISSIONS.hrmsKpiRead,
         exports.PERMISSIONS.tenantRead,
+        exports.PERMISSIONS.ordersRead,
+        exports.PERMISSIONS.ordersManage,
         exports.PERMISSIONS.notificationRead,
         exports.PERMISSIONS.requestCreate,
     ],

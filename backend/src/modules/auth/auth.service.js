@@ -137,28 +137,56 @@ let AuthService = class AuthService {
         }
         this.rateLimit.reset(normalized, clientIp);
         const { permissions, role } = await this.permissionsFor(employee.roleId);
-        const session = await this.prisma.$transaction(async (tx) => {
-            const refreshToken = generateRefreshToken();
-            const created = await tx.authSession.create({
-                data: {
-                    employeeId: employee.id,
-                    tokenHash: hashRefreshToken(refreshToken),
-                    expiresAt: this.refreshExpiry(),
-                    ip: clientIp,
-                    userAgent: userAgent ?? null,
-                },
-            });
-            await tx.employee.update({ where: { id: employee.id }, data: { lastLoginAt: new Date() } });
-            await this.audit.record(tx, {
-                actorId: employee.id,
-                entityType: AuditEntityType.AUTH,
-                action: AuditAction.LOGIN_SUCCESS,
-                entityId: created.id,
-                entityLabel: normalized,
-                meta: { ip: clientIp },
-            });
-            return { refreshToken, sessionId: created.id };
-        });
+        let session;
+        try {
+            session = await this.prisma.$transaction(async (tx) => {
+                const refreshToken = generateRefreshToken();
+                const created = await tx.authSession.create({
+                    data: {
+                        employeeId: employee.id,
+                        tokenHash: hashRefreshToken(refreshToken),
+                        expiresAt: this.refreshExpiry(),
+                        ip: clientIp,
+                        userAgent: userAgent ?? null,
+                    },
+                });
+                await tx.employee.update({ where: { id: employee.id }, data: { lastLoginAt: new Date() } });
+                await this.audit.record(tx, {
+                    actorId: employee.id,
+                    entityType: AuditEntityType.AUTH,
+                    action: AuditAction.LOGIN_SUCCESS,
+                    entityId: created.id,
+                    entityLabel: normalized,
+                    meta: { ip: clientIp },
+                });
+                return { refreshToken, sessionId: created.id };
+            }, { maxWait: 10000, timeout: 15000 });
+        } catch (txErr) {
+            if (txErr.message?.includes('Transaction') || txErr.message?.includes('closed transaction') || txErr.code === 'P2028') {
+                const refreshToken = generateRefreshToken();
+                const created = await this.prisma.authSession.create({
+                    data: {
+                        employeeId: employee.id,
+                        tokenHash: hashRefreshToken(refreshToken),
+                        expiresAt: this.refreshExpiry(),
+                        ip: clientIp,
+                        userAgent: userAgent ?? null,
+                    },
+                });
+                await this.prisma.employee.update({ where: { id: employee.id }, data: { lastLoginAt: new Date() } });
+                await this.audit.recordDirect({
+                    actorId: employee.id,
+                    entityType: AuditEntityType.AUTH,
+                    action: AuditAction.LOGIN_SUCCESS,
+                    entityId: created.id,
+                    entityLabel: normalized,
+                    meta: { ip: clientIp },
+                });
+                session = { refreshToken, sessionId: created.id };
+            } else {
+                throw txErr;
+            }
+        }
         return {
             accessToken: this.signAccessToken(employee.id, employee.email, employee.fullName, role.code, permissions, session.sessionId, employee.tenantId),
             accessTokenExpiresInSeconds: this.accessTtlSeconds(),

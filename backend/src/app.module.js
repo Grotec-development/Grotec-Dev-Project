@@ -44,6 +44,10 @@ import { ExceptionsModule } from './modules/exceptions/exceptions.module';
 import { RelationshipModule } from './modules/relationship/relationship.module';
 import { SegmentsModule } from './modules/segments/segments.module';
 import { RequestsModule } from './modules/requests/requests.module';
+import { SoilTypesModule } from './modules/soil-types/soil-types.module';
+import { SupportTicketsModule } from './modules/support-tickets/support-tickets.module';
+import { RoutesModule } from './modules/routes/routes.module';
+import { SalesModule } from './modules/sales/sales.module';
 
 let AppModule = class AppModule {
 };
@@ -88,6 +92,10 @@ AppModule = __decorate([
             RelationshipModule,
             SegmentsModule,
             RequestsModule,
+            SoilTypesModule,
+            SupportTicketsModule,
+            RoutesModule,
+            SalesModule,
         ],
         providers: [
             { provide: APP_GUARD, useClass: AuthGuard },

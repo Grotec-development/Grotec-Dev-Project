@@ -314,14 +314,39 @@ let CallsService = class CallsService {
     // -------------------------------------------------------------- workspace
     async queue(actor, filters = {}) {
         const scopeOwner = toTechnicalRole(actor.roleCode) === 'AGENT' ? actor.id : (filters.ownerId ?? undefined);
+        const where = {
+            deletedAt: null,
+            status: 'OPEN',
+            ...(scopeOwner
+                ? { ownerships: { some: { employeeId: scopeOwner, releasedAt: null } } }
+                : {}),
+        };
+
+        if (filters.district && filters.district !== 'ALL') {
+            where.customer = {
+                locations: {
+                    some: {
+                        district: { in: districtSpellings(filters.district), mode: 'insensitive' },
+                        deletedAt: null,
+                    },
+                },
+            };
+        }
+
+        if (filters.scheduledOnly === 'true' || filters.mode === 'SCHEDULED') {
+            where.customer = {
+                ...where.customer,
+                followUps: {
+                    some: {
+                        deletedAt: null,
+                        status: { in: ['SCHEDULED', 'OVERDUE', 'DUE'] },
+                    },
+                },
+            };
+        }
+
         const leads = await this.prisma.lead.findMany({
-            where: {
-                deletedAt: null,
-                status: 'OPEN',
-                ...(scopeOwner
-                    ? { ownerships: { some: { employeeId: scopeOwner, releasedAt: null } } }
-                    : {}),
-            },
+            where,
             include: {
                 customer: {
                     include: {

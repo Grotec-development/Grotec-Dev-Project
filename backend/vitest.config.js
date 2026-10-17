@@ -1,3 +1,7 @@
+import dns from 'node:dns';
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 import { execSync } from 'node:child_process';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
@@ -20,6 +24,7 @@ export default defineConfig({
     plugins: [swc.vite({ module: { type: 'es6' } })],
     test: {
         environment: 'node',
+        setupFiles: ['./test/setup.js'],
         include: hasTestDb ? ['src/**/*.spec.js', 'test/**/*.e2e-spec.js'] : ['src/**/*.spec.js'],
         globalSetup: hasTestDb ? ['test/global-setup.js'] : [],
         hookTimeout: 120_000,
