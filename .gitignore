@@ -28,8 +28,7 @@ frontend/.env.*
 
 # Docs are not part of the deployed product (session notes, audits, reference
 # material) and are not published to GitHub.
-docs/*
-!docs/*.md
+docs/
 *.pdf
 audit_text.txt
 
