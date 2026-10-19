@@ -471,8 +471,8 @@ let CustomersService = class CustomersService {
                 district: dto.district,
                 taluk: dto.taluk,
             });
-            if (!geoResult.isValid) {
-                throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+            if (!geoResult.isValid && !geoResult.valid) {
+                throw ApiError.badRequest('INVALID_GEOGRAPHY', geoResult.message || geoResult.error || 'INVALID_GEOGRAPHY');
             }
         }
         // Nothing actually changed — no write, no audit row, no event.
@@ -792,8 +792,8 @@ let CustomersService = class CustomersService {
             district: input.district,
             taluk: input.taluk,
         });
-        if (!geoResult.isValid) {
-            throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+        if (!geoResult.isValid && !geoResult.valid) {
+            throw ApiError.badRequest('INVALID_GEOGRAPHY', geoResult.message || geoResult.error || 'INVALID_GEOGRAPHY');
         }
         const data = { ...input };
         await this.prisma.$transaction(async (tx) => {
@@ -834,8 +834,8 @@ let CustomersService = class CustomersService {
             district: mergedDistrict,
             taluk: mergedTaluk,
         });
-        if (!geoResult.isValid) {
-            throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+        if (!geoResult.isValid && !geoResult.valid) {
+            throw ApiError.badRequest('INVALID_GEOGRAPHY', geoResult.message || geoResult.error || 'INVALID_GEOGRAPHY');
         }
         await this.prisma.$transaction(async (tx) => {
             if (input.isPrimary === true) {
@@ -1186,8 +1186,8 @@ let CustomersService = class CustomersService {
                 district: loc.district,
                 taluk: loc.taluk,
             });
-            if (!geoResult.isValid) {
-                throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+            if (!geoResult.isValid && !geoResult.valid) {
+                throw ApiError.badRequest('INVALID_GEOGRAPHY', geoResult.message || geoResult.error || 'INVALID_GEOGRAPHY');
             }
         }
         return inputs;

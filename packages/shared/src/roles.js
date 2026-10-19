@@ -1,26 +1,29 @@
 /**
  * GROTEC FarmerOS Roles Definition
- * Section 5: GROTEC Roles & Permission Model
- * 
- * Supports business-facing roles mapped cleanly to permission groups and
- * extendable without code changes.
+ * Clean 5-Tier Organizational Role Model:
+ * 1. Founder (Super Admin): Full system ownership, executive oversight & break-glass access
+ * 2. Manager: Manages Team Leaders, escalations review, managerial HR, reporting, delivery supervision & operations, inventory, sales business, finance
+ * 3. Team Leader: Manages 4 telecallers under them, escalations, caller feedbacks, QA coaching & managerial roles
+ * 4. Telecaller (Agent): Base employees, outbound calling queue, farmer advisory, order placement, escalation ticketing
+ * 5. Delivery: Dedicated role for order dispatch full pipeline, vehicle loading & field delivery verification
  */
 
 /**
- * @typedef {'SUPER_ADMIN' | 'FOUNDER' | 'MANAGER' | 'AGENT' | 'STAFF' | 'DELIVERY' | 'FARMER_SUCCESS_MANAGER' | 'GROUP_LEADER' | 'FSE' | 'HR_ADMIN' | 'ACCOUNTS_FINANCE' | 'TECHNICAL_AGRONOMY' | 'STORES_DISPATCH'} RoleCode
+ * @typedef {'SUPER_ADMIN' | 'FOUNDER' | 'MANAGER' | 'TEAM_LEADER' | 'AGENT' | 'DELIVERY' | 'GROUP_LEADER' | 'STAFF' | 'FSE' | 'FARMER_SUCCESS_MANAGER' | 'HR_ADMIN' | 'ACCOUNTS_FINANCE' | 'TECHNICAL_AGRONOMY' | 'STORES_DISPATCH'} RoleCode
  */
 
 export const ROLE_CODES = /** @type {const} */ ([
   'SUPER_ADMIN',
   'FOUNDER',
   'MANAGER',
+  'TEAM_LEADER',
   'AGENT',
-  'STAFF',
   'DELIVERY',
-  // Official GROTEC Business Roles
-  'FARMER_SUCCESS_MANAGER',
+  // Backward-compatibility aliases
   'GROUP_LEADER',
+  'STAFF',
   'FSE',
+  'FARMER_SUCCESS_MANAGER',
   'HR_ADMIN',
   'ACCOUNTS_FINANCE',
   'TECHNICAL_AGRONOMY',
@@ -28,62 +31,88 @@ export const ROLE_CODES = /** @type {const} */ ([
 ]);
 
 export const GROTEC_BUSINESS_ROLES = [
-  { code: 'SUPER_ADMIN', label: 'Founder / Super Admin', technicalRole: 'SUPER_ADMIN', description: 'Full system ownership & break-glass access' },
-  { code: 'FOUNDER', label: 'Founder', technicalRole: 'FOUNDER', description: 'Executive oversight, approvals, and strategic governance' },
-  { code: 'FARMER_SUCCESS_MANAGER', label: 'Farmer Success Manager', technicalRole: 'MANAGER', description: 'Telecalling operations, assignment, conversion & performance management' },
-  { code: 'GROUP_LEADER', label: 'Group Leader (GL)', technicalRole: 'MANAGER', description: 'Team supervisory oversight, queue balancing & quality coaching' },
-  { code: 'FSE', label: 'Farmer Success Executive (FSE)', technicalRole: 'AGENT', description: 'Farmer advisory, outbound telecalling, wrap-up & follow-ups' },
-  { code: 'HR_ADMIN', label: 'HR / Admin', technicalRole: 'STAFF', description: 'Staff records, biometric attendance, leave & payroll processing' },
-  { code: 'ACCOUNTS_FINANCE', label: 'Accounts / Finance', technicalRole: 'STAFF', description: 'Invoicing, payment reconciliation & collections' },
-  { code: 'TECHNICAL_AGRONOMY', label: 'Technical / Agronomy', technicalRole: 'STAFF', description: 'Crop knowledge base curation, dosage guidance & AI prompt grounding' },
-  { code: 'STORES_DISPATCH', label: 'Stores / Dispatch', technicalRole: 'STAFF', description: 'Inventory stock movements, vehicle loading & trip dispatch' },
-  { code: 'DELIVERY', label: 'Delivery (future)', technicalRole: 'DELIVERY', description: 'Doorstep delivery execution, POD signature & vehicle stock reconciliation' },
+  {
+    code: 'FOUNDER',
+    label: 'Founder (Super Admin)',
+    technicalRole: 'FOUNDER',
+    description: 'Full executive ownership, governance, settings, audit trails & break-glass access',
+  },
+  {
+    code: 'MANAGER',
+    label: 'Manager',
+    technicalRole: 'MANAGER',
+    description: 'Manages Team Leaders, reviews escalations, managerial HR works, reports, delivery supervision & operations, inventory, sales business, and finance',
+  },
+  {
+    code: 'TEAM_LEADER',
+    label: 'Team Leader',
+    technicalRole: 'TEAM_LEADER',
+    description: 'Supervises 4 telecallers under them, manages escalations, caller feedbacks, quality coaching, and caller managerial roles',
+  },
+  {
+    code: 'AGENT',
+    label: 'Telecaller',
+    technicalRole: 'AGENT',
+    description: 'Base telecaller employee: outbound calling queue, farmer advisory, order creation, and escalation ticketing',
+  },
+  {
+    code: 'DELIVERY',
+    label: 'Delivery Specialist',
+    technicalRole: 'DELIVERY',
+    description: 'Order dispatch full pipeline, vehicle loading, route delivery execution, customer verification, and digital POD',
+  },
 ];
 
 export const ROLE_LABELS = {
-  SUPER_ADMIN: 'Founder / Super Admin',
-  FOUNDER: 'Founder',
-  MANAGER: 'Admin / Manager',
-  AGENT: 'Telecaller / Agent',
-  STAFF: 'Office / Operations Staff',
-  DELIVERY: 'Delivery Service Person',
-  FARMER_SUCCESS_MANAGER: 'Farmer Success Manager',
-  GROUP_LEADER: 'Group Leader (GL)',
-  FSE: 'Farmer Success Executive (FSE)',
-  HR_ADMIN: 'HR / Admin',
-  ACCOUNTS_FINANCE: 'Accounts / Finance',
+  SUPER_ADMIN: 'Founder (Super Admin)',
+  FOUNDER: 'Founder (Super Admin)',
+  MANAGER: 'Manager',
+  TEAM_LEADER: 'Team Leader',
+  AGENT: 'Telecaller',
+  DELIVERY: 'Delivery',
+  // Backward compatibility aliases
+  GROUP_LEADER: 'Team Leader',
+  STAFF: 'Staff',
+  FSE: 'Telecaller',
+  FARMER_SUCCESS_MANAGER: 'Manager',
+  HR_ADMIN: 'Manager (HR)',
+  ACCOUNTS_FINANCE: 'Manager (Finance)',
   TECHNICAL_AGRONOMY: 'Technical / Agronomy',
-  STORES_DISPATCH: 'Stores / Dispatch',
+  STORES_DISPATCH: 'Delivery / Dispatch',
 };
 
 export const ROLE_RANK = {
   SUPER_ADMIN: -1,
   FOUNDER: 0,
   MANAGER: 1,
+  TEAM_LEADER: 2,
+  GROUP_LEADER: 2,
+  AGENT: 3,
+  FSE: 3,
+  DELIVERY: 3,
+  STAFF: 3,
+  HR_ADMIN: 3,
+  ACCOUNTS_FINANCE: 3,
+  TECHNICAL_AGRONOMY: 3,
+  STORES_DISPATCH: 3,
   FARMER_SUCCESS_MANAGER: 1,
-  GROUP_LEADER: 1,
-  AGENT: 2,
-  FSE: 2,
-  STAFF: 2,
-  HR_ADMIN: 2,
-  ACCOUNTS_FINANCE: 2,
-  TECHNICAL_AGRONOMY: 2,
-  STORES_DISPATCH: 2,
-  DELIVERY: 2,
 };
 
 export function toTechnicalRole(roleCode) {
   switch (roleCode) {
+    case 'SUPER_ADMIN':
+      return 'FOUNDER';
     case 'FSE':
       return 'AGENT';
-    case 'FARMER_SUCCESS_MANAGER':
     case 'GROUP_LEADER':
-      return 'MANAGER';
+      return 'TEAM_LEADER';
+    case 'FARMER_SUCCESS_MANAGER':
     case 'HR_ADMIN':
     case 'ACCOUNTS_FINANCE':
-    case 'TECHNICAL_AGRONOMY':
+    case 'STAFF':
+      return 'MANAGER';
     case 'STORES_DISPATCH':
-      return 'STAFF';
+      return 'DELIVERY';
     default:
       return roleCode;
   }
@@ -98,3 +127,4 @@ export function outranks(actorRole, targetRole) {
 export function isTopTier(roleCode) {
   return roleCode === 'FOUNDER' || roleCode === 'SUPER_ADMIN';
 }
+

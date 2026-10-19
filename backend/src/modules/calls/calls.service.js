@@ -38,7 +38,19 @@ let CallsService = class CallsService {
             where: { agentId: actor.id, status: { in: [...ACTIVE_CALL_STATUSES] } },
         });
         if (active) {
-            throw ApiError.conflict('ACTIVE_CALL_EXISTS', 'You already have an active call on this workspace', { callId: active.id });
+            const ageMs = Date.now() - new Date(active.startedAt || active.createdAt).getTime();
+            if (ageMs > 5 * 60 * 1000) {
+                await this.prisma.call.update({
+                    where: { id: active.id },
+                    data: {
+                        status: CallStatus.ENDED,
+                        endedAt: new Date(),
+                        disconnectReason: CallDisconnectReason.AGENT_ENDED,
+                    },
+                });
+            } else {
+                throw ApiError.conflict('ACTIVE_CALL_EXISTS', 'You already have an active call on this workspace', { callId: active.id });
+            }
         }
         // Phone resolution first (PRD §6.3.5): prefer an explicit customerId, else
         // resolve the number to the existing customer master.
@@ -488,7 +500,15 @@ let CallsService = class CallsService {
     async recordOutcome(actor, id, dto) {
         const call = await this.requireCall(id, actor);
         if (ACTIVE_CALL_STATUSES.includes(call.status)) {
-            throw ApiError.conflict('CALL_NOT_FINISHED', 'Finish the call before recording an outcome');
+            await this.prisma.call.update({
+                where: { id: call.id },
+                data: {
+                    status: CallStatus.ENDED,
+                    endedAt: new Date(),
+                    disconnectReason: CallDisconnectReason.AGENT_ENDED,
+                },
+            });
+            call.status = CallStatus.ENDED;
         }
         if (call.status === CallStatus.FAILED) {
             throw ApiError.conflict('OUTCOME_NOT_ALLOWED', 'An outcome cannot be recorded for a failed call');
@@ -506,12 +526,9 @@ let CallsService = class CallsService {
         if (call.status === CallStatus.NOT_ANSWERED && enumOutcome !== CallOutcome.NOT_ANSWERED && outcomeCode !== 'NOT_ANSWERED') {
             throw ApiError.conflict('OUTCOME_MISMATCH', 'Only “Not Answered” can be recorded when the call was not answered');
         }
-        if (call.outcome || call.outcomeCustom) {
-            throw ApiError.conflict('CALL_OUTCOME_EXISTS', 'This call already has an outcome recorded');
-        }
         const result = await this.prisma.$transaction(async (tx) => {
-            const updateCount = await tx.call.updateMany({
-                where: { id: call.id, outcome: null, outcomeCustom: null },
+            await tx.call.update({
+                where: { id: call.id },
                 data: {
                     outcome: enumOutcome,
                     outcomeCustom: outcomeCode,
@@ -522,9 +539,6 @@ let CallsService = class CallsService {
                     callMode: dto.callMode || null,
                 },
             });
-            if (updateCount.count === 0) {
-                throw ApiError.conflict('CALL_OUTCOME_EXISTS', 'This call already has an outcome recorded');
-            }
             const update = await tx.call.findUniqueOrThrow({
                 where: { id: call.id },
                 select: { id: true, outcome: true, outcomeCustom: true, nextAction: true },
@@ -648,7 +662,6 @@ let CallsService = class CallsService {
                 customerId: call.customerId,
                 dueAt,
                 status: FollowUpStatus.PENDING,
-                deletedAt: null,
             },
             include: { agent: { select: { id: true, fullName: true } } },
         });

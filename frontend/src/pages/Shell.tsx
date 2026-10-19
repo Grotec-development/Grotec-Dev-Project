@@ -68,10 +68,12 @@ const CRM_NAV_ITEMS: NavItem[] = [
 ];
 
 /**
- * AGENT-only simplified workspace: telecallers see just the four daily-driver
- * destinations. This narrows VISIBILITY for that one role — routes, backend
- * APIs and RBAC permissions are untouched, and every other role keeps the
- * navigation it has today.
+ * Role-tailored workspace navigation visibility:
+ * 1. Founder (Super Admin): Full executive access to all CRM, Operations, Settings & Audit.
+ * 2. Manager: Full operational access (Team Leaders, Escalations, HR, Reports, Delivery supervision, Inventory, Sales, Finance).
+ * 3. Team Leader: 4 Callers oversight, calling queue, escalations, feedbacks, relationship management, exceptions, and reports.
+ * 4. Telecaller (Agent): Core calling workspace, farmer directory, tickets, knowledge base, reports.
+ * 5. Delivery: Dispatch pipeline, delivery verification, digital POD, and field intake.
  */
 const AGENT_PRIMARY_NAV = new Set([
   '/dashboard',
@@ -83,14 +85,31 @@ const AGENT_PRIMARY_NAV = new Set([
   '/reports',
 ]);
 
-/**
- * FOUNDER has full system-wide access without hidden navigation items.
- */
-const FOUNDER_HIDDEN_NAV = new Set<string>([]);
+const TEAM_LEADER_PRIMARY_NAV = new Set([
+  '/dashboard',
+  '/agent',
+  '/action-center',
+  '/customers',
+  '/relationship',
+  '/leads',
+  '/tickets',
+  '/knowledge-base',
+  '/crops',
+  '/reports',
+  '/orders',
+  '/exceptions',
+]);
 
-/**
- * MANAGER navigation visibility.
- */
+const DELIVERY_PRIMARY_NAV = new Set([
+  '/dashboard',
+  '/delivery',
+  '/delivery/fleet',
+  '/dispatch',
+  '/action-center',
+  '/customers',
+]);
+
+const FOUNDER_HIDDEN_NAV = new Set<string>([]);
 const MANAGER_HIDDEN_NAV = new Set<string>([]);
 
 // Administration & Settings (Founder & Manager only)
@@ -106,15 +125,16 @@ const SUPPLY_CHAIN_NAV_ITEMS: NavItem[] = [
   { to: '/inventory', label: 'Inventory Ledger', icon: Boxes, permission: 'inventory.read' },
   { to: '/factory', label: 'Factory & Batches', icon: Factory, permission: 'production.read' },
   { to: '/dispatch', label: '4 Regional Routes & Dispatch', icon: Truck, permission: 'dispatch.read' },
+  { to: '/delivery/fleet', label: 'Fleet & Vehicles', icon: Truck, permission: 'dispatch.read' },
   { to: '/delivery', label: 'Field Delivery', icon: Navigation, permission: 'delivery.execute' },
   { to: '/exceptions', label: 'Exception Centre', icon: AlertTriangle, permission: 'exceptions.manage' },
 ];
 
 function getHrmsNavItems(roleCode: string | undefined, hasPermission: (perm: string) => boolean): NavItem[] {
-  const isFounder = roleCode === 'FOUNDER';
-  const isSelfOnly = roleCode === 'AGENT' || roleCode === 'DELIVERY';
+  const isFounder = roleCode === 'FOUNDER' || roleCode === 'SUPER_ADMIN';
   const isManager = roleCode === 'MANAGER';
-  const isStaff = roleCode === 'STAFF';
+  const isTeamLeader = roleCode === 'TEAM_LEADER' || roleCode === 'GROUP_LEADER';
+  const isSelfOnly = roleCode === 'AGENT' || roleCode === 'DELIVERY';
 
   const items: NavItem[] = [];
 
@@ -125,9 +145,11 @@ function getHrmsNavItems(roleCode: string | undefined, hasPermission: (perm: str
     }
   }
 
-  // Staff Directory (Founder, Manager, Staff)
-  if (hasPermission('employee.read') || hasPermission('hrms.employee.read')) {
-    items.push({ to: '/hrms/employees', label: 'Staff Directory', icon: Users });
+  // Staff & Team Directory (Founder, Manager)
+  if (isFounder || isManager) {
+    if (hasPermission('employee.read') || hasPermission('hrms.employee.read')) {
+      items.push({ to: '/hrms/employees', label: 'Team & Staff Directory', icon: Users });
+    }
   }
 
   // Attendance
@@ -137,10 +159,14 @@ function getHrmsNavItems(roleCode: string | undefined, hasPermission: (perm: str
     }
   } else if (isManager) {
     if (hasPermission('attendance.read') || hasPermission('attendance.approve')) {
-      items.push({ to: '/hrms/attendance', label: 'Attendance', icon: Clock });
+      items.push({ to: '/hrms/attendance', label: 'Attendance Management', icon: Clock });
+    }
+  } else if (isTeamLeader) {
+    if (hasPermission('attendance.read') || hasPermission('attendance.approve')) {
+      items.push({ to: '/hrms/attendance', label: 'Caller Attendance', icon: Clock });
     }
   } else {
-    // Agent, Staff, Delivery
+    // Telecaller, Delivery
     if (hasPermission('attendance.read')) {
       items.push({ to: '/hrms/attendance', label: 'My Attendance', icon: Clock });
     }
@@ -156,22 +182,22 @@ function getHrmsNavItems(roleCode: string | undefined, hasPermission: (perm: str
       items.push({ to: '/hrms/leave', label: 'Leave Requests', icon: Palmtree });
     }
   } else {
-    // Agent, Staff, Delivery
+    // Team Leader, Telecaller, Delivery
     if (hasPermission('leave.read') || hasPermission('leave.apply')) {
       items.push({ to: '/hrms/leave', label: 'My Leave', icon: Palmtree });
     }
   }
 
-  // Payroll Runs (Staff, Manager, Founder)
-  if (hasPermission('payroll.manage') || hasPermission('hrms.payroll.process') || hasPermission('hrms.payroll.approve')) {
+  // Payroll Runs (Manager & Founder)
+  if ((isFounder || isManager) && (hasPermission('payroll.manage') || hasPermission('hrms.payroll.process') || hasPermission('hrms.payroll.approve'))) {
     items.push({ to: '/hrms/payroll', label: 'Payroll Runs', icon: IndianRupee });
   }
 
-  // Payslips (Founder does NOT have personal payslips; Manager, Staff, Agent, Delivery do)
+  // Payslips (Founder does NOT have personal payslips; Manager, Team Leader, Agent, Delivery do)
   if (!isFounder && (hasPermission('payroll.read') || hasPermission('hrms.payroll.read'))) {
     items.push({
       to: '/hrms/payslips',
-      label: (isSelfOnly || isStaff) ? 'My Payslips' : 'Payslips',
+      label: (isSelfOnly || isTeamLeader) ? 'My Payslips' : 'Payslips',
       icon: FileText,
     });
   }
@@ -183,10 +209,14 @@ function getHrmsNavItems(roleCode: string | undefined, hasPermission: (perm: str
     }
   } else if (isManager) {
     if (hasPermission('kpi.read') || hasPermission('kpi.manage')) {
-      items.push({ to: '/hrms/kpi', label: 'KPI & Scores', icon: TrendingUp });
+      items.push({ to: '/hrms/kpi', label: 'KPI & Performance', icon: TrendingUp });
+    }
+  } else if (isTeamLeader) {
+    if (hasPermission('kpi.read') || hasPermission('hrms.kpi.read')) {
+      items.push({ to: '/hrms/kpi', label: 'Caller KPI Scores', icon: TrendingUp });
     }
   } else {
-    // Agent, Staff, Delivery
+    // Telecaller, Delivery
     if (hasPermission('kpi.read') || hasPermission('hrms.kpi.read')) {
       items.push({ to: '/hrms/kpi', label: 'My Performance', icon: TrendingUp });
     }
@@ -202,7 +232,10 @@ interface PageMeta {
 }
 
 function getPageMeta(pathname: string, roleCode?: string): PageMeta {
-  const isFounder = roleCode === 'FOUNDER';
+  const isFounder = roleCode === 'FOUNDER' || roleCode === 'SUPER_ADMIN';
+  const isManager = roleCode === 'MANAGER';
+  const isTeamLeader = roleCode === 'TEAM_LEADER' || roleCode === 'GROUP_LEADER';
+  const isDelivery = roleCode === 'DELIVERY';
   const isSelfOnly = roleCode === 'AGENT' || roleCode === 'DELIVERY' || roleCode === 'STAFF';
 
   if (/^\/hrms\/employees\/.+/.test(pathname)) {
@@ -242,19 +275,23 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
     : 'Salary slips and deductions.';
 
   const homeTitle = isFounder
-    ? 'Founder Workspace'
-    : roleCode === 'MANAGER'
-    ? 'Operations Manager'
-    : roleCode === 'DELIVERY'
-    ? 'Field Delivery'
-    : roleCode === 'STAFF'
-    ? 'Office Staff'
+    ? 'Founder (Super Admin) Workspace'
+    : isManager
+    ? 'Operations & Business Manager'
+    : isTeamLeader
+    ? 'Team Leader Workspace'
+    : isDelivery
+    ? 'Field Delivery & Verification'
     : 'Telecaller Workstation';
 
   const homeDesc = isFounder
     ? 'Executive CRM overview, performance telemetry, and team activity.'
-    : roleCode === 'MANAGER'
-    ? 'Operations dashboard, call queue status, and pipeline conversion.'
+    : isManager
+    ? 'Operations, Team Leaders, escalations, delivery supervision, inventory, sales & finance.'
+    : isTeamLeader
+    ? 'Telecaller supervision (4 callers), call escalations, customer feedbacks & quality reviews.'
+    : isDelivery
+    ? 'Order dispatch pipeline, delivery stop execution, customer verification & digital POD.'
     : 'Call queue, follow-ups, and farmer engagements.';
 
   const map: Record<string, PageMeta> = {
@@ -429,29 +466,40 @@ export function Shell() {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  const isFounder = user.roleCode === 'FOUNDER';
+  const isFounder = user.roleCode === 'FOUNDER' || user.roleCode === 'SUPER_ADMIN';
   const isManager = user.roleCode === 'MANAGER';
-  const isSelfOnly = user.roleCode === 'AGENT' || user.roleCode === 'DELIVERY';
+  const isTeamLeader = user.roleCode === 'TEAM_LEADER' || user.roleCode === 'GROUP_LEADER';
+  const isDelivery = user.roleCode === 'DELIVERY';
+  const isAgent = user.roleCode === 'AGENT' || user.roleCode === 'FSE';
+  const isSelfOnly = isAgent || isDelivery;
 
   const hrmsGroupTitle = isFounder
     ? 'Team & Operations'
     : isManager
     ? 'Operations & HRMS'
-    : isSelfOnly
-    ? 'My HR & Self-Service'
-    : 'Staff & Operations';
+    : isTeamLeader
+    ? 'Team & Coaching'
+    : isDelivery
+    ? 'Delivery Self-Service'
+    : 'My HR & Self-Service';
 
   // Filter accessible items based on authoritative RBAC
-  const isAgent = user.roleCode === 'AGENT';
   const crmVisible = CRM_NAV_ITEMS.filter(
     (i) =>
       (!isAgent || AGENT_PRIMARY_NAV.has(i.to)) &&
+      (!isDelivery || DELIVERY_PRIMARY_NAV.has(i.to)) &&
+      (!isTeamLeader || TEAM_LEADER_PRIMARY_NAV.has(i.to)) &&
       (!isFounder || !FOUNDER_HIDDEN_NAV.has(i.to)) &&
       (!isManager || !MANAGER_HIDDEN_NAV.has(i.to)) &&
       (!i.permission || hasPermission(i.permission)),
   );
   const hrmsVisible = getHrmsNavItems(user.roleCode, hasPermission);
-  const supplyVisible = SUPPLY_CHAIN_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
+  const supplyVisible = SUPPLY_CHAIN_NAV_ITEMS.filter(
+    (i) =>
+      (!isDelivery || DELIVERY_PRIMARY_NAV.has(i.to)) &&
+      (!isTeamLeader || TEAM_LEADER_PRIMARY_NAV.has(i.to)) &&
+      (!i.permission || hasPermission(i.permission)),
+  );
   const adminVisible = ADMIN_NAV_ITEMS.filter((i) => !i.permission || hasPermission(i.permission));
 
   const handleCrmItemClick = () => {
@@ -854,50 +902,101 @@ export function Shell() {
             <span>Home</span>
           </NavLink>
 
-          <NavLink
-            to="/agent"
-            className={({ isActive }) =>
-              cx(
-                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
-                isActive
-                  ? 'text-emerald-700 font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
-              )
-            }
-          >
-            <Phone className="h-5 w-5 mb-0.5" />
-            <span>Calling</span>
-          </NavLink>
+          {isDelivery ? (
+            <>
+              <NavLink
+                to="/delivery"
+                className={({ isActive }) =>
+                  cx(
+                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    isActive
+                      ? 'text-emerald-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  )
+                }
+              >
+                <Navigation className="h-5 w-5 mb-0.5" />
+                <span>Deliveries</span>
+              </NavLink>
 
-          <NavLink
-            to="/customers"
-            className={({ isActive }) =>
-              cx(
-                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
-                isActive
-                  ? 'text-emerald-700 font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
-              )
-            }
-          >
-            <Users className="h-5 w-5 mb-0.5" />
-            <span>Farmers</span>
-          </NavLink>
+              <NavLink
+                to="/delivery/fleet"
+                className={({ isActive }) =>
+                  cx(
+                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    isActive
+                      ? 'text-emerald-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  )
+                }
+              >
+                <Truck className="h-5 w-5 mb-0.5" />
+                <span>Fleet</span>
+              </NavLink>
 
-          <NavLink
-            to="/action-center"
-            className={({ isActive }) =>
-              cx(
-                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
-                isActive
-                  ? 'text-emerald-700 font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
-              )
-            }
-          >
-            <Briefcase className="h-5 w-5 mb-0.5" />
-            <span>Actions</span>
-          </NavLink>
+              <NavLink
+                to="/customers"
+                className={({ isActive }) =>
+                  cx(
+                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    isActive
+                      ? 'text-emerald-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  )
+                }
+              >
+                <Users className="h-5 w-5 mb-0.5" />
+                <span>Farmers</span>
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink
+                to="/agent"
+                className={({ isActive }) =>
+                  cx(
+                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    isActive
+                      ? 'text-emerald-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  )
+                }
+              >
+                <Phone className="h-5 w-5 mb-0.5" />
+                <span>Calling</span>
+              </NavLink>
+
+              <NavLink
+                to="/customers"
+                className={({ isActive }) =>
+                  cx(
+                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    isActive
+                      ? 'text-emerald-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  )
+                }
+              >
+                <Users className="h-5 w-5 mb-0.5" />
+                <span>Farmers</span>
+              </NavLink>
+
+              <NavLink
+                to="/action-center"
+                className={({ isActive }) =>
+                  cx(
+                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    isActive
+                      ? 'text-emerald-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  )
+                }
+              >
+                <Briefcase className="h-5 w-5 mb-0.5" />
+                <span>Actions</span>
+              </NavLink>
+            </>
+          )}
 
           <button
             type="button"

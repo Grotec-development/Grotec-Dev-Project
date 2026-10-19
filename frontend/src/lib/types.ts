@@ -291,6 +291,8 @@ export interface DashboardSummary {
   followUps: { pending: number; overdue: number; dueToday: number; completedToday: number };
   leads: { open: number; newThisWeek: number; closedTotal: number };
   customers: { total: number; converted: number; interested: number };
+  orders?: { total: number; pending: number; totalRevenue: number };
+  fleet?: { total: number; available: number; onRoute: number };
   pipeline: Array<{ state: PipelineState; count: number }>;
   pipelineTotal: number;
   recentActivity: Array<{

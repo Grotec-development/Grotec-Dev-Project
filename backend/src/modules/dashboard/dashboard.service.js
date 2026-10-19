@@ -89,6 +89,34 @@ let DashboardService = class DashboardService {
                 customer: { select: { fullName: true } },
             },
         });
+        let ordersTotal = 0;
+        let ordersPending = 0;
+        let totalRevenue = 0;
+        try {
+            const [oTotal, oPending, revAgg] = await Promise.all([
+                this.prisma.salesOrder.count(),
+                this.prisma.salesOrder.count({ where: { status: { in: ['CONFIRMED', 'PROCESSING', 'DISPATCHED'] } } }),
+                this.prisma.salesOrder.aggregate({ _sum: { totalAmount: true } }),
+            ]);
+            ordersTotal = oTotal;
+            ordersPending = oPending;
+            totalRevenue = Number(revAgg._sum.totalAmount || 0);
+        } catch {}
+
+        let vehiclesTotal = 0;
+        let vehiclesAvailable = 0;
+        let vehiclesOnRoute = 0;
+        try {
+            const [vTotal, vAvail, vRoute] = await Promise.all([
+                this.prisma.vehicle.count(),
+                this.prisma.vehicle.count({ where: { status: 'AVAILABLE' } }),
+                this.prisma.vehicle.count({ where: { status: 'ON_ROUTE' } }),
+            ]);
+            vehiclesTotal = vTotal;
+            vehiclesAvailable = vAvail;
+            vehiclesOnRoute = vRoute;
+        } catch {}
+
         return {
             scope: isAgent ? 'me' : 'team',
             window: range,
@@ -113,6 +141,16 @@ let DashboardService = class DashboardService {
                 total: customersTotal,
                 converted: convertedCustomers,
                 interested: interestedCustomers,
+            },
+            orders: {
+                total: ordersTotal,
+                pending: ordersPending,
+                totalRevenue: totalRevenue,
+            },
+            fleet: {
+                total: vehiclesTotal,
+                available: vehiclesAvailable,
+                onRoute: vehiclesOnRoute,
             },
             pipeline: PIPELINE_STATES.map((state) => ({ state, count: segmented.counts[state] ?? 0 })),
             pipelineTotal: segmented.counts.total,

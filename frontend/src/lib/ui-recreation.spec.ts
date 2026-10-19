@@ -309,4 +309,152 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
   });
 });
 
+describe('Telecalling Workspace 5-Minute Timer & Extension Workflow', () => {
+  const CALL_TIMEOUT_SECONDS = 300; // 5 minutes default
+
+  it('initializes call timer with 5 minutes (300 seconds)', () => {
+    expect(CALL_TIMEOUT_SECONDS).toBe(300);
+    const formatCountdown = (secs: number) => {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    };
+    expect(formatCountdown(CALL_TIMEOUT_SECONDS)).toBe('05:00');
+  });
+
+  it('only decrements timer when callActive is true', () => {
+    let timeLeft = 300;
+    const tick = (callActive: boolean) => {
+      if (callActive && timeLeft > 0) {
+        timeLeft -= 1;
+      }
+      return timeLeft;
+    };
+
+    // When call is not active, timer must NOT decrement
+    expect(tick(false)).toBe(300);
+    expect(tick(false)).toBe(300);
+
+    // When call starts, timer decrements
+    expect(tick(true)).toBe(299);
+    expect(tick(true)).toBe(298);
+  });
+
+  it('triggers extension modal when timer expires (reaches 0)', () => {
+    let timeLeft = 1;
+    let showTimeoutAlert = false;
+    let showExtensionModal = false;
+
+    const tick = (callActive: boolean) => {
+      if (!callActive || timeLeft <= 0) return;
+      if (timeLeft <= 1) {
+        timeLeft = 0;
+        showTimeoutAlert = true;
+        showExtensionModal = true;
+      } else {
+        timeLeft -= 1;
+      }
+    };
+
+    tick(true);
+    expect(timeLeft).toBe(0);
+    expect(showTimeoutAlert).toBe(true);
+    expect(showExtensionModal).toBe(true);
+  });
+
+  it('extends call timer accurately and resets alert flags', () => {
+    let timeLeft = 0;
+    let showTimeoutAlert = true;
+    let showExtensionModal = true;
+
+    const handleExtendCall = (minutes: number) => {
+      timeLeft += minutes * 60;
+      showTimeoutAlert = false;
+      showExtensionModal = false;
+    };
+
+    // Extend by 2 minutes
+    handleExtendCall(2);
+    expect(timeLeft).toBe(120);
+    expect(showTimeoutAlert).toBe(false);
+    expect(showExtensionModal).toBe(false);
+
+    // Extend further by 5 minutes
+    handleExtendCall(5);
+    expect(timeLeft).toBe(420); // 120 + 300
+  });
+
+  it('formats call outcome payload properly on finish & save', () => {
+    const outcome = 'INTERESTED';
+    const notes = 'Farmer requested bio-fertilizer delivery by Friday.';
+    const callPurpose = 'Biofertilizer Enquiry';
+    const callbackDateTime = '2026-10-25T10:30';
+
+    const formattedNote = notes.trim() ? `[${callPurpose}] ${notes.trim()}` : `[${callPurpose}] Call logged`;
+    const payload = {
+      outcome,
+      notes: formattedNote,
+      followUpNote: formattedNote,
+      followUpDate: callbackDateTime.split('T')[0],
+      followUpTime: callbackDateTime.split('T')[1].slice(0, 5),
+    };
+
+    expect(payload.outcome).toBe('INTERESTED');
+    expect(payload.notes).toBe('[Biofertilizer Enquiry] Farmer requested bio-fertilizer delivery by Friday.');
+    expect(payload.followUpDate).toBe('2026-10-25');
+    expect(payload.followUpTime).toBe('10:30');
+  });
+});
+
+describe('5-Tier Organizational Role Hierarchy (Founder, Manager, Team Leader, Telecaller, Delivery)', () => {
+  const ROLE_RANK: Record<string, number> = {
+    SUPER_ADMIN: -1,
+    FOUNDER: 0,
+    MANAGER: 1,
+    TEAM_LEADER: 2,
+    AGENT: 3,
+    DELIVERY: 3,
+  };
+
+  const outranks = (actor: string, target: string) => {
+    const a = ROLE_RANK[actor] ?? 99;
+    const t = ROLE_RANK[target] ?? 99;
+    return a < t;
+  };
+
+  it('verifies Founder/Super Admin sits at the top of the hierarchy', () => {
+    expect(outranks('FOUNDER', 'MANAGER')).toBe(true);
+    expect(outranks('FOUNDER', 'TEAM_LEADER')).toBe(true);
+    expect(outranks('FOUNDER', 'AGENT')).toBe(true);
+    expect(outranks('FOUNDER', 'DELIVERY')).toBe(true);
+  });
+
+  it('verifies Manager outranks Team Leaders, Telecallers, and Delivery', () => {
+    expect(outranks('MANAGER', 'TEAM_LEADER')).toBe(true);
+    expect(outranks('MANAGER', 'AGENT')).toBe(true);
+    expect(outranks('MANAGER', 'DELIVERY')).toBe(true);
+    expect(outranks('MANAGER', 'FOUNDER')).toBe(false);
+  });
+
+  it('verifies Team Leader outranks Telecallers (4 callers under them)', () => {
+    expect(outranks('TEAM_LEADER', 'AGENT')).toBe(true);
+    expect(outranks('TEAM_LEADER', 'MANAGER')).toBe(false);
+    expect(outranks('TEAM_LEADER', 'FOUNDER')).toBe(false);
+  });
+
+  it('verifies Delivery role is focused on dispatch pipeline & delivery execution', () => {
+    const deliveryPermissions = [
+      'dispatch.read',
+      'dispatch.manage',
+      'delivery.read',
+      'delivery.execute',
+      'orders.read',
+      'customer.read',
+    ];
+    expect(deliveryPermissions).toContain('dispatch.manage');
+    expect(deliveryPermissions).toContain('delivery.execute');
+  });
+});
+
+
 

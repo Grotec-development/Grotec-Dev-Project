@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ShieldCheck, Lock, CheckCircle2, Loader2, ArrowRight, Sprout, Eye, EyeOff } from 'lucide-react';
 import { useAuth, authErrorMessage } from '../auth/AuthContext';
@@ -90,9 +90,10 @@ export function LoginPage() {
     const passLower = targetPass.toLowerCase();
     if (passLower === 'founder@grotec2026' || passLower === 'founder@grotec2026!') targetPass = 'Founder@Grotec2026!';
     else if (passLower === 'manager@grotec2026' || passLower === 'manager@grotec2026!') targetPass = 'Manager@Grotec2026!';
+    else if (passLower === 'teamleader@grotec2026' || passLower === 'teamleader@grotec2026!' || passLower === 'tl@grotec2026' || passLower === 'tl@grotec2026!') targetPass = 'TeamLeader@Grotec2026!';
     else if (passLower === 'agent1@grotec2026' || passLower === 'agent1@grotec2026!' || passLower === 'agent_1@grotec2026' || passLower === 'agent_1@grotec2026!') targetPass = 'Agent1@Grotec2026!';
     else if (passLower === 'agent2@grotec2026' || passLower === 'agent2@grotec2026!' || passLower === 'agent_2@grotec2026' || passLower === 'agent_2@grotec2026!') targetPass = 'Agent2@Grotec2026!';
-    else if (passLower === 'agent@grotec2026' || passLower === 'agent@grotec2026!') targetPass = 'Agent@Grotec2026!';
+    else if (passLower === 'agent@grotec2026' || passLower === 'agent@grotec2026!') targetPass = 'Agent1@Grotec2026!';
     else if (passLower === 'staff@grotec2026' || passLower === 'staff@grotec2026!' || passLower === 'hr@grotec2026' || passLower === 'hr@grotec2026!') targetPass = 'Staff@Grotec2026!';
     else if (passLower === 'delivery@grotec2026' || passLower === 'delivery@grotec2026!' || passLower === 'driver@grotec2026' || passLower === 'driver@grotec2026!') targetPass = 'Delivery@Grotec2026!';
     else if (passLower === 'superadmin@grotec2026' || passLower === 'superadmin@grotec2026!' || passLower === 'admin@grotec2026' || passLower === 'admin@grotec2026!') targetPass = 'SuperAdmin@Grotec2026!';
@@ -452,13 +453,7 @@ interface OneTapCredentialFillProps {
 }
 
 function OneTapCredentialFill({ busy, currentEmail, onFill }: OneTapCredentialFillProps) {
-  const [selectedCategory, setSelectedCategory] = useState<'All' | 'Management' | 'Calling' | 'Operations'>('All');
   const [filledRole, setFilledRole] = useState<string | null>(null);
-
-  const filteredAccounts = useMemo(() => {
-    if (selectedCategory === 'All') return DEMO_ACCOUNTS;
-    return DEMO_ACCOUNTS.filter((acc) => acc.category === selectedCategory);
-  }, [selectedCategory]);
 
   const handleSelect = (acc: DemoAccount, autoSignIn: boolean) => {
     setFilledRole(acc.label);
@@ -470,67 +465,51 @@ function OneTapCredentialFill({ busy, currentEmail, onFill }: OneTapCredentialFi
 
   return (
     <div className="rounded-xl bg-slate-50 border border-slate-200/90 p-3 space-y-2 text-left shadow-2xs">
-      <div className="flex items-center justify-between gap-1 flex-wrap">
+      <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-bold text-slate-800">1-Tap Fill:</span>
+          <span className="text-[11px] font-bold text-slate-800">Quick 1-Tap Sign In:</span>
           {filledRole ? (
-            <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.2 rounded animate-pulse">
+            <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded animate-pulse">
               ✓ {filledRole}
             </span>
           ) : (
-            <span className="text-[9px] text-slate-400">All Roles</span>
+            <span className="text-[9px] text-slate-400">Select any of 5 system roles</span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-[9px] font-semibold">
-          {(['All', 'Management', 'Calling', 'Operations'] as const).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={cx(
-                'px-1.5 py-0.5 rounded transition cursor-pointer',
-                selectedCategory === cat
-                  ? 'bg-emerald-700 text-white shadow-2xs font-bold'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/60'
-              )}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        <span className="text-[9px] font-medium text-slate-400">Instant Demo Auth</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-0.5">
-        {filteredAccounts.map((acc) => {
+      <div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
+        {DEMO_ACCOUNTS.map((acc) => {
           const isSelected = currentEmail.toLowerCase() === acc.email.toLowerCase();
           return (
             <div
               key={acc.label + acc.email}
               className={cx(
-                'rounded-lg border p-2 transition-all flex flex-col justify-between',
+                'rounded-lg border px-2.5 py-2 transition-all flex items-center justify-between gap-2',
                 isSelected
                   ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs ring-1 ring-emerald-500/20'
                   : 'border-slate-200 bg-white hover:border-emerald-400 hover:bg-slate-50/80 shadow-2xs'
               )}
             >
-              <div>
-                <div className="flex items-start justify-between gap-1">
-                  <span className="font-bold text-slate-900 text-[10px] leading-tight">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-bold text-slate-900 text-[11px] leading-tight">
                     {acc.label}
                   </span>
-                  <span className="text-[8px] font-semibold text-emerald-800 bg-emerald-100/80 px-1 py-0.2 rounded shrink-0">
+                  <span className="text-[8px] font-semibold text-emerald-800 bg-emerald-100/80 px-1.5 py-0.2 rounded shrink-0">
                     {acc.badge}
                   </span>
                 </div>
-                <div className="text-[9px] text-slate-400 truncate font-mono mt-0.5">
+                <div className="text-[10px] text-slate-400 truncate font-mono mt-0.5">
                   {acc.email}
                 </div>
               </div>
-              <div className="mt-2 flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => handleSelect(acc, false)}
-                  className="flex-1 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-semibold text-[9px] text-center transition cursor-pointer"
+                  className="px-2 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-semibold text-[9px] text-center transition cursor-pointer"
                   title={`Fill ${acc.label} credentials`}
                 >
                   Fill
@@ -539,10 +518,10 @@ function OneTapCredentialFill({ busy, currentEmail, onFill }: OneTapCredentialFi
                   type="button"
                   disabled={busy}
                   onClick={() => handleSelect(acc, true)}
-                  className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[9px] transition cursor-pointer flex items-center gap-0.5 disabled:opacity-50"
+                  className="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[9px] transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
                   title={`Sign in as ${acc.label}`}
                 >
-                  <span>⚡</span> Sign in
+                  <span>⚡</span> Sign In
                 </button>
               </div>
             </div>

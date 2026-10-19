@@ -53,6 +53,25 @@ let DispatchService = class DispatchService {
         });
     }
 
+    async updateVehicle(actor, id, input) {
+        const vehicle = await this.prisma.vehicle.findUnique({ where: { id } });
+        if (!vehicle) {
+            throw ApiError.notFound('VEHICLE_NOT_FOUND', 'Vehicle not found');
+        }
+        const data = {};
+        if (input.status) data.status = input.status;
+        if (input.driverId !== undefined) data.driverId = input.driverId || null;
+        if (input.model) data.model = input.model;
+        if (input.capacityKg) data.capacityKg = Number(input.capacityKg);
+        if (input.regNumber) data.regNumber = input.regNumber.trim().toUpperCase();
+
+        return this.prisma.vehicle.update({
+            where: { id },
+            data,
+            include: { driver: { select: { id: true, fullName: true, phone: true, employeeCode: true } } },
+        });
+    }
+
     async listTrips(actor, query = {}) {
         const where = {};
         if (query.status) where.status = query.status;

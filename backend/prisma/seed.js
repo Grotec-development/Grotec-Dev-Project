@@ -368,6 +368,7 @@ async function seedEmployees() {
         'founder@grotec.local': { code: 'EMP0001', designation: 'Founder & CEO', department: 'Executive', experience: '10+ years', joiningDate: new Date('2024-01-01') },
         'grotecdatabase@gmail.com': { code: 'EMP0000', designation: 'Founder & CEO', department: 'Executive', experience: '10+ years', joiningDate: new Date('2024-01-01') },
         'manager@grotec.local': { code: 'EMP0002', designation: 'Operations Manager', department: 'Operations', experience: '6 years', joiningDate: new Date('2024-06-01') },
+        'teamleader@grotec.local': { code: 'EMP0006', designation: 'Telecalling Team Leader', department: 'Telecalling', experience: '4 years', joiningDate: new Date('2024-08-01') },
         'agent@grotec.local': { code: 'EMP0003', designation: 'Senior Telecaller', department: 'Telecalling', experience: '2.5 years', joiningDate: new Date('2025-01-15') },
         'staff@grotec.local': { code: 'EMP0005', designation: 'Office & HR Staff', department: 'Human Resources', experience: '3 years', joiningDate: new Date('2024-11-01') },
         'delivery@grotec.local': { code: 'EMP0004', designation: 'Delivery & Field Specialist', department: 'Field Operations', experience: '2 years', joiningDate: new Date('2025-01-10') },

@@ -73,7 +73,15 @@ let EmployeesService = class EmployeesService {
             conditions.push({
                 OR: [
                     { id: actor.id },
-                    { role: { code: { in: ['AGENT', 'STAFF', 'DELIVERY'] } } },
+                    { role: { code: { in: ['TEAM_LEADER', 'GROUP_LEADER', 'AGENT', 'FSE', 'STAFF', 'DELIVERY'] } } },
+                ],
+            });
+        }
+        else if (actor.roleCode === 'TEAM_LEADER' || actor.roleCode === 'GROUP_LEADER') {
+            conditions.push({
+                OR: [
+                    { id: actor.id },
+                    { role: { code: { in: ['AGENT', 'FSE'] } } },
                 ],
             });
         }
@@ -841,6 +849,12 @@ let EmployeesService = class EmployeesService {
             }
             return;
         }
+        if (actor.roleCode === 'TEAM_LEADER' || actor.roleCode === 'GROUP_LEADER') {
+            if (!outranks(actor.roleCode, targetRoleCode)) {
+                throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'Team Leaders can only access callers under their rank');
+            }
+            return;
+        }
         if (actor.roleCode === 'STAFF') {
             const assignment = await this.prisma.employeeAssignment.findUnique({
                 where: {
@@ -871,7 +885,7 @@ let EmployeesService = class EmployeesService {
             return true;
         if (isTopTier(actor.roleCode))
             return true;
-        if (actor.roleCode === 'MANAGER' && outranks(actor.roleCode, targetRoleCode))
+        if ((actor.roleCode === 'MANAGER' || actor.roleCode === 'TEAM_LEADER' || actor.roleCode === 'GROUP_LEADER') && outranks(actor.roleCode, targetRoleCode))
             return true;
         return false;
     }

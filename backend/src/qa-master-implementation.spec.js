@@ -161,10 +161,11 @@ describe('GROTEC Master Implementation Prompt - 38 Mandatory Acceptance Tests', 
     let activeCallId;
 
     it('9. Save a call outcome and record interaction', async () => {
+      const targetPhone = testCustomer.primaryPhone || testCustomer.phones?.[0]?.phoneE164 || testCustomer.phones?.[0]?.rawInput || '9876543210';
       const callRes = await request(app.getHttpServer())
         .post('/api/v1/calls')
         .set('Authorization', `Bearer ${managerToken}`)
-        .send({ phoneNumber: '9876543210', customerId: testCustomer.id });
+        .send({ phoneNumber: targetPhone, customerId: testCustomer.id });
 
       expect([200, 201]).toContain(callRes.status);
       activeCallId = callRes.body.id;
@@ -257,7 +258,8 @@ describe('GROTEC Master Implementation Prompt - 38 Mandatory Acceptance Tests', 
         .set('Authorization', `Bearer ${managerToken}`);
 
       expect(queueRes.status).toBe(200);
-      const isPresent = queueRes.body.items?.some(f => f.customerId === testCustomer.id);
+      const queueList = Array.isArray(queueRes.body) ? queueRes.body : (queueRes.body.items || []);
+      const isPresent = queueList.some(f => f.customerId === testCustomer.id);
       expect(isPresent).toBe(false);
 
       // Restore active status

@@ -11,7 +11,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var _a;
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -28,6 +28,10 @@ let DispatchController = class DispatchController {
 
     async createVehicle(actor, body) {
         return this.dispatch.createVehicle(actor, body);
+    }
+
+    async updateVehicle(actor, id, body) {
+        return this.dispatch.updateVehicle(actor, id, body);
     }
 
     async listTrips(actor, query) {
@@ -72,6 +76,17 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], DispatchController.prototype, "createVehicle", null);
+
+__decorate([
+    Patch('vehicles/:id'),
+    RequirePermission('dispatch.manage'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], DispatchController.prototype, "updateVehicle", null);
 
 __decorate([
     Get('trips'),

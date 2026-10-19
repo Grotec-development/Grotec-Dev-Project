@@ -188,7 +188,7 @@ let RequestsService = class RequestsService {
             select: { id: true, role: { select: { code: true } } },
         });
         return candidates
-            .filter((c) => ['SUPER_ADMIN', 'FOUNDER', 'MANAGER'].includes(toTechnicalRole(c.role.code)))
+            .filter((c) => ['SUPER_ADMIN', 'FOUNDER', 'MANAGER', 'TEAM_LEADER'].includes(toTechnicalRole(c.role.code)))
             .filter((c) => outranks(c.role.code, requester.role.code))
             .map((c) => c.id);
     }

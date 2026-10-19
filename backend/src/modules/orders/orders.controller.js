@@ -11,7 +11,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var _a;
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -112,6 +112,7 @@ __decorate([
 
 __decorate([
     Post(':id/discount/approve'),
+    HttpCode(200),
     RequirePermission('orders.manage'),
     __param(0, CurrentEmployee()),
     __param(1, Param('id')),
@@ -123,6 +124,7 @@ __decorate([
 
 __decorate([
     Post(':id/discount/reject'),
+    HttpCode(200),
     RequirePermission('orders.manage'),
     __param(0, CurrentEmployee()),
     __param(1, Param('id')),
@@ -134,6 +136,7 @@ __decorate([
 
 __decorate([
     Post(':id/advance/exception'),
+    HttpCode(200),
     RequirePermission('orders.manage'),
     __param(0, CurrentEmployee()),
     __param(1, Param('id')),

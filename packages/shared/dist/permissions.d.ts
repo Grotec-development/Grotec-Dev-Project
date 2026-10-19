@@ -80,6 +80,8 @@ export namespace PROPOSED_ROLE_PERMISSIONS {
     let MANAGER: string[];
     let AGENT: string[];
     let STAFF: string[];
+    let TEAM_LEADER: string[];
+    let GROUP_LEADER: string[];
     let DELIVERY: string[];
 }
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

@@ -30,6 +30,7 @@ import {
   History,
   Tag,
   Truck,
+  Plus,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Call, CustomerDetail, QueueItem } from '../../lib/types';
@@ -40,7 +41,7 @@ import { LocationSelector } from '../../components/LocationSelector';
 import { InCallOrderModal } from './InCallOrderModal';
 import { InCallTicketModal } from './InCallTicketModal';
 
-const CALL_TIMEOUT_SECONDS = 180; // 3 minutes per customer operation
+const CALL_TIMEOUT_SECONDS = 300; // 5 minutes default per call operation
 
 export function DedicatedAgentCallingWorkspace() {
   const queryClient = useQueryClient();
@@ -57,10 +58,13 @@ export function DedicatedAgentCallingWorkspace() {
   const [queueMode, setQueueMode] = useState<'ALL' | 'SCHEDULED'>('ALL');
   const [queueSearch, setQueueSearch] = useState<string>('');
 
-  // 3-Minute Timer state
+  // 5-Minute Call Timer state
   const [timeLeft, setTimeLeft] = useState(CALL_TIMEOUT_SECONDS);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [showTimeoutAlert, setShowTimeoutAlert] = useState(false);
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [customExtensionMinutes, setCustomExtensionMinutes] = useState(5);
+  const [extensionToast, setExtensionToast] = useState<string | null>(null);
 
   // Call simulation / state
   const [callActive, setCallActive] = useState(false);
@@ -278,6 +282,7 @@ export function DedicatedAgentCallingWorkspace() {
     setTimeLeft(CALL_TIMEOUT_SECONDS);
     setIsTimerPaused(false);
     setShowTimeoutAlert(false);
+    setShowExtensionModal(false);
     setOutcome('');
     setNotes('');
     setCallbackDateTime('');
@@ -287,15 +292,16 @@ export function DedicatedAgentCallingWorkspace() {
     setDialedNumber('');
   }, [currentIndex, currentCustomer?.id]);
 
-  // Operation Countdown Timer Loop
+  // Call Countdown Timer Loop - Only counts down when a call is started (callActive is true)!
   useEffect(() => {
-    if (isTimerPaused || timeLeft <= 0 || !currentCustomer) return;
+    if (!callActive || isTimerPaused || timeLeft <= 0 || !currentCustomer) return;
 
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
           setShowTimeoutAlert(true);
+          setShowExtensionModal(true); // Pop up on screen for extension
           return 0;
         }
         return prev - 1;
@@ -303,7 +309,7 @@ export function DedicatedAgentCallingWorkspace() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeLeft, isTimerPaused, currentCustomer]);
+  }, [callActive, timeLeft, isTimerPaused, currentCustomer]);
 
   // In-call duration timer
   useEffect(() => {
@@ -327,6 +333,11 @@ export function DedicatedAgentCallingWorkspace() {
     setActivePhoneDialed(phoneToDial);
     setCallActive(true);
     setCallDuration(0);
+    // Start fresh 5-minute timer when call is started
+    setTimeLeft(CALL_TIMEOUT_SECONDS);
+    setIsTimerPaused(false);
+    setShowTimeoutAlert(false);
+    setShowExtensionModal(false);
     setIsMuted(false);
 
     try {
@@ -348,6 +359,8 @@ export function DedicatedAgentCallingWorkspace() {
   const handleEndCall = async () => {
     if (!callActive) return;
     setCallActive(false);
+    setShowExtensionModal(false);
+    setShowTimeoutAlert(false);
 
     if (activeCallId) {
       try {
@@ -360,12 +373,49 @@ export function DedicatedAgentCallingWorkspace() {
     }
   };
 
+  // Extend Call Duration Handler
+  const handleExtendCall = (additionalMinutes: number) => {
+    const additionalSecs = Math.max(1, additionalMinutes) * 60;
+    setTimeLeft((prev) => prev + additionalSecs);
+    setShowTimeoutAlert(false);
+    setShowExtensionModal(false);
+    setExtensionToast(`Call timer extended by +${additionalMinutes} minute${additionalMinutes > 1 ? 's' : ''}.`);
+    setTimeout(() => setExtensionToast(null), 5000);
+  };
+
+  // Finish call from Extension Modal and proceed to save outcome
+  const handleFinishAndSaveOutcome = async () => {
+    setShowExtensionModal(false);
+    setShowTimeoutAlert(false);
+    if (callActive) {
+      await handleEndCall();
+    }
+    const outcomeEl = document.getElementById('record-call-outcome-section');
+    if (outcomeEl) {
+      outcomeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   // Save Outcome and Move to Next Customer
   const handleSaveAndNext = async () => {
     if (!currentCustomer) return;
     setSavingOutcome(true);
 
     try {
+      // If call is still active when agent finishes, end it cleanly
+      if (callActive) {
+        setCallActive(false);
+        if (activeCallId) {
+          try {
+            await api.post(`/calls/${activeCallId}/end`, {
+              disconnectReason: 'AGENT_HANGUP',
+            });
+          } catch {
+            // Silently end
+          }
+        }
+      }
+
       const selectedOutcome = outcome || 'COMPLETED';
       const formattedNote = notes.trim() ? `[${callPurpose}] ${notes.trim()}` : `[${callPurpose}] Call logged`;
       const outcomePayload = {
@@ -541,17 +591,36 @@ export function DedicatedAgentCallingWorkspace() {
           <div
             className={cx(
               'flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs font-bold shadow-xs transition-colors',
-              timeLeft <= 30
+              !callActive
+                ? 'bg-slate-50 border-slate-200 text-slate-600'
+                : timeLeft <= 30
                 ? 'bg-red-50 border-red-300 text-red-700 animate-pulse'
                 : timeLeft <= 60
                 ? 'bg-amber-50 border-amber-300 text-amber-800'
                 : 'bg-emerald-50 border-emerald-300 text-emerald-800'
             )}
-            title="Session Operation Timer"
+            title={callActive ? 'Active Call Timer (5m allocation)' : 'Call Timer: Starts 5 mins on call start'}
           >
-            <Clock className={cx('h-3.5 w-3.5', timeLeft <= 30 ? 'text-red-600' : 'text-emerald-700')} />
+            <Clock className={cx('h-3.5 w-3.5', !callActive ? 'text-slate-400' : timeLeft <= 30 ? 'text-red-600' : 'text-emerald-700')} />
             <span>{formatCountdown(timeLeft)}</span>
+            {!callActive ? (
+              <span className="text-[10px] font-sans font-medium text-slate-400">(Ready)</span>
+            ) : (
+              <span className="text-[10px] font-sans font-medium opacity-80">(Live)</span>
+            )}
           </div>
+
+          {callActive && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowExtensionModal(true)}
+              className="text-xs gap-1 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold"
+              title="Need more time? Extend call duration"
+            >
+              <Plus className="h-3.5 w-3.5 text-amber-700" /> Extend
+            </Button>
+          )}
 
           <Button
             size="sm"
@@ -573,6 +642,48 @@ export function DedicatedAgentCallingWorkspace() {
           </Button>
         </div>
       </div>
+
+      {/* Extension Toast Notification */}
+      {extensionToast && (
+        <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
+            <span className="font-semibold">{extensionToast}</span>
+          </div>
+          <button onClick={() => setExtensionToast(null)} className="text-emerald-700 hover:text-emerald-900">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Near-Expiry Warning Banner */}
+      {callActive && timeLeft <= 30 && timeLeft > 0 && !showExtensionModal && (
+        <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-900 flex items-center justify-between shadow-xs animate-pulse">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+            <span className="font-semibold">
+              Warning: 5-minute call time limit expiring in {timeLeft}s! Need more time with {currentCustomer?.fullName}?
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => handleExtendCall(2)}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-1 px-2.5"
+            >
+              +2 Mins
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowExtensionModal(true)}
+              className="border-red-300 bg-white text-red-800 font-bold text-xs py-1 px-2.5"
+            >
+              Extend Options
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notifications */}
       {orderToast && (
@@ -747,9 +858,24 @@ export function DedicatedAgentCallingWorkspace() {
                       {callActive ? 'Live Call Connected' : 'Telephony Dial Control'}
                     </h3>
                   </div>
-                  {callActive && (
-                    <span className="font-mono text-sm font-extrabold text-emerald-800">
-                      {formatDuration(callDuration)}
+                  {callActive ? (
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Timer Left</span>
+                        <span className={cx('font-mono text-xs font-extrabold', timeLeft <= 30 ? 'text-red-600 animate-pulse' : timeLeft <= 60 ? 'text-amber-700' : 'text-emerald-700')}>
+                          {formatCountdown(timeLeft)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Duration</span>
+                        <span className="font-mono text-xs font-extrabold text-slate-800">
+                          {formatDuration(callDuration)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-400">
+                      Timer: 5:00
                     </span>
                   )}
                 </div>
@@ -769,6 +895,17 @@ export function DedicatedAgentCallingWorkspace() {
                       >
                         {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                         <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowExtensionModal(true)}
+                        className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold gap-1"
+                        title="Extend call duration"
+                      >
+                        <Plus className="h-4 w-4 text-amber-700" />
+                        <span>Extend</span>
                       </Button>
 
                       <Button
@@ -878,7 +1015,7 @@ export function DedicatedAgentCallingWorkspace() {
               </Card>
 
               {/* Call Outcomes & Advance Card (Phase 3.2 & 3.6) */}
-              <Card className="p-4 bg-white shadow-xs space-y-3">
+              <Card id="record-call-outcome-section" className="p-4 bg-white shadow-xs space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Record Call Outcome
@@ -1324,6 +1461,157 @@ export function DedicatedAgentCallingWorkspace() {
               <Button onClick={() => void handleSaveFarmerEdit()} disabled={farmerEditSaving || !farmerEditName.trim()}>
                 {farmerEditSaving ? 'Saving Changes...' : 'Save Farmer Details'}
               </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Call Timer Extension Pop-up Modal */}
+      {showExtensionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <Card className="w-full max-w-md shadow-2xl border-slate-200 overflow-hidden bg-white">
+            <div
+              className={cx(
+                'flex items-center justify-between px-5 py-4 border-b',
+                timeLeft <= 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50/70 border-emerald-200'
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={cx(
+                    'flex h-9 w-9 items-center justify-center rounded-lg font-bold shadow-xs',
+                    timeLeft <= 0 ? 'bg-red-600 text-white' : 'bg-emerald-700 text-white'
+                  )}
+                >
+                  {timeLeft <= 0 ? <AlertTriangle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    {timeLeft <= 0 ? '5-Minute Call Time Limit Reached' : 'Extend Call Duration'}
+                  </h3>
+                  <p className="text-[11px] text-slate-600 font-medium">
+                    {timeLeft <= 0
+                      ? 'The default 5 minutes allocation has elapsed.'
+                      : `${formatCountdown(timeLeft)} remaining on current allocation.`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExtensionModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              {/* Call Details Summary */}
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-1.5">
+                <div className="flex justify-between items-center text-slate-500">
+                  <span>Farmer:</span>
+                  <span className="font-bold text-slate-900">{currentCustomer?.fullName || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-500">
+                  <span>Phone:</span>
+                  <span className="font-mono font-semibold text-slate-800">
+                    {formatE164(activePhoneDialed || currentCustomer?.primaryPhone || '')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-slate-500">
+                  <span>Total Elapsed Talk Time:</span>
+                  <span className="font-mono font-bold text-emerald-800">{formatDuration(callDuration)}</span>
+                </div>
+              </div>
+
+              {/* Extension Duration Options */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Select Extension Time
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleExtendCall(2)}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100 hover:border-emerald-500 transition text-emerald-900 font-bold group shadow-xs"
+                  >
+                    <span className="text-base font-extrabold group-hover:scale-105 transition">+2 min</span>
+                    <span className="text-[10px] text-emerald-700 font-medium">Quick Chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExtendCall(5)}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 transition font-bold group shadow-sm"
+                  >
+                    <span className="text-base font-extrabold group-hover:scale-105 transition">+5 min</span>
+                    <span className="text-[10px] text-emerald-100 font-medium">Recommended</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExtendCall(10)}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100 hover:border-emerald-500 transition text-emerald-900 font-bold group shadow-xs"
+                  >
+                    <span className="text-base font-extrabold group-hover:scale-105 transition">+10 min</span>
+                    <span className="text-[10px] text-emerald-700 font-medium">Advisory Deep-dive</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Extension Input */}
+              <div className="flex items-center gap-2 pt-1">
+                <div className="flex-1">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={customExtensionMinutes}
+                      onChange={(e) => setCustomExtensionMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                      placeholder="Minutes"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 font-medium">
+                      minutes
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleExtendCall(customExtensionMinutes)}
+                  className="font-bold text-xs border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-900"
+                >
+                  Apply Custom
+                </Button>
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleFinishAndSaveOutcome()}
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 text-xs border-slate-300 flex items-center justify-center gap-1.5"
+                >
+                  <PhoneOff className="h-3.5 w-3.5 text-red-600" />
+                  <span>Finish Call &amp; Record Outcome</span>
+                </Button>
+
+                {timeLeft > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowExtensionModal(false)}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 font-medium text-center py-1"
+                  >
+                    Dismiss &amp; Continue Existing Timer
+                  </button>
+                )}
+              </div>
             </div>
           </Card>
         </div>

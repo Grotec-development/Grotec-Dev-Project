@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentEmployee } from '../../common/decorators/current-employee.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { RoutesService } from './routes.service';
@@ -93,6 +93,7 @@ __decorate([
 
 __decorate([
     Post('orders/:orderId/confirm-delivery'),
+    HttpCode(200),
     __param(0, CurrentEmployee()),
     __param(1, Param('orderId')),
     __param(2, Body()),

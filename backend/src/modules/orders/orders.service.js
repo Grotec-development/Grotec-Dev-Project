@@ -12,7 +12,7 @@ import { Injectable } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { AuditAction, AuditEntityType, OrderStatus, StockState, isTopTier, districtSpellings } from '@grotec/shared';
+import { AuditAction, AuditEntityType, OrderStatus, StockState, isTopTier, districtSpellings, toTechnicalRole } from '@grotec/shared';
 
 let OrdersService = class OrdersService {
     constructor(prisma, audit) {
@@ -140,10 +140,10 @@ let OrdersService = class OrdersService {
 
         // 3. Discount authority check
         const isAuthorizedSupervisor =
-            isTopTier(actor.roleCode) ||
-            actor.roleCode === 'MANAGER' ||
-            actor.permissions?.includes('orders.discount.approve') ||
-            actor.permissions?.includes('orders.manage');
+            toTechnicalRole(actor.roleCode) !== 'AGENT' &&
+            (isTopTier(actor.roleCode) ||
+                actor.roleCode === 'MANAGER' ||
+                actor.permissions?.includes('orders.discount.approve'));
 
         let totalRequestedDiscount = 0;
         let subtotal = 0;
@@ -186,6 +186,10 @@ let OrdersService = class OrdersService {
                 discount: appliedDiscount,
                 totalAmount: itemTotal,
             });
+        }
+
+        if (input.discountAmount && Number(input.discountAmount) > 0) {
+            totalRequestedDiscount += Number(input.discountAmount);
         }
 
         const grandTotal = subtotal + totalTax;

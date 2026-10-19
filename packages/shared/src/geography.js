@@ -110,7 +110,7 @@ export const TALUKS_BY_DISTRICT = {
  * @returns {{ valid: boolean, error?: string, message?: string }}
  */
 export function validateParentChildGeographic(loc) {
-  if (!loc) return { valid: true };
+  if (!loc) return { valid: true, isValid: true };
 
   const rawState = loc.state ? String(loc.state).trim() : '';
   const rawDistrict = loc.district ? String(loc.district).trim() : '';
@@ -124,7 +124,10 @@ export function validateParentChildGeographic(loc) {
       // If state is unknown, reject if strictly invalid
       return {
         valid: false,
-        error: 'INVALID_STATE',
+        isValid: false,
+        error: 'INVALID_GEOGRAPHY',
+        code: 'INVALID_GEOGRAPHY',
+        reason: 'INVALID_STATE',
         message: `State "${rawState}" is not recognized in the master geographic catalogue.`,
       };
     }
@@ -141,7 +144,10 @@ export function validateParentChildGeographic(loc) {
       if (!districtMatches) {
         return {
           valid: false,
-          error: 'INVALID_DISTRICT_FOR_STATE',
+          isValid: false,
+          error: 'INVALID_GEOGRAPHY',
+          code: 'INVALID_GEOGRAPHY',
+          reason: 'INVALID_DISTRICT_FOR_STATE',
           message: `District "${rawDistrict}" does not belong to State "${matchedState}".`,
         };
       }
@@ -155,7 +161,10 @@ export function validateParentChildGeographic(loc) {
         if (!talukMatches) {
           return {
             valid: false,
-            error: 'INVALID_TALUK_FOR_DISTRICT',
+            isValid: false,
+            error: 'INVALID_GEOGRAPHY',
+            code: 'INVALID_GEOGRAPHY',
+            reason: 'INVALID_TALUK_FOR_DISTRICT',
             message: `Taluk "${rawTaluk}" is not a valid taluk/subdistrict of District "${rawDistrict}".`,
           };
         }
@@ -163,5 +172,5 @@ export function validateParentChildGeographic(loc) {
     }
   }
 
-  return { valid: true };
+  return { valid: true, isValid: true };
 }

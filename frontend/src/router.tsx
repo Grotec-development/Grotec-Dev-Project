@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Shell } from './pages/Shell';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -10,7 +10,6 @@ import { RequirePermission } from './components/RequirePermission';
 // cellular data only downloads the page it's actually visiting, not all ~28
 // pages in a single bundle.
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
-const AgentWorkspacePage = lazy(() => import('./pages/AgentWorkspacePage').then((m) => ({ default: m.AgentWorkspacePage })));
 const CustomersPage = lazy(() => import('./pages/customers/CustomersPage').then((m) => ({ default: m.CustomersPage })));
 const CustomerDetailPage = lazy(() => import('./pages/customers/CustomerDetailPage').then((m) => ({ default: m.CustomerDetailPage })));
 const LeadsPage = lazy(() => import('./pages/leads/LeadsPage').then((m) => ({ default: m.LeadsPage })));
@@ -39,6 +38,7 @@ const ExceptionCentrePage = lazy(() => import('./pages/exceptions/ExceptionCentr
 const SalesPage = lazy(() => import('./pages/sales/SalesPage').then((m) => ({ default: m.SalesPage })));
 const SupportTicketsPage = lazy(() => import('./pages/tickets/SupportTicketsPage').then((m) => ({ default: m.SupportTicketsPage })));
 const RegionalRoutesPage = lazy(() => import('./pages/dispatch/RegionalRoutesView').then((m) => ({ default: m.RegionalRoutesView })));
+const FleetManagementView = lazy(() => import('./pages/delivery/FleetManagementView').then((m) => ({ default: m.FleetManagementView })));
 
 import { DedicatedAgentCallingWorkspace } from './pages/calling/DedicatedAgentCallingWorkspace';
 
@@ -53,13 +53,13 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'agent', element: <RequirePermission anyOf={['call.read']}><DedicatedAgentCallingWorkspace /></RequirePermission> },
       { path: 'calling', element: <RequirePermission anyOf={['call.read']}><DedicatedAgentCallingWorkspace /></RequirePermission> },
-      { path: 'agent-advanced', element: <RequirePermission anyOf={['call.read']}><AgentWorkspacePage /></RequirePermission> },
+      { path: 'agent-advanced', element: <Navigate to="/agent" replace /> },
       { path: 'action-center', element: <ActionCenterPage /> },
       { path: 'customers', element: <RequirePermission anyOf={['customer.read']}><CustomersPage /></RequirePermission> },
       { path: 'customers/:id', element: <RequirePermission anyOf={['customer.read']}><CustomerDetailPage /></RequirePermission> },
       { path: 'leads', element: <RequirePermission anyOf={['lead.read']}><LeadsPage /></RequirePermission> },
       { path: 'relationship', element: <RequirePermission anyOf={['relationship.read']}><RelationshipPage /></RequirePermission> },
-      { path: 'relationship-manager', element: <RequirePermission anyOf={['relationship.read']}><RelationshipPage /></RequirePermission> },
+      { path: 'relationship-manager', element: <Navigate to="/relationship" replace /> },
       { path: 'crops', element: <RequirePermission anyOf={['crop.read']}><CropsPage /></RequirePermission> },
       { path: 'knowledge-base', element: <RequirePermission anyOf={['assistant.use']}><KnowledgeBasePage /></RequirePermission> },
       { path: 'team', element: <RequirePermission anyOf={['employee.read']}><TeamPage /></RequirePermission> },
@@ -84,6 +84,8 @@ export const router = createBrowserRouter([
       { path: 'factory', element: <RequirePermission anyOf={['production.read']}><FactoryPage /></RequirePermission> },
       { path: 'dispatch', element: <RequirePermission anyOf={['dispatch.read']}><DispatchPage /></RequirePermission> },
       { path: 'routes', element: <RequirePermission anyOf={['dispatch.read']}><RegionalRoutesPage /></RequirePermission> },
+      { path: 'delivery/fleet', element: <RequirePermission anyOf={['dispatch.read', 'delivery.read', 'delivery.execute']}><FleetManagementView /></RequirePermission> },
+      { path: 'fleet', element: <Navigate to="/delivery/fleet" replace /> },
       { path: 'tickets', element: <RequirePermission anyOf={['customer.read']}><SupportTicketsPage /></RequirePermission> },
       { path: 'delivery', element: <RequirePermission anyOf={['delivery.execute', 'delivery.read']}><DeliveryMobilePage /></RequirePermission> },
       { path: 'delivery/mobile', element: <RequirePermission anyOf={['delivery.execute', 'delivery.read']}><DeliveryMobilePage /></RequirePermission> },

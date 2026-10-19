@@ -152,8 +152,8 @@ export function StatusBadge({ status }: { status?: string | null }) {
   return <Badge tone="slate">{raw || '—'}</Badge>;
 }
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx('rounded-lg border border-slate-200/90 bg-white shadow-xs', className)}>{children}</div>;
+export function Card({ className, children, id }: { className?: string; children: ReactNode; id?: string }) {
+  return <div id={id} className={cx('rounded-lg border border-slate-200/90 bg-white shadow-xs', className)}>{children}</div>;
 }
 
 export function CardHeader({ title, action }: { title: string; action?: ReactNode }) {
