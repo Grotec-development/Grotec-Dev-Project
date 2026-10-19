@@ -35,6 +35,7 @@ import {
   enqueueOperation,
 } from '../../lib/offline/db';
 import { syncEngine } from '../../lib/offline/syncEngine';
+import { compressImageFile, triggerHaptic } from '../../lib/imageCompression';
 
 export function DeliveryMobilePage() {
   const queryClient = useQueryClient();
@@ -64,6 +65,7 @@ export function DeliveryMobilePage() {
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'BANK_TRANSFER'>('CASH');
   const [paymentRef, setPaymentRef] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentReceiptPhoto, setPaymentReceiptPhoto] = useState<string | null>(null);
 
   // Call Outcome State
   const [callOutcome, setCallOutcome] = useState('CONFIRMED');
@@ -279,6 +281,7 @@ export function DeliveryMobilePage() {
         payload,
       });
       await clearDeliveryDraft(selectedStop.id);
+      triggerHaptic('success');
       alert('Proof of Delivery saved locally! Will automatically sync upon reconnecting.');
       setIsPodModalOpen(false);
       return;
@@ -287,6 +290,7 @@ export function DeliveryMobilePage() {
     try {
       await api.post(`/delivery/stops/${selectedStop.id}/complete`, payload);
       await clearDeliveryDraft(selectedStop.id);
+      triggerHaptic('success');
       alert('Delivery & POD successfully recorded on server!');
       setIsPodModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['active-trip'] });
@@ -317,7 +321,9 @@ export function DeliveryMobilePage() {
       paymentMethod,
       referenceNumber: paymentRef || null,
       notes: paymentNotes || null,
+      photoUrl: paymentReceiptPhoto || null,
     };
+    triggerHaptic('success');
 
     const order = selectedStop.order;
     const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -947,12 +953,18 @@ export function DeliveryMobilePage() {
                       accept="image/*"
                       capture="environment"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = () => setPhotoPreview(reader.result as string);
-                          reader.readAsDataURL(file);
+                          triggerHaptic('tap');
+                          try {
+                            const compressed = await compressImageFile(file, 1280, 1280, 0.75);
+                            setPhotoPreview(compressed);
+                          } catch {
+                            const reader = new FileReader();
+                            reader.onload = () => setPhotoPreview(reader.result as string);
+                            reader.readAsDataURL(file);
+                          }
                         }
                       }}
                     />
@@ -1091,6 +1103,46 @@ export function DeliveryMobilePage() {
                   placeholder="e.g. Received 2 x ₹500 notes"
                   className="w-full p-2 rounded-lg border border-slate-200"
                 />
+              </div>
+
+              {/* Receipt / Screenshot Attachment */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Payment Receipt / UPI Screenshot (Optional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center gap-2 font-bold text-slate-700 text-xs touch-tactile">
+                    <Camera className="h-4 w-4 text-emerald-700" />
+                    <span>Upload Proof</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          triggerHaptic('tap');
+                          try {
+                            const compressed = await compressImageFile(file, 1280, 1280, 0.75);
+                            setPaymentReceiptPhoto(compressed);
+                          } catch {
+                            const reader = new FileReader();
+                            reader.onload = () => setPaymentReceiptPhoto(reader.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  {paymentReceiptPhoto && (
+                    <img
+                      src={paymentReceiptPhoto}
+                      alt="Receipt Preview"
+                      className="h-10 w-10 object-cover rounded-lg border border-slate-200 shadow-xs"
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-900">

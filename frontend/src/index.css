@@ -45,6 +45,32 @@
   }
 }
 
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .touch-tactile {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.08s ease, opacity 0.08s ease;
+  }
+  .touch-tactile:active {
+    transform: scale(0.97);
+    opacity: 0.88;
+  }
+}
+
 /* Crisp tabular numbers for financial figures, phone numbers, and codes */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
