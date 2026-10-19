@@ -26,6 +26,10 @@ let OrdersController = class OrdersController {
         return this.orders.listOrders(actor, query);
     }
 
+    async getAccountsLedger(actor, query) {
+        return this.orders.getAccountsLedger(actor, query);
+    }
+
     async getOrderById(actor, id) {
         return this.orders.getOrderById(actor, id);
     }
@@ -36,6 +40,22 @@ let OrdersController = class OrdersController {
 
     async updateOrderStatus(actor, id, body) {
         return this.orders.updateOrderStatus(actor, id, body.status);
+    }
+
+    async approveDiscount(actor, id, body) {
+        return this.orders.approveDiscount(actor, id, body);
+    }
+
+    async rejectDiscount(actor, id, body) {
+        return this.orders.rejectDiscount(actor, id, body);
+    }
+
+    async approveAdvanceException(actor, id, body) {
+        return this.orders.approveAdvanceException(actor, id, body);
+    }
+
+    async recordPayment(actor, id, body) {
+        return this.orders.recordPayment(actor, id, body);
     }
 };
 
@@ -48,6 +68,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "listOrders", null);
+
+__decorate([
+    Get('ledger'),
+    RequirePermission('orders.read'),
+    __param(0, CurrentEmployee()),
+    __param(1, Query()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getAccountsLedger", null);
 
 __decorate([
     Get(':id'),
@@ -79,6 +109,50 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "updateOrderStatus", null);
+
+__decorate([
+    Post(':id/discount/approve'),
+    RequirePermission('orders.manage'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "approveDiscount", null);
+
+__decorate([
+    Post(':id/discount/reject'),
+    RequirePermission('orders.manage'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "rejectDiscount", null);
+
+__decorate([
+    Post(':id/advance/exception'),
+    RequirePermission('orders.manage'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "approveAdvanceException", null);
+
+__decorate([
+    Post(':id/payments'),
+    RequirePermission('orders.manage'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "recordPayment", null);
 
 OrdersController = __decorate([
     ApiTags('Orders'),

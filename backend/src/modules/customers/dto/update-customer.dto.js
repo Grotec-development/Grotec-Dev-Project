@@ -65,3 +65,30 @@ __decorate([
     MaxLength(10),
     __metadata("design:type", String)
 ], UpdateCustomerDto.prototype, "preferredLanguage", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(30),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "contactStatus", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(30),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "relationshipStage", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "holdUntil", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(500),
+    __metadata("design:type", String)
+], UpdateCustomerDto.prototype, "holdReason", void 0);
+__decorate([
+    IsOptional(),
+    __metadata("design:type", Object)
+], UpdateCustomerDto.prototype, "holdDurationMonths", void 0);

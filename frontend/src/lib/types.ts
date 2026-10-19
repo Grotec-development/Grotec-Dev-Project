@@ -21,6 +21,8 @@ export interface CustomerSummary {
   farmerCode: string | null;
   fullName: string;
   status: 'ACTIVE' | 'INACTIVE';
+  relationshipStage?: string | null;
+  contactStatus?: string | null;
   primaryPhone: string | null;
   phoneCount: number;
   district?: string | null;
@@ -29,6 +31,10 @@ export interface CustomerSummary {
   crops?: string | null;
   rm?: string | null;
   lastContactAt?: string | null;
+  firstPurchase?: string | null;
+  latestPurchase?: string | null;
+  totalOrders?: number;
+  nextFollowUp?: string | null;
   createdAt: string;
 }
 
@@ -42,13 +48,22 @@ export interface CustomerPhone {
 
 export interface CustomerLocation {
   id: string;
+  locationName?: string | null;
+  customName?: string | null;
   addressLine: string | null;
   state: string | null;
   district: string | null;
   taluk: string | null;
   village: string | null;
+  postOffice?: string | null;
   pincode: string | null;
+  landmark?: string | null;
+  contactPerson?: string | null;
+  contactPhone?: string | null;
+  isActive?: boolean;
   isPrimary: boolean;
+  verifiedAt?: string | null;
+  verifiedBy?: { id: string; fullName: string } | null;
 }
 
 export interface CustomerCrop {

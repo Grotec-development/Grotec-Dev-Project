@@ -30,7 +30,7 @@ let CustomersController = class CustomersController {
     constructor(customers) {
         this.customers = customers;
     }
-    async list(actor, q, phone, status, cropId, ownerId, district, missingTaluk, page, pageSize) {
+    async list(actor, q, phone, status, cropId, ownerId, district, missingTaluk, stage, contactStatus, page, pageSize) {
         return this.customers.list(actor, parsePagination(page, pageSize), {
             q,
             phone,
@@ -39,10 +39,23 @@ let CustomersController = class CustomersController {
             ownerId,
             district,
             missingTaluk,
+            relationshipStage: stage,
+            contactStatus,
         });
     }
     async lookupByPhone(phone) {
         return this.customers.lookupByPhone(phone);
+    }
+    async nearby(actor, district, taluk, village, cropId, relationshipStage, contactStatus, limit) {
+        return this.customers.getNearbyCustomers(actor, {
+            district,
+            taluk,
+            village,
+            cropId,
+            relationshipStage,
+            contactStatus,
+            limit,
+        });
     }
     async create(actor, dto) {
         return this.customers.create(actor, dto);
@@ -78,6 +91,9 @@ let CustomersController = class CustomersController {
     async updateLocation(actor, id, locationId, dto) {
         return this.customers.updateLocation(actor, id, locationId, dto);
     }
+    async verifyLocation(actor, id, locationId) {
+        return this.customers.verifyLocation(actor, id, locationId);
+    }
     async removeLocation(actor, id, locationId) {
         await this.customers.removeLocation(actor, id, locationId);
     }
@@ -108,10 +124,12 @@ __decorate([
     __param(5, Query('ownerId')),
     __param(6, Query('district')),
     __param(7, Query('missingTaluk')),
-    __param(8, Query('page')),
-    __param(9, Query('pageSize')),
+    __param(8, Query('stage')),
+    __param(9, Query('contactStatus')),
+    __param(10, Query('page')),
+    __param(11, Query('pageSize')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], CustomersController.prototype, "list", null);
 __decorate([
@@ -122,6 +140,21 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], CustomersController.prototype, "lookupByPhone", null);
+__decorate([
+    Get('nearby'),
+    RequirePermission(PERMISSIONS.customerRead),
+    __param(0, CurrentEmployee()),
+    __param(1, Query('district')),
+    __param(2, Query('taluk')),
+    __param(3, Query('village')),
+    __param(4, Query('cropId')),
+    __param(5, Query('relationshipStage')),
+    __param(6, Query('contactStatus')),
+    __param(7, Query('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], CustomersController.prototype, "nearby", null);
 __decorate([
     Post(),
     RequirePermission(PERMISSIONS.customerCreate),
@@ -233,6 +266,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String, typeof (_g = typeof UpdateLocationDto !== "undefined" && UpdateLocationDto) === "function" ? _g : Object]),
     __metadata("design:returntype", Promise)
 ], CustomersController.prototype, "updateLocation", null);
+__decorate([
+    Post(':id/locations/:locationId/verify'),
+    RequirePermission(PERMISSIONS.customerUpdate),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Param('locationId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CustomersController.prototype, "verifyLocation", null);
 __decorate([
     HttpCode(204),
     Delete(':id/locations/:locationId'),

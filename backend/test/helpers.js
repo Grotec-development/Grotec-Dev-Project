@@ -21,6 +21,8 @@ export const USERS = {
 };
 /** Compiles and boots the real application against the seeded test database. */
 export async function createTestApp() {
+    process.env.DIALER_SYNC_MS = '0';
+    process.env.NODE_ENV = 'test';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     const app = moduleRef.createNestApplication();
     await configureApp(app, { swagger: false });

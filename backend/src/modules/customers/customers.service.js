@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var _a, _b, _c;
 import { Injectable } from '@nestjs/common';
 import { CustomerStatus, Prisma } from '@prisma/client';
-import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, districtSpellings, isTopTier, normalizePhoneToE164, toTechnicalRole } from '@grotec/shared';
+import { ACTIVE_CALL_STATUSES, DOMAIN_EVENTS, districtSpellings, isTopTier, normalizePhoneToE164, toTechnicalRole, validateParentChildGeographic } from '@grotec/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiError } from '../../common/errors/api-error';
 import { DomainEventService } from '../../common/outbox/domain-event.service';
@@ -74,6 +74,12 @@ let CustomersService = class CustomersService {
                 },
             });
         }
+        if (filters.relationshipStage) {
+            conditions.push({ relationshipStage: filters.relationshipStage });
+        }
+        if (filters.contactStatus) {
+            conditions.push({ contactStatus: filters.contactStatus });
+        }
         if (filters.missingTaluk === true || filters.missingTaluk === 'true') {
             conditions.push({
                 OR: [
@@ -90,6 +96,17 @@ let CustomersService = class CustomersService {
                     phones: { where: LIVE_PHONE, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
                     locations: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
                     crops: { where: { deletedAt: null }, include: { crop: { select: { name: true, localName: true } } } },
+                    salesOrders: {
+                        where: { status: { in: ['COMPLETED', 'DELIVERED', 'CONFIRMED'] } },
+                        orderBy: { createdAt: 'asc' },
+                        select: { createdAt: true, totalAmount: true },
+                    },
+                    followUps: {
+                        where: { status: 'PENDING' },
+                        orderBy: { dueAt: 'asc' },
+                        take: 1,
+                        select: { dueAt: true },
+                    },
                     relationshipOwnership: {
                         where: { releasedAt: null },
                         include: { employee: { select: { fullName: true } } },
@@ -129,12 +146,17 @@ let CustomersService = class CustomersService {
             const lastCall = customer.calls?.[0];
             const lastContactAt = lastCall?.startedAt || lastCall?.createdAt || null;
             const cropList = (customer.crops || []).map(c => c.crop?.name || c.notes).filter(Boolean);
+            const firstOrder = customer.salesOrders?.[0] || null;
+            const latestOrder = customer.salesOrders?.[customer.salesOrders.length - 1] || null;
+            const nextFollowUp = customer.followUps?.[0]?.dueAt || null;
 
             return {
                 id: customer.id,
                 farmerCode: customer.farmerCode,
                 fullName: customer.fullName,
                 status: customer.status,
+                relationshipStage: customer.relationshipStage || 'PROSPECT',
+                contactStatus: customer.contactStatus || 'ACTIVE',
                 primaryPhone: customer.phones[0]?.phoneE164 ?? null,
                 phoneCount: customer.phones.length,
                 district: loc?.district || null,
@@ -143,6 +165,10 @@ let CustomersService = class CustomersService {
                 crops: cropList.length > 0 ? cropList.join(', ') : null,
                 rm,
                 lastContactAt: lastContactAt ? lastContactAt.toISOString() : null,
+                firstPurchase: firstOrder ? firstOrder.createdAt.toISOString() : null,
+                latestPurchase: latestOrder ? latestOrder.createdAt.toISOString() : null,
+                totalOrders: customer.salesOrders?.length || 0,
+                nextFollowUp: nextFollowUp ? nextFollowUp.toISOString() : null,
                 createdAt: customer.createdAt,
             };
         }), total, pagination);
@@ -204,7 +230,11 @@ let CustomersService = class CustomersService {
             include: {
                 createdBy: { select: { id: true, fullName: true } },
                 phones: { where: LIVE_PHONE, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
-                locations: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+                locations: {
+                    where: { deletedAt: null },
+                    orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+                    include: { verifiedBy: { select: { id: true, fullName: true } } },
+                },
                 crops: {
                     where: { deletedAt: null },
                     orderBy: { createdAt: 'asc' },
@@ -214,6 +244,31 @@ let CustomersService = class CustomersService {
                     where: { deletedAt: null },
                     orderBy: { createdAt: 'desc' },
                     include: { ownerships: { where: { releasedAt: null }, include: { employee: { select: { id: true, fullName: true } } } } },
+                },
+                salesOrders: {
+                    where: { deletedAt: null },
+                    orderBy: { createdAt: 'desc' },
+                    take: 10,
+                    include: {
+                        items: { include: { product: { select: { id: true, name: true, sku: true, unit: true } } } },
+                        invoice: true,
+                        payments: true,
+                    },
+                },
+                supportTickets: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 10,
+                    include: { assignee: { select: { id: true, fullName: true } } },
+                },
+                followUps: {
+                    orderBy: { dueAt: 'desc' },
+                    take: 10,
+                    include: { agent: { select: { id: true, fullName: true } } },
+                },
+                calls: {
+                    orderBy: { startedAt: 'desc' },
+                    take: 5,
+                    include: { agent: { select: { id: true, fullName: true } }, notes: true },
                 },
             },
         });
@@ -380,6 +435,27 @@ let CustomersService = class CustomersService {
             before.preferredLanguage = existing.preferredLanguage;
             after.preferredLanguage = dto.preferredLanguage || null;
         }
+        if (dto.relationshipStage !== undefined && dto.relationshipStage !== existing.relationshipStage) {
+            data.relationshipStage = dto.relationshipStage;
+            before.relationshipStage = existing.relationshipStage;
+            after.relationshipStage = dto.relationshipStage;
+        }
+        if (dto.contactStatus !== undefined && dto.contactStatus !== existing.contactStatus) {
+            data.contactStatus = dto.contactStatus;
+            before.contactStatus = existing.contactStatus;
+            after.contactStatus = dto.contactStatus;
+            if (dto.contactStatus === 'ON_HOLD') {
+                data.holdUntil = dto.holdUntil ? new Date(dto.holdUntil) : new Date(Date.now() + 90 * 86400000);
+                data.holdReason = dto.holdReason || null;
+                before.holdUntil = existing.holdUntil;
+                after.holdUntil = data.holdUntil;
+            } else if (dto.contactStatus === 'ACTIVE') {
+                data.holdUntil = null;
+                data.holdReason = null;
+                before.holdUntil = existing.holdUntil;
+                after.holdUntil = null;
+            }
+        }
         if (dto.soilType !== undefined) {
             const nextSoilType = normalizeSoilType(dto.soilType);
             if (nextSoilType !== existing.soilType) {
@@ -389,6 +465,16 @@ let CustomersService = class CustomersService {
             }
         }
         const hasLocationUpdates = dto.taluk !== undefined || dto.district !== undefined || dto.state !== undefined || dto.village !== undefined || dto.pincode !== undefined;
+        if (hasLocationUpdates) {
+            const geoResult = validateParentChildGeographic({
+                state: dto.state,
+                district: dto.district,
+                taluk: dto.taluk,
+            });
+            if (!geoResult.isValid) {
+                throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+            }
+        }
         // Nothing actually changed — no write, no audit row, no event.
         if (Object.keys(data).length === 0 && !hasLocationUpdates)
             return this.detailOrThrow(id, actor);
@@ -701,6 +787,14 @@ let CustomersService = class CustomersService {
     // ---------------------------------------------------------------- locations
     async addLocation(actor, customerId, input) {
         await this.scopedCustomer(customerId, actor);
+        const geoResult = validateParentChildGeographic({
+            state: input.state,
+            district: input.district,
+            taluk: input.taluk,
+        });
+        if (!geoResult.isValid) {
+            throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+        }
         const data = { ...input };
         await this.prisma.$transaction(async (tx) => {
             if (data.isPrimary === true) {
@@ -732,6 +826,17 @@ let CustomersService = class CustomersService {
         });
         if (!location)
             throw ApiError.notFound('LOCATION_NOT_FOUND', 'Location not found');
+        const mergedState = input.state !== undefined ? input.state : location.state;
+        const mergedDistrict = input.district !== undefined ? input.district : location.district;
+        const mergedTaluk = input.taluk !== undefined ? input.taluk : location.taluk;
+        const geoResult = validateParentChildGeographic({
+            state: mergedState,
+            district: mergedDistrict,
+            taluk: mergedTaluk,
+        });
+        if (!geoResult.isValid) {
+            throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+        }
         await this.prisma.$transaction(async (tx) => {
             if (input.isPrimary === true) {
                 await tx.customerLocation.updateMany({ where: { customerId, deletedAt: null }, data: { isPrimary: false } });
@@ -748,6 +853,34 @@ let CustomersService = class CustomersService {
             });
         });
         return this.detailOrThrow(customerId, actor);
+    }
+    async verifyLocation(actor, customerId, locationId) {
+        await this.scopedCustomer(customerId, actor);
+        const location = await this.prisma.customerLocation.findFirst({
+            where: { id: locationId, customerId, deletedAt: null },
+        });
+        if (!location)
+            throw ApiError.notFound('LOCATION_NOT_FOUND', 'Location not found');
+        const now = new Date();
+        const updated = await this.prisma.customerLocation.update({
+            where: { id: locationId },
+            data: {
+                verifiedAt: now,
+                verifiedById: actor.id,
+            },
+            include: {
+                verifiedBy: { select: { id: true, fullName: true } },
+            },
+        });
+        await this.audit.record(this.prisma, {
+            actorId: actor.id,
+            entityType: 'CUSTOMER_LOCATION',
+            entityId: locationId,
+            entityLabel: locationLabel(location),
+            action: 'location.verified',
+            after: { verifiedAt: now, verifiedById: actor.id },
+        });
+        return updated;
     }
     async removeLocation(actor, customerId, locationId) {
         await this.scopedCustomer(customerId, actor);
@@ -768,6 +901,62 @@ let CustomersService = class CustomersService {
             });
         });
         return this.detailOrThrow(customerId, actor);
+    }
+    async getNearbyCustomers(actor, query = {}) {
+        const conditions = [{ deletedAt: null }, this.visibilityWhere(actor)];
+        if (query.district) {
+            conditions.push({
+                locations: {
+                    some: {
+                        deletedAt: null,
+                        district: { in: districtSpellings(query.district), mode: 'insensitive' },
+                        ...(query.taluk ? { taluk: { equals: query.taluk, mode: 'insensitive' } } : {}),
+                        ...(query.village ? { village: { contains: query.village, mode: 'insensitive' } } : {}),
+                    },
+                },
+            });
+        }
+        if (query.cropId) {
+            conditions.push({
+                crops: { some: { cropId: query.cropId, deletedAt: null } },
+            });
+        }
+        if (query.relationshipStage) {
+            conditions.push({ relationshipStage: query.relationshipStage });
+        }
+        if (query.contactStatus) {
+            conditions.push({ contactStatus: query.contactStatus });
+        } else {
+            conditions.push({ contactStatus: { not: 'DO_NOT_CONTACT' } });
+        }
+        const limit = query.limit ? Math.min(Number(query.limit), 100) : 50;
+        const customers = await this.prisma.customer.findMany({
+            where: { AND: conditions },
+            include: {
+                phones: { where: LIVE_PHONE, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+                locations: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+                crops: { where: { deletedAt: null }, include: { crop: { select: { name: true } } } },
+                salesOrders: {
+                    where: { status: { in: ['COMPLETED', 'DELIVERED'] } },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { id: true, totalAmount: true, createdAt: true },
+                },
+            },
+            take: limit,
+            orderBy: [{ relationshipStage: 'asc' }, { createdAt: 'desc' }],
+        });
+        return customers.map((c) => ({
+            id: c.id,
+            farmerCode: c.farmerCode,
+            fullName: c.fullName,
+            relationshipStage: c.relationshipStage,
+            contactStatus: c.contactStatus,
+            primaryPhone: c.phones[0]?.phoneE164 || null,
+            primaryLocation: c.locations[0] || null,
+            crops: c.crops.map((cr) => cr.crop?.name).filter(Boolean),
+            lastPurchaseDate: c.salesOrders[0]?.createdAt || null,
+        }));
     }
     // -------------------------------------------------------------------- crops
     async addCrop(actor, customerId, input) {
@@ -991,6 +1180,16 @@ let CustomersService = class CustomersService {
         const primaries = inputs.filter((l) => l.isPrimary === true).length;
         if (primaries > 1)
             throw ApiError.badRequest('SINGLE_PRIMARY_LOCATION', 'Only one location can be primary');
+        for (const loc of inputs) {
+            const geoResult = validateParentChildGeographic({
+                state: loc.state,
+                district: loc.district,
+                taluk: loc.taluk,
+            });
+            if (!geoResult.isValid) {
+                throw ApiError.badRequest('INVALID_GEOGRAPHIC_HIERARCHY', geoResult.error);
+            }
+        }
         return inputs;
     }
     async validateCrops(inputs, actor) {
@@ -1030,7 +1229,7 @@ function normalizeSoilType(value) {
     return trimmed === '' ? null : trimmed;
 }
 function locationLabel(l) {
-    return l.village || l.taluk || l.district || l.addressLine || 'location';
+    return l.locationName || l.customName || l.village || l.taluk || l.district || l.addressLine || 'location';
 }
 /** Next sequential Farmer ID (GF + 8 zero-padded digits) from farmer_code_seq. */
 async function nextFarmerCode(db) {
@@ -1046,6 +1245,12 @@ function serializeCustomerDetail(customer) {
         preferredLanguage: customer.preferredLanguage,
         soilType: customer.soilType,
         status: customer.status,
+        relationshipStage: customer.relationshipStage || 'PROSPECT',
+        contactStatus: customer.contactStatus || 'ACTIVE',
+        holdUntil: customer.holdUntil ? customer.holdUntil.toISOString() : null,
+        holdReason: customer.holdReason,
+        clientSince: customer.clientSince ? customer.clientSince.toISOString() : null,
+        conversionSource: customer.conversionSource,
         createdBy: customer.createdBy ?? null,
         createdAt: customer.createdAt,
         updatedAt: customer.updatedAt,
@@ -1059,15 +1264,24 @@ function serializeCustomerDetail(customer) {
         })),
         locations: customer.locations.map((l) => ({
             id: l.id,
+            locationName: l.locationName,
+            customName: l.customName,
             addressLine: l.addressLine,
             state: l.state,
             district: l.district,
             taluk: l.taluk,
             village: l.village,
+            postOffice: l.postOffice,
             pincode: l.pincode,
+            landmark: l.landmark,
+            contactPerson: l.contactPerson,
+            contactPhone: l.contactPhone,
+            isActive: l.isActive !== false,
             latitude: l.latitude?.toNumber() ?? null,
             longitude: l.longitude?.toNumber() ?? null,
             isPrimary: l.isPrimary,
+            verifiedAt: l.verifiedAt ? l.verifiedAt.toISOString() : null,
+            verifiedBy: l.verifiedBy ? { id: l.verifiedBy.id, fullName: l.verifiedBy.fullName } : null,
         })),
         crops: customer.crops.map((c) => ({
             id: c.id,
@@ -1083,6 +1297,52 @@ function serializeCustomerDetail(customer) {
             notes: lead.notes,
             createdAt: lead.createdAt,
             currentOwner: lead.ownerships[0]?.employee ?? null,
+        })),
+        orders: (customer.salesOrders || []).map((o) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            totalAmount: o.totalAmount,
+            status: o.status,
+            paymentStatus: o.paymentStatus,
+            createdAt: o.createdAt,
+            items: (o.items || []).map((it) => ({
+                id: it.id,
+                productName: it.product?.name,
+                approvedQty: it.approvedQty,
+                unit: it.product?.unit,
+                totalAmount: it.totalAmount,
+            })),
+            invoice: o.invoice ? {
+                id: o.invoice.id,
+                invoiceNumber: o.invoice.invoiceNumber,
+                status: o.invoice.status,
+                total: o.invoice.total,
+                paidAmount: o.invoice.paidAmount,
+                outstandingAmount: o.invoice.outstandingAmount,
+            } : null,
+        })),
+        tickets: (customer.supportTickets || []).map((t) => ({
+            id: t.id,
+            ticketNumber: t.ticketNumber,
+            category: t.category,
+            priority: t.priority,
+            status: t.status,
+            createdAt: t.createdAt,
+            assignee: t.assignee ? { id: t.assignee.id, fullName: t.assignee.fullName } : null,
+        })),
+        followUps: (customer.followUps || []).map((f) => ({
+            id: f.id,
+            dueAt: f.dueAt,
+            note: f.note,
+            status: f.status,
+            agent: f.agent ? { id: f.agent.id, fullName: f.agent.fullName } : null,
+        })),
+        recentCalls: (customer.calls || []).map((cl) => ({
+            id: cl.id,
+            startedAt: cl.startedAt,
+            outcome: cl.outcomeCustom || cl.outcome,
+            agent: cl.agent ? { id: cl.agent.id, fullName: cl.agent.fullName } : null,
+            notes: (cl.notes || []).map((n) => n.body),
         })),
     };
 }

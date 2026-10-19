@@ -145,6 +145,26 @@ let SalesService = class SalesService {
                 });
             }
 
+            // Lead-to-client conversion on qualifying completed sale (Section 5)
+            if (order.customer && order.customer.relationshipStage !== 'CLIENT') {
+                await tx.customer.update({
+                    where: { id: order.customerId },
+                    data: {
+                        relationshipStage: 'CLIENT',
+                        clientSince: order.customer.clientSince || completedAt,
+                        conversionSource: 'QUALIFYING_PURCHASE',
+                    },
+                });
+                await this.audit.record(tx, {
+                    actorId: actor.id,
+                    entityType: 'CUSTOMER',
+                    entityId: order.customerId,
+                    entityLabel: order.customer.fullName,
+                    action: 'customer.converted_to_client',
+                    after: { relationshipStage: 'CLIENT', clientSince: completedAt, qualifyingOrderId: orderId },
+                });
+            }
+
             await this.audit.record(tx, {
                 actorId: actor.id,
                 entityType: 'SALES_ORDER',

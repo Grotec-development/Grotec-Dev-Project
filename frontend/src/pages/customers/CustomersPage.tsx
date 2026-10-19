@@ -22,6 +22,7 @@ export function CustomersPage() {
   const [missingTalukOnly, setMissingTalukOnly] = useState(false);
   const [crop, setCrop] = useState('');
   const [status, setStatus] = useState('ACTIVE');
+  const [stage, setStage] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showSegments, setShowSegments] = useState(false);
@@ -32,7 +33,7 @@ export function CustomersPage() {
   const availableDistricts = useMemo(() => getDistricts('Tamil Nadu'), []);
 
   const { data, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ['customers', q, district, missingTalukOnly, status, page],
+    queryKey: ['customers', q, district, missingTalukOnly, status, stage, page],
     queryFn: async () => {
       const res = await api.get<Page<CustomerSummary>>('/customers', {
         params: {
@@ -40,6 +41,7 @@ export function CustomersPage() {
           district: district || undefined,
           missingTaluk: missingTalukOnly ? 'true' : undefined,
           status: status || undefined,
+          stage: stage || undefined,
           page,
           pageSize: 50,
         },
@@ -239,6 +241,22 @@ export function CustomersPage() {
             <option value="INACTIVE">Status: Inactive</option>
           </select>
 
+          {/* Stage Dropdown */}
+          <select
+            value={stage}
+            onChange={(e) => {
+              setStage(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-md border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none"
+            aria-label="Filter by relationship stage"
+          >
+            <option value="">Stage: All Stages</option>
+            <option value="PROSPECT">Prospects</option>
+            <option value="LEAD">Leads</option>
+            <option value="CLIENT">Clients</option>
+          </select>
+
           {/* Search Input */}
           <div className="relative min-w-56 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -270,13 +288,14 @@ export function CustomersPage() {
             </Alert>
           </div>
         ) : !data ? (
-          <TableSkeleton rows={7} cols={9} />
+          <TableSkeleton rows={7} cols={10} />
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <THead>
                 <tr>
                   <TH>NAME</TH>
+                  <TH>STAGE</TH>
                   <TH>PHONE</TH>
                   <TH>DISTRICT</TH>
                   <TH>TALUK</TH>
@@ -290,7 +309,7 @@ export function CustomersPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredFarmerList.length === 0 ? (
                   <tr>
-                    <TD colSpan={9} className="py-10">
+                    <TD colSpan={10} className="py-10">
                       <EmptyState
                         title={hasActiveFilters ? "No farmers match current filters" : "No farmer records found"}
                         description={
@@ -322,6 +341,18 @@ export function CustomersPage() {
                         >
                           {farmer.fullName}
                         </Link>
+                      </TD>
+                      <TD>
+                        <span className={cx(
+                          'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase',
+                          farmer.relationshipStage === 'CLIENT'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : farmer.relationshipStage === 'LEAD'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                            : 'bg-slate-100 text-slate-700 border border-slate-200'
+                        )}>
+                          {farmer.relationshipStage || 'PROSPECT'}
+                        </span>
                       </TD>
                       <TD className="font-mono text-[11px] text-slate-600">
                         <div className="flex items-center gap-1">

@@ -286,6 +286,50 @@ let SupportTicketsService = class SupportTicketsService {
         }, { timeout: 25000, maxWait: 15000 });
     }
 
+    async escalateTicket(actor, id, data) {
+        const ticket = await this.getById(actor, id);
+        const { escalationReason, newAssignedRole, newAssigneeId, priority } = data;
+
+        return this.prisma.$transaction(async (tx) => {
+            const updatePayload = {
+                status: 'ASSIGNED',
+                assignedRole: newAssignedRole || 'MANAGEMENT',
+            };
+            if (newAssigneeId) updatePayload.assigneeId = newAssigneeId;
+            if (priority) updatePayload.priority = priority;
+
+            const updated = await tx.supportTicket.update({
+                where: { id },
+                data: updatePayload,
+            });
+
+            await tx.supportTicketHistory.create({
+                data: {
+                    ticketId: id,
+                    actorId: actor.id,
+                    action: 'ESCALATED',
+                    fromStatus: ticket.status,
+                    toStatus: 'ASSIGNED',
+                    note: `Escalated to ${updatePayload.assignedRole}: ${escalationReason || 'Higher level attention required'}`,
+                },
+            });
+
+            await this.audit.record(tx, {
+                actorId: actor.id,
+                entityType: 'SUPPORT_TICKET',
+                entityId: id,
+                entityLabel: ticket.ticketNumber,
+                action: 'escalated',
+                after: { fromStatus: ticket.status, toStatus: 'ESCALATED', assignedRole: updatePayload.assignedRole },
+            });
+
+            return tx.supportTicket.findUnique({
+                where: { id },
+                include: TICKET_INCLUDE,
+            });
+        }, { timeout: 25000, maxWait: 15000 });
+    }
+
     async getSummary(actor) {
         const where = {};
         if (actor.roleCode === 'AGENT' && !isTopTier(actor.roleCode)) {

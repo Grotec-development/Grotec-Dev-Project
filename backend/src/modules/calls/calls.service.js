@@ -322,25 +322,30 @@ let CallsService = class CallsService {
                 : {}),
         };
 
+        where.customer = {
+            ...where.customer,
+            deletedAt: null,
+            contactStatus: { not: 'DO_NOT_CONTACT' },
+            OR: [
+                { holdUntil: null },
+                { holdUntil: { lte: new Date() } },
+            ],
+        };
+
         if (filters.district && filters.district !== 'ALL') {
-            where.customer = {
-                locations: {
-                    some: {
-                        district: { in: districtSpellings(filters.district), mode: 'insensitive' },
-                        deletedAt: null,
-                    },
+            where.customer.locations = {
+                some: {
+                    district: { in: districtSpellings(filters.district), mode: 'insensitive' },
+                    deletedAt: null,
                 },
             };
         }
 
         if (filters.scheduledOnly === 'true' || filters.mode === 'SCHEDULED') {
-            where.customer = {
-                ...where.customer,
-                followUps: {
-                    some: {
-                        deletedAt: null,
-                        status: { in: ['SCHEDULED', 'OVERDUE', 'DUE'] },
-                    },
+            where.customer.followUps = {
+                some: {
+                    deletedAt: null,
+                    status: 'PENDING',
                 },
             };
         }
@@ -566,6 +571,23 @@ let CallsService = class CallsService {
                 return { followUpId: null, followUp: null, messageId: message.id, rmId: rm.id };
             }
 
+            if (outcomeCode === 'DO_NOT_CONTACT' && call.customerId) {
+                await tx.customer.update({
+                    where: { id: call.customerId },
+                    data: { contactStatus: 'DO_NOT_CONTACT' },
+                });
+            } else if (outcomeCode === 'ON_HOLD' && call.customerId) {
+                const holdDate = dto.holdUntil ? new Date(dto.holdUntil) : new Date(Date.now() + 90 * 86400000);
+                await tx.customer.update({
+                    where: { id: call.customerId },
+                    data: {
+                        contactStatus: 'ON_HOLD',
+                        holdUntil: holdDate,
+                        holdReason: dto.holdReason || dto.notes || 'Placed on hold during call',
+                    },
+                });
+            }
+
             if ((outcomeCode === 'NOT_INTERESTED' || outcomeCode === 'WRONG_NUMBER') && call.leadId) {
                 await tx.lead.update({ where: { id: call.leadId }, data: { status: 'CLOSED' } });
             }
@@ -608,18 +630,32 @@ let CallsService = class CallsService {
             missing.push('followUpDate');
         if (!dto.followUpTime)
             missing.push('followUpTime');
-        if (!dto.followUpNote?.trim())
+        const note = (dto.followUpNote || dto.notes || '').trim();
+        if (!note)
             missing.push('followUpNote');
         if (missing.length > 0 || !call.customerId) {
             throw ApiError.badRequest('FOLLOW_UP_DETAILS_REQUIRED', 'Callback requires a follow-up date, time and reason/note', { missing });
         }
-        const note = dto.followUpNote.trim();
         // Date + time arrive in local business time; combined into one due_at.
-        // (Scheduling timezone is a documented open item.)
         const dueAt = new Date(`${dto.followUpDate}T${dto.followUpTime}:00`);
         if (Number.isNaN(dueAt.getTime())) {
             throw ApiError.badRequest('INVALID_FOLLOW_UP_TIME', 'Follow-up date/time could not be parsed');
         }
+
+        // Prevent duplicate callback when retrying/saving repeatedly
+        const existingFollowUp = await tx.followUp.findFirst({
+            where: {
+                customerId: call.customerId,
+                dueAt,
+                status: FollowUpStatus.PENDING,
+                deletedAt: null,
+            },
+            include: { agent: { select: { id: true, fullName: true } } },
+        });
+        if (existingFollowUp) {
+            return existingFollowUp;
+        }
+
         const row = await tx.followUp.create({
             data: {
                 customerId: call.customerId,

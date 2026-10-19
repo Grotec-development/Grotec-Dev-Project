@@ -43,6 +43,10 @@ let SupportTicketsController = class SupportTicketsController {
     async updateStatus(actor, id, body) {
         return this.tickets.updateStatus(actor, id, body);
     }
+
+    async escalate(actor, id, body) {
+        return this.tickets.escalateTicket(actor, id, body);
+    }
 };
 
 __decorate([
@@ -99,6 +103,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], SupportTicketsController.prototype, "updateStatus", null);
+
+__decorate([
+    Post(':id/escalate'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], SupportTicketsController.prototype, "escalate", null);
 
 SupportTicketsController = __decorate([
     Controller('support-tickets'),

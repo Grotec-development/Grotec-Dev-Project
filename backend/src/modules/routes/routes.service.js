@@ -204,7 +204,7 @@ let RoutesService = class RoutesService {
         });
         if (!order) throw ApiError.notFound('ORDER_NOT_FOUND', 'Order not found');
 
-        const outcome = data.outcome; // CONFIRMED_FOR_DELIVERY | RESCHEDULED | CUSTOMER_UNAVAILABLE | CANCELLED | REQUIRES_FURTHER_CONTACT
+        const outcome = data.outcome || data.confirmationStatus; // CONFIRMED_FOR_DELIVERY | RESCHEDULED | CUSTOMER_UNAVAILABLE | CANCELLED | REQUIRES_FURTHER_CONTACT
         const deliveryDate = data.confirmedDeliveryDate ? new Date(data.confirmedDeliveryDate) : null;
         const notes = data.notes || null;
 

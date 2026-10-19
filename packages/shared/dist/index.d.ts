@@ -4,3 +4,4 @@ export * from "./permissions";
 export * from "./phone";
 export * from "./roles";
 export * from "./districts";
+export * from "./geography";

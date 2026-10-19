@@ -127,6 +127,7 @@ model Tenant {
   employeeRequests   EmployeeRequest[]
   supportTickets     SupportTicket[]
   deliveryRoutes     DeliveryRoute[]
+  payments           Payment[]
 
   @@map("tenants")
 }
@@ -213,6 +214,11 @@ model Employee {
   createdTickets                SupportTicket[]         @relation("TicketCreatedBy")
   assignedTickets               SupportTicket[]         @relation("TicketAssignee")
   ticketHistoryEvents           SupportTicketHistory[]  @relation("TicketHistoryActor")
+  verifiedLocations             CustomerLocation[]      @relation("LocationVerifiedBy")
+  discountApprovedOrders        SalesOrder[]            @relation("DiscountApprovedBy")
+  advanceExceptionOrders        SalesOrder[]            @relation("AdvanceExceptionApprovedBy")
+  verifiedPayments              Payment[]               @relation("PaymentVerifiedBy")
+  createdPayments               Payment[]               @relation("PaymentCreatedBy")
 
   @@map("employees")
 }
@@ -299,6 +305,12 @@ model Customer {
   // enum: no soil vocabulary has been approved, so the column stays configurable
   // and the UI presents a plain text input. Same shape as preferred_language.
   soilType          String?        @map("soil_type") @db.VarChar(40)
+  relationshipStage String         @default("PROSPECT") @map("relationship_stage") @db.VarChar(30)
+  contactStatus     String         @default("ACTIVE") @map("contact_status") @db.VarChar(30)
+  holdUntil         DateTime?      @map("hold_until")
+  holdReason        String?        @map("hold_reason")
+  clientSince       DateTime?      @map("client_since")
+  conversionSource  String?        @map("conversion_source") @db.VarChar(50)
   createdById       String?        @map("created_by") @db.Uuid
   createdBy         Employee?      @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt         DateTime       @default(now()) @map("created_at")
@@ -349,13 +361,25 @@ model CustomerLocation {
   taluk       String?
   village     String?
   pincode     String?
-  latitude    Decimal?  @db.Decimal(9, 6)
-  longitude   Decimal?  @db.Decimal(9, 6)
-  isPrimary   Boolean   @default(false) @map("is_primary")
-  createdById String?   @map("created_by") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  latitude      Decimal?  @db.Decimal(9, 6)
+  longitude     Decimal?  @db.Decimal(9, 6)
+  locationName  String?   @map("location_name") @db.VarChar(100)
+  customName    String?   @map("custom_name") @db.VarChar(100)
+  postOffice    String?   @map("post_office") @db.VarChar(100)
+  landmark      String?   @map("landmark") @db.VarChar(200)
+  contactPerson String?   @map("contact_person") @db.VarChar(100)
+  contactPhone  String?   @map("contact_phone") @db.VarChar(20)
+  isActive      Boolean   @default(true) @map("is_active")
+  verifiedAt    DateTime? @map("verified_at")
+  verifiedById  String?   @map("verified_by_id") @db.Uuid
+  verifiedBy    Employee? @relation("LocationVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  isPrimary     Boolean   @default(false) @map("is_primary")
+  createdById   String?   @map("created_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  orders SalesOrder[]
 
   @@index([customerId])
   @@map("customer_locations")
@@ -1491,26 +1515,44 @@ model SalesOrder {
   taxAmount                  Decimal        @default(0) @map("tax_amount") @db.Decimal(12, 2)
   totalAmount                Decimal        @map("total_amount") @db.Decimal(12, 2)
   paymentStatus              String         @default("UNPAID") @map("payment_status") @db.VarChar(30)
-  paymentMethod              String?        @map("payment_method") @db.VarChar(50)
-  deliveryAddress            String?        @map("delivery_address")
-  routeId                    String?        @map("route_id") @db.Uuid
-  route                      DeliveryRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull)
-  requestedDeliveryDate      DateTime?      @map("requested_delivery_date")
-  confirmedDeliveryDate      DateTime?      @map("confirmed_delivery_date")
-  deliveryConfirmationStatus String?        @map("delivery_confirmation_status") @db.VarChar(50)
-  confirmationNotes          String?        @map("confirmation_notes")
-  confirmedAt                DateTime?      @map("confirmed_at")
-  completedAt                DateTime?      @map("completed_at")
+  paymentMethod              String?           @map("payment_method") @db.VarChar(50)
+  deliveryAddress            String?           @map("delivery_address")
+  locationId                 String?           @map("location_id") @db.Uuid
+  location                   CustomerLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  routeId                    String?           @map("route_id") @db.Uuid
+  route                      DeliveryRoute?    @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  requestedDeliveryDate      DateTime?         @map("requested_delivery_date")
+  confirmedDeliveryDate      DateTime?         @map("confirmed_delivery_date")
+  deliveryConfirmationStatus String?           @map("delivery_confirmation_status") @db.VarChar(50)
+  confirmationNotes          String?           @map("confirmation_notes")
+  confirmedAt                DateTime?         @map("confirmed_at")
+  completedAt                DateTime?         @map("completed_at")
+  discountRequestedAmount    Decimal           @default(0) @map("discount_requested_amount") @db.Decimal(12, 2)
+  discountApprovedAmount     Decimal           @default(0) @map("discount_approved_amount") @db.Decimal(12, 2)
+  discountReason             String?           @map("discount_reason")
+  discountStatus             String            @default("NONE") @map("discount_status") @db.VarChar(30)
+  discountApprovedById       String?           @map("discount_approved_by_id") @db.Uuid
+  discountApprovedBy         Employee?         @relation("DiscountApprovedBy", fields: [discountApprovedById], references: [id], onDelete: SetNull)
+  discountApprovedAt         DateTime?         @map("discount_approved_at")
+  discountRejectionReason    String?           @map("discount_rejection_reason")
+  advanceRequiredAmount      Decimal           @default(0) @map("advance_required_amount") @db.Decimal(12, 2)
+  advancePaidAmount          Decimal           @default(0) @map("advance_paid_amount") @db.Decimal(12, 2)
+  advancePaymentStatus       String            @default("NOT_REQUIRED") @map("advance_payment_status") @db.VarChar(30)
+  advanceExceptionReason     String?           @map("advance_exception_reason")
+  advanceExceptionApprovedById String?         @map("advance_exception_approved_by_id") @db.Uuid
+  advanceExceptionApprovedBy Employee?         @relation("AdvanceExceptionApprovedBy", fields: [advanceExceptionApprovedById], references: [id], onDelete: SetNull)
+  advanceExceptionApprovedAt DateTime?         @map("advance_exception_approved_at")
   notes                      String?
-  createdById                String?        @map("created_by") @db.Uuid
-  createdBy                  Employee?      @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt                  DateTime       @default(now()) @map("created_at")
-  updatedAt                  DateTime       @updatedAt @map("updated_at")
-  deletedAt                  DateTime?      @map("deleted_at")
+  createdById                String?           @map("created_by") @db.Uuid
+  createdBy                  Employee?         @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt                  DateTime          @default(now()) @map("created_at")
+  updatedAt                  DateTime          @updatedAt @map("updated_at")
+  deletedAt                  DateTime?         @map("deleted_at")
 
   items     SalesOrderItem[]
   invoice   Invoice?
   tripStops TripStop[]
+  payments  Payment[]
 
   @@index([customerId])
   @@index([status])
@@ -1555,10 +1597,43 @@ model Invoice {
   status         String     @default("ISSUED") @db.VarChar(30)
   isRevised      Boolean    @default(false) @map("is_revised")
   revisionReason String?    @map("revision_reason")
+  paidAmount     Decimal    @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  outstandingAmount Decimal @default(0) @map("outstanding_amount") @db.Decimal(12, 2)
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
+  payments Payment[]
+
   @@map("invoices")
+}
+
+model Payment {
+  id              String      @id @default(uuid()) @db.Uuid
+  tenantId        String?     @map("tenant_id") @db.Uuid
+  tenant          Tenant?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoiceId       String?     @map("invoice_id") @db.Uuid
+  invoice         Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  orderId         String      @map("order_id") @db.Uuid
+  order           SalesOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentNumber   String      @unique @map("payment_number") @db.VarChar(50)
+  amount          Decimal     @db.Decimal(12, 2)
+  paymentDate     DateTime    @default(now()) @map("payment_date")
+  paymentMethod   String      @map("payment_method") @db.VarChar(50)
+  isAdvance       Boolean     @default(false) @map("is_advance")
+  referenceNumber String?     @map("reference_number") @db.VarChar(100)
+  status          String      @default("VERIFIED") @db.VarChar(30)
+  verifiedById    String?     @map("verified_by_id") @db.Uuid
+  verifiedBy      Employee?   @relation("PaymentVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  verifiedAt      DateTime?   @map("verified_at")
+  notes           String?
+  createdById     String?     @map("created_by") @db.Uuid
+  createdBy       Employee?   @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@index([invoiceId])
+  @@map("payments")
 }
 
 model Vehicle {
@@ -1780,10 +1855,10 @@ model DeliveryRoute {
   id          String   @id @default(uuid()) @db.Uuid
   tenantId    String?  @map("tenant_id") @db.Uuid
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  code        String   @unique @db.VarChar(50)
-  name        String   @db.VarChar(120)
-  description String?
-  isActive    Boolean  @default(true) @map("is_active")
+  code         String   @unique @db.VarChar(50)
+  name         String   @db.VarChar(120)
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

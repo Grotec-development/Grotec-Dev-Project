@@ -1017,7 +1017,115 @@ async function seedPhase2(founderId) {
         });
     }
 
-    console.log('seeded Phase 2 categories, 14 products, production batches, inventory, and vehicle');
+    // Seed bilingual Soil Types
+    const soilTypes = [
+        ['CLAY', 'Clay Soil', 'களிமண்', 'Heavy soil with high moisture retention, ideal for paddy and sugarcane.'],
+        ['RED', 'Red Soil', 'செம்மண்', 'Porous and friable with iron oxide content, great for groundnut, millets, pulses.'],
+        ['SANDY', 'Sandy Soil', 'மணல் மண்', 'Light, well-draining soil suitable for root vegetables and watermelon.'],
+        ['LOAMY', 'Loamy Soil', 'வண்டல் கலந்த மண்', 'Balanced blend of sand, silt, and clay; highly fertile for diverse crops.'],
+        ['BLACK', 'Black Soil (Regur)', 'கரிசல் மண்', 'Rich in calcium carbonate and potash, excellent for cotton, chillies, pulses.'],
+        ['ALLUVIAL', 'Alluvial Soil', 'வண்டல் மண்', 'River-deposited rich silt loam in delta belts, prime for rice, banana, sugarcane.'],
+        ['GRAVELLY', 'Gravelly / Laterite Soil', 'சரளை மண்', 'Coarse texture with weathered rocks, suitable for plantation and orchard crops.'],
+    ];
+    for (const [code, nameEn, nameTa, desc] of soilTypes) {
+        await prisma.soilType.upsert({
+            where: { code },
+            update: { nameEn, nameTa, description: desc, isActive: true },
+            create: { code, nameEn, nameTa, description: desc, isActive: true },
+        });
+    }
+
+    // Seed 4 Delivery Routes & District mappings
+    const routes = [
+        {
+            code: 'COIMBATORE',
+            name: 'Coimbatore Route',
+            description: 'Western industrial & agro corridor covering Kongu region districts.',
+            scheduleDays: ['MON', 'THU'],
+            districts: [
+                ['Coimbatore', ['Coimbatore', 'Pollachi', 'Mettupalayam', 'Sulur', 'Annur']],
+                ['Tiruppur', ['Tiruppur', 'Udumalaipettai', 'Dharapuram', 'Kangeyam', 'Avinashi']],
+                ['Erode', ['Erode', 'Gobichettipalayam', 'Bhavani', 'Perundurai', 'Sathyamangalam']],
+                ['Salem', ['Salem', 'Attur', 'Mettur', 'Omalur', 'Edappadi', 'Sankari']],
+                ['Namakkal', ['Namakkal', 'Tiruchengode', 'Rasipuram', 'Paramathi Velur']],
+                ['Nilgiris', ['Ooty', 'Coonoor', 'Kotagiri', 'Gudalur']],
+                ['Dharmapuri', ['Dharmapuri', 'Harur', 'Palacode', 'Pennagaram', 'Pappireddipatti']],
+                ['Krishnagiri', ['Krishnagiri', 'Hosur', 'Pochampalli', 'Uthangarai', 'Denkanikottai']],
+            ],
+        },
+        {
+            code: 'VELLORE_CHENNAI',
+            name: 'Vellore–Chennai Route',
+            description: 'Northern agro-belt & metropolitan fringe corridor.',
+            scheduleDays: ['TUE', 'FRI'],
+            districts: [
+                ['Vellore', ['Vellore', 'Katpadi', 'Gudiyatham', 'Anaicut']],
+                ['Ranipet', ['Ranipet', 'Arcot', 'Walajah', 'Arakkonam', 'Nemili']],
+                ['Tirupathur', ['Tirupathur', 'Vaniyambadi', 'Ambur', 'Natrampalli']],
+                ['Tiruvannamalai', ['Tiruvannamalai', 'Arani', 'Cheyyar', 'Polur', 'Chengam']],
+                ['Kanchipuram', ['Kanchipuram', 'Sriperumbudur', 'Walajabad', 'Uthiramerur']],
+                ['Tiruvallur', ['Tiruvallur', 'Poonamallee', 'Tiruttani', 'Gummidipoondi']],
+                ['Chengalpattu', ['Chengalpattu', 'Madurantakam', 'Tambaram', 'Pallavaram']],
+                ['Chennai', ['Chennai City Hub', 'Koyambedu Wholesale Market']],
+            ],
+        },
+        {
+            code: 'MADURAI',
+            name: 'Madurai Route',
+            description: 'Southern agro-hub covering temple districts, rainfed black-soil belts and down south.',
+            scheduleDays: ['WED', 'SAT'],
+            districts: [
+                ['Madurai', ['Madurai', 'Melur', 'Usilampatti', 'Vadipatti', 'Thirumangalam']],
+                ['Dindigul', ['Dindigul', 'Palani', 'Oddanchatram', 'Natham', 'Kodaikanal']],
+                ['Theni', ['Theni', 'Periyakulam', 'Bodinayakanur', 'Uthamapalayam', 'Andipatti']],
+                ['Virudhunagar', ['Virudhunagar', 'Sivakasi', 'Aruppukkottai', 'Rajapalayam', 'Srivilliputhur']],
+                ['Sivaganga', ['Sivaganga', 'Karaikudi', 'Manamadurai', 'Devakottai']],
+                ['Ramanathapuram', ['Ramanathapuram', 'Paramakudi', 'Rameswaram', 'Mudukulathur']],
+                ['Tirunelveli', ['Tirunelveli', 'Ambasamudram', 'Nanguneri', 'Palayamkottai']],
+                ['Tenkasi', ['Tenkasi', 'Sankarankovil', 'Kadayanallur', 'Alangulam']],
+                ['Thoothukudi', ['Thoothukudi', 'Kovilpatti', 'Tiruchendur', 'Ettayapuram']],
+                ['Kanniyakumari', ['Nagercoil', 'Thuckalay', 'Kanyakumari', 'Padmanabhapuram']],
+            ],
+        },
+        {
+            code: 'TRICHY',
+            name: 'Tiruchirappalli Route',
+            description: 'Central Cauvery Delta & coastal agriculture corridor.',
+            scheduleDays: ['MON', 'THU'],
+            districts: [
+                ['Tiruchirappalli', ['Trichy City', 'Manapparai', 'Lalgudi', 'Musiri', 'Thuraiyur']],
+                ['Karur', ['Karur', 'Kulithalai', 'Aravakurichi', 'Krishnarayapuram']],
+                ['Perambalur', ['Perambalur', 'Kunnam', 'Veppanthattai']],
+                ['Ariyalur', ['Ariyalur', 'Jayankondam', 'Sendurai']],
+                ['Thanjavur', ['Thanjavur', 'Kumbakonam', 'Pattukkottai', 'Orathanadu']],
+                ['Tiruvarur', ['Tiruvarur', 'Mannargudi', 'Thiruthuraipoondi', 'Nannilam']],
+                ['Nagapattinam', ['Nagapattinam', 'Kilvelur', 'Vedaranyam']],
+                ['Mayiladuthurai', ['Mayiladuthurai', 'Sirkazhi', 'Tharangambadi']],
+                ['Pudukkottai', ['Pudukkottai', 'Aranthangi', 'Alangudi', 'Illuppur']],
+                ['Cuddalore', ['Cuddalore', 'Chidambaram', 'Panruti', 'Vriddhachalam']],
+                ['Kallakurichi', ['Kallakurichi', 'Ulundurpet', 'Sankarapuram', 'Chinnasalem']],
+                ['Viluppuram', ['Viluppuram', 'Tindivanam', 'Gingee', 'Vanur']],
+            ],
+        },
+    ];
+
+    for (const r of routes) {
+        const route = await prisma.deliveryRoute.upsert({
+            where: { code: r.code },
+            update: { name: r.name, description: r.description, scheduleDays: r.scheduleDays, isActive: true },
+            create: { code: r.code, name: r.name, description: r.description, scheduleDays: r.scheduleDays, isActive: true, tenantId },
+        });
+
+        for (const [district, towns] of r.districts) {
+            await prisma.routeDistrict.upsert({
+                where: { routeId_district: { routeId: route.id, district } },
+                update: { towns },
+                create: { routeId: route.id, district, towns },
+            });
+        }
+    }
+
+    console.log('seeded Phase 2 categories, products, batches, inventory, vehicle, soil types, and 4 delivery corridors');
 }
 main()
     .catch((error) => {

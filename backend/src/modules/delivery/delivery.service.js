@@ -95,10 +95,15 @@ let DeliveryService = class DeliveryService {
         if (!stop) throw ApiError.notFound('STOP_NOT_FOUND', 'Trip stop not found');
 
         return this.prisma.$transaction(async (tx) => {
+            let isPartiallyDelivered = false;
             // Update delivered quantities on order items and deduct from vehicle stocks
             for (const item of stop.order.items) {
                 const delQty = input.deliveredItems?.find(d => d.orderItemId === item.id)?.deliveredQty ?? item.approvedQty;
                 const finalDelQty = Number(delQty);
+
+                if (finalDelQty < Number(item.approvedQty)) {
+                    isPartiallyDelivered = true;
+                }
 
                 await tx.salesOrderItem.update({
                     where: { id: item.id },
@@ -131,11 +136,11 @@ let DeliveryService = class DeliveryService {
                 });
             }
 
-            // Mark stop COMPLETED with Proof of Delivery (POD)
+            // Mark stop COMPLETED or PARTIAL_DELIVERY with Proof of Delivery (POD)
             const completedStop = await tx.tripStop.update({
                 where: { id: stopId },
                 data: {
-                    status: DeliveryStatus.COMPLETED,
+                    status: isPartiallyDelivered ? DeliveryStatus.PARTIAL_DELIVERY : DeliveryStatus.COMPLETED,
                     completedAt: new Date(),
                     recipientName: input.recipientName || null,
                     recipientPhone: input.recipientPhone || null,
@@ -147,11 +152,12 @@ let DeliveryService = class DeliveryService {
                 },
             });
 
-            // Mark order DELIVERED and update payment if specified
+            // Mark order PARTIALLY_DELIVERED or DELIVERED and update payment if specified
+            const orderDeliveryStatus = isPartiallyDelivered ? 'PARTIALLY_DELIVERED' : 'DELIVERED';
             await tx.salesOrder.update({
                 where: { id: stop.orderId },
                 data: {
-                    status: 'DELIVERED',
+                    status: orderDeliveryStatus,
                     paymentStatus: input.paymentCollected ? 'PAID' : stop.order.paymentStatus,
                 },
             });

@@ -42,6 +42,9 @@ let OutboxWorker = class OutboxWorker {
         this.timer = null;
     }
     onModuleInit() {
+        if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+            return;
+        }
         const dbUrl = process.env.DATABASE_URL || '';
         if (dbUrl.includes('<') || dbUrl.includes('>')) {
             this.logger.warn('DATABASE_URL is not configured (contains placeholder text). OutboxWorker is suspended.');

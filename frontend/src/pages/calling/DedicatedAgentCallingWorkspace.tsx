@@ -367,15 +367,17 @@ export function DedicatedAgentCallingWorkspace() {
 
     try {
       const selectedOutcome = outcome || 'COMPLETED';
+      const formattedNote = notes.trim() ? `[${callPurpose}] ${notes.trim()}` : `[${callPurpose}] Call logged`;
       const outcomePayload = {
         outcome: selectedOutcome,
-        notes: notes.trim() ? `[${callPurpose}] ${notes.trim()}` : `[${callPurpose}]`,
+        notes: formattedNote,
+        followUpNote: formattedNote,
         followUpDate: callbackDateTime ? callbackDateTime.split('T')[0] : undefined,
         followUpTime: callbackDateTime && callbackDateTime.includes('T') ? callbackDateTime.split('T')[1].slice(0, 5) : undefined,
       };
 
       if (activeCallId) {
-        await api.post(`/calls/${activeCallId}/outcome`, outcomePayload).catch(() => undefined);
+        await api.post(`/calls/${activeCallId}/outcome`, outcomePayload);
       } else {
         const createdCall = await api
           .post<Call>('/calls', {
@@ -383,17 +385,21 @@ export function DedicatedAgentCallingWorkspace() {
             customerId: currentCustomer.id,
             leadId: currentItem?.leadId,
             mode: 'DIRECT_MANUAL',
-          })
-          .catch(() => null);
+          });
 
         if (createdCall?.data?.id) {
-          await api.post(`/calls/${createdCall.data.id}/outcome`, outcomePayload).catch(() => undefined);
+          await api.post(`/calls/${createdCall.data.id}/outcome`, outcomePayload);
         }
       }
 
       void queryClient.invalidateQueries({ queryKey: ['calls-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['customer-calls-history', currentCustomer.id] });
       void queryClient.invalidateQueries({ queryKey: ['customers'] });
+
+      // Reset form on success
+      setOutcome('');
+      setNotes('');
+      setCallbackDateTime('');
 
       // Advance to Next Customer
       if (currentIndex + 1 < queueItems.length) {
@@ -405,7 +411,7 @@ export function DedicatedAgentCallingWorkspace() {
         }
       }
     } catch (err) {
-      alert(errorMessage(err));
+      alert(errorMessage(err) || 'Failed to save call outcome. Data preserved.');
     } finally {
       setSavingOutcome(false);
     }

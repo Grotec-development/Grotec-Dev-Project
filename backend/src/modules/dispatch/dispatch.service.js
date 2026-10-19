@@ -129,6 +129,25 @@ let DispatchService = class DispatchService {
             throw ApiError.badRequest('ORDERS_REQUIRED', 'At least one order must be attached to the trip');
         }
 
+        // Verify advance payment & delivery confirmation on all attached orders
+        const orders = await this.prisma.salesOrder.findMany({
+            where: { id: { in: input.orderIds } },
+        });
+        for (const order of orders) {
+            if (order.advancePaymentStatus === 'PENDING') {
+                throw ApiError.badRequest(
+                    'ADVANCE_PAYMENT_REQUIRED',
+                    `Order ${order.orderNumber} requires verified advance payment of ₹${order.advanceRequiredAmount} before dispatch approval. Exception approval required.`
+                );
+            }
+            if (order.deliveryConfirmationStatus !== 'CONFIRMED' && !input.bypassConfirmation) {
+                throw ApiError.badRequest(
+                    'DELIVERY_CONFIRMATION_REQUIRED',
+                    `Order ${order.orderNumber} must be verbally confirmed with the customer before load planning.`
+                );
+            }
+        }
+
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         const tripNumber = `TRP-${dateStr}-${Math.floor(100 + Math.random() * 900)}`;
 

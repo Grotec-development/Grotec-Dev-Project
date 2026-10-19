@@ -83,6 +83,47 @@ __decorate([
     IsBoolean(),
     __metadata("design:type", Boolean)
 ], LocationInputDto.prototype, "isPrimary", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(100),
+    __metadata("design:type", String)
+], LocationInputDto.prototype, "locationName", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(100),
+    __metadata("design:type", String)
+], LocationInputDto.prototype, "customName", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(100),
+    __metadata("design:type", String)
+], LocationInputDto.prototype, "postOffice", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(200),
+    __metadata("design:type", String)
+], LocationInputDto.prototype, "landmark", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(100),
+    __metadata("design:type", String)
+], LocationInputDto.prototype, "contactPerson", void 0);
+__decorate([
+    IsOptional(),
+    IsString(),
+    MaxLength(20),
+    __metadata("design:type", String)
+], LocationInputDto.prototype, "contactPhone", void 0);
+__decorate([
+    IsOptional(),
+    IsBoolean(),
+    __metadata("design:type", Boolean)
+], LocationInputDto.prototype, "isActive", void 0);
 export class CropInputDto {
 }
 __decorate([

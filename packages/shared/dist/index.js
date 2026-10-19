@@ -20,3 +20,4 @@ __exportStar(require("./permissions"), exports);
 __exportStar(require("./phone"), exports);
 __exportStar(require("./roles"), exports);
 __exportStar(require("./districts"), exports);
+__exportStar(require("./geography"), exports);
