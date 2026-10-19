@@ -141,6 +141,16 @@ let DispatchService = class DispatchService {
         const vehicle = await this.prisma.vehicle.findUnique({ where: { id: input.vehicleId } });
         if (!vehicle) throw ApiError.notFound('VEHICLE_NOT_FOUND', 'Vehicle not found');
 
+        const activeTrip = await this.prisma.trip.findFirst({
+            where: {
+                vehicleId: vehicle.id,
+                status: { in: [TripStatus.PLANNED, TripStatus.LOADED, TripStatus.IN_TRANSIT, TripStatus.DELIVERING] },
+            },
+        });
+        if (activeTrip) {
+            throw ApiError.conflict('VEHICLE_HAS_ACTIVE_TRIP', `Vehicle ${vehicle.regNumber} already has an active trip (${activeTrip.tripNumber}).`);
+        }
+
         const driver = await this.prisma.employee.findUnique({ where: { id: input.driverId } });
         if (!driver) throw ApiError.notFound('DRIVER_NOT_FOUND', 'Driver employee not found');
 

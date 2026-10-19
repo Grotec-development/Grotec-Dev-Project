@@ -83,3 +83,18 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// Register PWA Service Worker for offline asset caching
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        console.log('[GROTEC PWA] Service worker active:', reg.scope);
+      })
+      .catch((err) => {
+        console.log('[GROTEC PWA] Service worker registration note:', err?.message || err);
+      });
+  });
+}
+

@@ -39,6 +39,7 @@ const SalesPage = lazy(() => import('./pages/sales/SalesPage').then((m) => ({ de
 const SupportTicketsPage = lazy(() => import('./pages/tickets/SupportTicketsPage').then((m) => ({ default: m.SupportTicketsPage })));
 const RegionalRoutesPage = lazy(() => import('./pages/dispatch/RegionalRoutesView').then((m) => ({ default: m.RegionalRoutesView })));
 const FleetManagementView = lazy(() => import('./pages/delivery/FleetManagementView').then((m) => ({ default: m.FleetManagementView })));
+const ManagerDeliveryConsole = lazy(() => import('./pages/delivery/ManagerDeliveryConsole').then((m) => ({ default: m.ManagerDeliveryConsole })));
 
 import { DedicatedAgentCallingWorkspace } from './pages/calling/DedicatedAgentCallingWorkspace';
 
@@ -85,6 +86,8 @@ export const router = createBrowserRouter([
       { path: 'dispatch', element: <RequirePermission anyOf={['dispatch.read']}><DispatchPage /></RequirePermission> },
       { path: 'routes', element: <RequirePermission anyOf={['dispatch.read']}><RegionalRoutesPage /></RequirePermission> },
       { path: 'delivery/fleet', element: <RequirePermission anyOf={['dispatch.read', 'delivery.read', 'delivery.execute']}><FleetManagementView /></RequirePermission> },
+      { path: 'delivery/manager', element: <RequirePermission anyOf={['orders.read', 'orders.manage', 'dispatch.read']}><ManagerDeliveryConsole /></RequirePermission> },
+      { path: 'delivery/approvals', element: <Navigate to="/delivery/manager" replace /> },
       { path: 'fleet', element: <Navigate to="/delivery/fleet" replace /> },
       { path: 'tickets', element: <RequirePermission anyOf={['customer.read']}><SupportTicketsPage /></RequirePermission> },
       { path: 'delivery', element: <RequirePermission anyOf={['delivery.execute', 'delivery.read']}><DeliveryMobilePage /></RequirePermission> },

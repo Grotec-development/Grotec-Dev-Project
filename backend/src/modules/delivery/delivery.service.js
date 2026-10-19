@@ -14,7 +14,7 @@ import { ApiError } from '../../common/errors/api-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CustomersService } from '../customers/customers.service';
 import { LeadsService } from '../leads/leads.service';
-import { AuditAction, AuditEntityType, DeliveryStatus, StockState, TripStatus } from '@grotec/shared';
+import { AuditAction, AuditEntityType, DeliveryStatus, StockState, TripStatus, isTopTier } from '@grotec/shared';
 
 let DeliveryService = class DeliveryService {
     constructor(prisma, audit, customers, leads) {
@@ -230,6 +230,263 @@ let DeliveryService = class DeliveryService {
         });
 
         return { customer, lead };
+    }
+
+    async recordPaymentCollection(actor, stopId, input) {
+        const stop = await this.prisma.tripStop.findUnique({
+            where: { id: stopId },
+            include: {
+                order: {
+                    include: { customer: true, invoice: true },
+                },
+            },
+        });
+        if (!stop) throw ApiError.notFound('STOP_NOT_FOUND', 'Trip stop not found');
+
+        const amount = Number(input.amount);
+        if (!amount || amount <= 0) {
+            throw ApiError.badRequest('INVALID_PAYMENT_AMOUNT', 'Collection amount must be greater than zero');
+        }
+
+        // Idempotency check: if client sent idempotencyKey and we already recorded it, return existing
+        if (input.idempotencyKey) {
+            const existing = await this.prisma.payment.findFirst({
+                where: { referenceNumber: input.idempotencyKey },
+                include: { order: { include: { customer: true } } },
+            });
+            if (existing) {
+                return {
+                    payment: existing,
+                    slip: {
+                        slipNumber: existing.paymentNumber,
+                        orderNumber: existing.order.orderNumber,
+                        customerName: existing.order.customer.fullName,
+                        amount: Number(existing.amount),
+                        status: existing.status,
+                        collectedAt: existing.createdAt,
+                        agentName: actor.fullName,
+                        isApproved: existing.status === 'VERIFIED',
+                    },
+                };
+            }
+        }
+
+        const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const paymentNumber = `COLL-${dateCode}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        return this.prisma.$transaction(async (tx) => {
+            const payment = await tx.payment.create({
+                data: {
+                    tenantId: actor.tenantId || null,
+                    paymentNumber,
+                    orderId: stop.orderId,
+                    invoiceId: stop.order.invoice?.id || null,
+                    amount,
+                    paymentMethod: input.paymentMethod || 'CASH',
+                    referenceNumber: input.idempotencyKey || input.referenceNumber || null,
+                    status: 'PENDING_APPROVAL', // Auditable: not verified yet!
+                    notes: input.notes ? `[Field Collection: ${actor.fullName}] ${input.notes}` : `Collected by ${actor.fullName} at stop #${stop.sequence}`,
+                    createdById: actor.id,
+                },
+            });
+
+            await this.audit.record(tx, {
+                actorId: actor.id,
+                entityType: AuditEntityType.PAYMENT,
+                entityId: payment.id,
+                entityLabel: payment.paymentNumber,
+                action: 'payment.submitted_for_approval',
+                after: { amount, method: payment.paymentMethod, orderNumber: stop.order.orderNumber },
+            });
+
+            const slip = {
+                slipNumber: payment.paymentNumber,
+                orderNumber: stop.order.orderNumber,
+                customerName: stop.order.customer.fullName,
+                amount,
+                paymentMethod: payment.paymentMethod,
+                balanceRemaining: Math.max(0, Number(stop.order.totalAmount) - (Number(stop.order.advancePaidAmount || 0) + amount)),
+                status: 'PENDING_APPROVAL',
+                collectedAt: payment.createdAt,
+                agentName: actor.fullName,
+                isApproved: false,
+            };
+
+            return { payment, slip };
+        });
+    }
+
+    async listPendingPayments(actor) {
+        return this.prisma.payment.findMany({
+            where: {
+                status: { in: ['PENDING_APPROVAL', 'PENDING_VERIFICATION'] },
+            },
+            include: {
+                order: {
+                    include: {
+                        customer: { select: { id: true, fullName: true, farmerCode: true, phones: true } },
+                        invoice: true,
+                    },
+                },
+                createdBy: {
+                    select: { id: true, fullName: true, employeeCode: true, role: { select: { code: true } } },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async reviewPayment(actor, paymentId, input) {
+        const isAuthorizedReviewer =
+            isTopTier(actor.roleCode) ||
+            actor.roleCode === 'MANAGER' ||
+            actor.permissions?.includes('orders.manage') ||
+            actor.permissions?.includes('finance.manage');
+
+        if (!isAuthorizedReviewer) {
+            throw ApiError.forbidden('PAYMENT_REVIEW_FORBIDDEN', 'Only authorized managers can review payment collections');
+        }
+
+        const payment = await this.prisma.payment.findUnique({
+            where: { id: paymentId },
+            include: { order: { include: { invoice: true } } },
+        });
+        if (!payment) throw ApiError.notFound('PAYMENT_NOT_FOUND', 'Payment not found');
+
+        // Prevent self-approval by delivery staff
+        if (payment.createdById === actor.id && actor.roleCode === 'DELIVERY') {
+            throw ApiError.forbidden('SELF_APPROVAL_FORBIDDEN', 'Delivery agents cannot approve their own payment submissions.');
+        }
+
+        const action = input.action; // 'APPROVE' | 'REJECT' | 'CLARIFICATION'
+        if (action !== 'APPROVE' && action !== 'REJECT') {
+            throw ApiError.badRequest('INVALID_ACTION', 'Action must be APPROVE or REJECT');
+        }
+
+        return this.prisma.$transaction(async (tx) => {
+            if (action === 'APPROVE') {
+                const updatedPayment = await tx.payment.update({
+                    where: { id: paymentId },
+                    data: {
+                        status: 'VERIFIED',
+                        verifiedById: actor.id,
+                        verifiedAt: new Date(),
+                        notes: input.notes ? `${payment.notes || ''} [Approved: ${input.notes}]` : payment.notes,
+                    },
+                });
+
+                // Update invoice and order balances
+                const order = payment.order;
+                const paymentAmt = Number(payment.amount);
+                const newPaid = (order.advancePaidAmount || 0) + paymentAmt;
+                const isFullyPaid = newPaid >= Number(order.totalAmount);
+
+                await tx.salesOrder.update({
+                    where: { id: order.id },
+                    data: {
+                        advancePaidAmount: newPaid,
+                        paymentStatus: isFullyPaid ? 'PAID' : 'PARTIALLY_PAID',
+                    },
+                });
+
+                if (order.invoice) {
+                    const currentInvPaid = (order.invoice.paidAmount || 0) + paymentAmt;
+                    const newOutstanding = Math.max(0, Number(order.invoice.total) - currentInvPaid);
+                    await tx.invoice.update({
+                        where: { id: order.invoice.id },
+                        data: {
+                            paidAmount: currentInvPaid,
+                            outstandingAmount: newOutstanding,
+                            status: newOutstanding === 0 ? 'PAID' : 'PARTIALLY_PAID',
+                        },
+                    });
+                }
+
+                await this.audit.record(tx, {
+                    actorId: actor.id,
+                    entityType: AuditEntityType.PAYMENT,
+                    entityId: paymentId,
+                    entityLabel: payment.paymentNumber,
+                    action: 'payment.approved',
+                    after: { verifiedById: actor.id, notes: input.notes },
+                });
+
+                return updatedPayment;
+            } else {
+                const updatedPayment = await tx.payment.update({
+                    where: { id: paymentId },
+                    data: {
+                        status: 'REJECTED',
+                        verifiedById: actor.id,
+                        verifiedAt: new Date(),
+                        notes: input.reason ? `[REJECTED: ${input.reason}] ${payment.notes || ''}` : payment.notes,
+                    },
+                });
+
+                await this.audit.record(tx, {
+                    actorId: actor.id,
+                    entityType: AuditEntityType.PAYMENT,
+                    entityId: paymentId,
+                    entityLabel: payment.paymentNumber,
+                    action: 'payment.rejected',
+                    after: { reason: input.reason },
+                });
+
+                return updatedPayment;
+            }
+        });
+    }
+
+    async recordCallOutcome(actor, stopId, input) {
+        const stop = await this.prisma.tripStop.findUnique({
+            where: { id: stopId },
+            include: { order: true },
+        });
+        if (!stop) throw ApiError.notFound('STOP_NOT_FOUND', 'Trip stop not found');
+
+        const validOutcomes = [
+            'CONFIRMED',
+            'CALL_BACK',
+            'NO_ANSWER',
+            'BUSY',
+            'RESCHEDULED',
+            'INVALID_NUMBER',
+            'CUSTOMER_UNAVAILABLE',
+        ];
+
+        const outcome = input.outcome?.toUpperCase();
+        if (!validOutcomes.includes(outcome)) {
+            throw ApiError.badRequest('INVALID_OUTCOME', `Outcome must be one of: ${validOutcomes.join(', ')}`);
+        }
+
+        const data = {
+            deliveryConfirmationStatus: outcome,
+            confirmationNotes: input.notes ? `[Call by ${actor.fullName}] ${input.notes}` : `Call outcome recorded: ${outcome}`,
+            confirmedAt: new Date(),
+        };
+
+        if (outcome === 'CONFIRMED' && input.confirmedDate) {
+            data.confirmedDeliveryDate = new Date(input.confirmedDate);
+        }
+        if (outcome === 'RESCHEDULED' && input.rescheduledDate) {
+            data.requestedDeliveryDate = new Date(input.rescheduledDate);
+        }
+
+        const updatedOrder = await this.prisma.salesOrder.update({
+            where: { id: stop.orderId },
+            data,
+        });
+
+        await this.audit.record(this.prisma, {
+            actorId: actor.id,
+            entityType: AuditEntityType.SALES_ORDER,
+            entityId: stop.orderId,
+            entityLabel: stop.order.orderNumber,
+            action: 'delivery.customer_contacted',
+            after: { outcome, notes: input.notes },
+        });
+
+        return { stop, order: updatedOrder };
     }
 };
 

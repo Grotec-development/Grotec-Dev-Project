@@ -126,6 +126,7 @@ const SUPPLY_CHAIN_NAV_ITEMS: NavItem[] = [
   { to: '/factory', label: 'Factory & Batches', icon: Factory, permission: 'production.read' },
   { to: '/dispatch', label: '4 Regional Routes & Dispatch', icon: Truck, permission: 'dispatch.read' },
   { to: '/delivery/fleet', label: 'Fleet & Vehicles', icon: Truck, permission: 'dispatch.read' },
+  { to: '/delivery/manager', label: 'Delivery & Payment Approvals', icon: ShieldCheck, permission: 'orders.manage' },
   { to: '/delivery', label: 'Field Delivery', icon: Navigation, permission: 'delivery.execute' },
   { to: '/exceptions', label: 'Exception Centre', icon: AlertTriangle, permission: 'exceptions.manage' },
 ];

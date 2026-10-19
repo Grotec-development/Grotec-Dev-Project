@@ -1,12 +1,15 @@
 {
-  "name": "GROTEC FarmerOS",
-  "short_name": "FarmerOS",
-  "description": "GROTEC FarmerOS — CRM and HRMS for agricultural operations.",
-  "start_url": "/login",
+  "id": "grotec-farmeros-pwa",
+  "name": "GROTEC FarmerOS — Business & Delivery Platform",
+  "short_name": "GROTEC Delivery",
+  "description": "GROTEC FarmerOS — Integrated Agricultural CRM, Field Delivery Operations & Offline-Sync Platform",
+  "start_url": "/delivery",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#15803d",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#059669",
+  "categories": ["business", "productivity", "logistics"],
   "icons": [
     {
       "src": "/grotec_logo.webp",
@@ -19,6 +22,29 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Field Delivery Runs",
+      "short_name": "Deliveries",
+      "description": "Open active delivery stops and customer orders",
+      "url": "/delivery",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Vehicle Fleet",
+      "short_name": "Fleet",
+      "description": "Manage vehicle capacity and operational status",
+      "url": "/delivery/fleet",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Business Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open real-time business and operations dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
     }
   ]
 }

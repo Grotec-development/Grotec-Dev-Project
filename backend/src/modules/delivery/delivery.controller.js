@@ -37,6 +37,22 @@ let DeliveryController = class DeliveryController {
     async createFieldLead(actor, body) {
         return this.delivery.createFieldLead(actor, body);
     }
+
+    async recordPaymentCollection(actor, id, body) {
+        return this.delivery.recordPaymentCollection(actor, id, body);
+    }
+
+    async listPendingPayments(actor) {
+        return this.delivery.listPendingPayments(actor);
+    }
+
+    async reviewPayment(actor, id, body) {
+        return this.delivery.reviewPayment(actor, id, body);
+    }
+
+    async recordCallOutcome(actor, id, body) {
+        return this.delivery.recordCallOutcome(actor, id, body);
+    }
 };
 
 __decorate([
@@ -79,6 +95,48 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], DeliveryController.prototype, "createFieldLead", null);
+
+__decorate([
+    Post('stops/:id/payments'),
+    RequirePermission('delivery.execute'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "recordPaymentCollection", null);
+
+__decorate([
+    Get('payments/pending'),
+    RequirePermission('orders.read'),
+    __param(0, CurrentEmployee()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "listPendingPayments", null);
+
+__decorate([
+    Post('payments/:id/review'),
+    RequirePermission('orders.manage'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "reviewPayment", null);
+
+__decorate([
+    Post('stops/:id/call-outcome'),
+    RequirePermission('delivery.execute'),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('id')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "recordCallOutcome", null);
 
 DeliveryController = __decorate([
     ApiTags('Delivery'),
