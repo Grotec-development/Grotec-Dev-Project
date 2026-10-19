@@ -28,7 +28,7 @@ export async function configureApp(app, options = {}) {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-    const ALLOWED_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$|^capacitor:\/\/localhost$/;
+    const ALLOWED_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$|^capacitor:\/\/localhost$/;
 
     const isOriginAllowed = (requestOrigin) => {
         if (!requestOrigin) return true;

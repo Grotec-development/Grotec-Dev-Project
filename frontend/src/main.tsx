@@ -10,9 +10,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      refetchOnWindowFocus: true,
+      // Mobile optimization: avoid aggressive refetches when toggling camera/dialer
+      refetchOnWindowFocus: false,
       refetchOnReconnect: true,
-      staleTime: 10_000,
+      staleTime: 30_000,
+      gcTime: 1000 * 60 * 15, // 15 mins cache retention
     },
   },
 });
