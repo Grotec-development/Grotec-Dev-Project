@@ -371,7 +371,7 @@ let DeliveryService = class DeliveryService {
                         status: 'VERIFIED',
                         verifiedById: actor.id,
                         verifiedAt: new Date(),
-                        notes: input.notes ? `${payment.notes || ''} [Approved: ${input.notes}]` : payment.notes,
+                        notes: (input.notes || input.reason) ? `${payment.notes || ''} [Approved: ${input.notes || input.reason}]` : payment.notes,
                     },
                 });
 
