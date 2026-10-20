@@ -323,7 +323,7 @@ let AiCallingService = class AiCallingService {
       data: {
         callId: call.id,
         authorId: actor.id,
-        content: `[AI Voice Calling Demo] Topic: ${scenario.topic}. Crop: ${scenario.crop}. Issue: ${scenario.issue}. Recommended: ${scenario.recommendedProducts.join(', ')}.`,
+        body: `[AI Voice Calling Demo] Topic: ${scenario.topic}. Crop: ${scenario.crop}. Issue: ${scenario.issue}. Recommended: ${scenario.recommendedProducts.join(', ')}.`,
       },
     });
 
@@ -419,7 +419,7 @@ let AiCallingService = class AiCallingService {
       startedAt: call.startedAt,
       connectedAt: call.connectedAt,
       endedAt: call.endedAt,
-      notes: call.notes,
+      notes: (call.notes || []).map((n) => ({ id: n.id, content: n.body, body: n.body, createdAt: n.createdAt })),
       followUp: call.followUps[0] || null,
     };
   }
@@ -454,7 +454,7 @@ let AiCallingService = class AiCallingService {
         data: {
           callId: call.id,
           authorId: actor.id,
-          content: `[AI Call Summary]\n${data.summary || ''}\n\n[Transcript]\n${data.transcriptText || ''}`.trim(),
+          body: `[AI Call Summary]\n${data.summary || ''}\n\n[Transcript]\n${data.transcriptText || ''}`.trim(),
         },
       });
     }
@@ -524,7 +524,7 @@ let AiCallingService = class AiCallingService {
           data: {
             callId: call.id,
             authorId: call.agentId,
-            content: `[Vapi AI End-of-Call Report]\nSummary: ${summary}\n\nTranscript:\n${transcript}`,
+            body: `[Vapi AI End-of-Call Report]\nSummary: ${summary}\n\nTranscript:\n${transcript}`,
           },
         });
       });
@@ -617,7 +617,7 @@ let AiCallingService = class AiCallingService {
         data: {
           callId: call.id,
           authorId: actor.id,
-          content: `Sales Order Confirmed: ${so.orderNumber} (Total: ₹${totalAmount}). Direct delivery scheduled.`,
+          body: `Sales Order Confirmed: ${so.orderNumber} (Total: ₹${totalAmount}). Direct delivery scheduled.`,
         },
       });
 
@@ -658,7 +658,7 @@ let AiCallingService = class AiCallingService {
       startedAt: c.startedAt,
       endedAt: c.endedAt,
       agentName: c.agent?.fullName,
-      latestNote: c.notes[0]?.content || null,
+      latestNote: c.notes[0]?.body || null,
     }));
   }
 };

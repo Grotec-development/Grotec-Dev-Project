@@ -220,7 +220,7 @@ describe('AiCallingService (Vapi AI Voice Calling Integration)', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             callId: 'call-1',
-            content: expect.stringContaining('Bio Jeevan PF'),
+            body: expect.stringContaining('Bio Jeevan PF'),
           }),
         })
       );
@@ -260,7 +260,7 @@ describe('AiCallingService (Vapi AI Voice Calling Integration)', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             callId: 'call-1',
-            content: expect.stringContaining('Sales Order Confirmed'),
+            body: expect.stringContaining('Sales Order Confirmed'),
           }),
         })
       );
