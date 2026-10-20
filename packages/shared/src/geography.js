@@ -125,7 +125,7 @@ export function validateParentChildGeographic(loc) {
       return {
         valid: false,
         isValid: false,
-        error: 'INVALID_GEOGRAPHY',
+        error: 'INVALID_STATE',
         code: 'INVALID_GEOGRAPHY',
         reason: 'INVALID_STATE',
         message: `State "${rawState}" is not recognized in the master geographic catalogue.`,
@@ -145,7 +145,7 @@ export function validateParentChildGeographic(loc) {
         return {
           valid: false,
           isValid: false,
-          error: 'INVALID_GEOGRAPHY',
+          error: 'INVALID_DISTRICT_FOR_STATE',
           code: 'INVALID_GEOGRAPHY',
           reason: 'INVALID_DISTRICT_FOR_STATE',
           message: `District "${rawDistrict}" does not belong to State "${matchedState}".`,
@@ -162,7 +162,7 @@ export function validateParentChildGeographic(loc) {
           return {
             valid: false,
             isValid: false,
-            error: 'INVALID_GEOGRAPHY',
+            error: 'INVALID_TALUK_FOR_DISTRICT',
             code: 'INVALID_GEOGRAPHY',
             reason: 'INVALID_TALUK_FOR_DISTRICT',
             message: `Taluk "${rawTaluk}" is not a valid taluk/subdistrict of District "${rawDistrict}".`,
