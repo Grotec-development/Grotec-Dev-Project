@@ -28,10 +28,31 @@ import { isNativeApp } from './native-calling';
 
 export const CLOUD_BACKEND_API = 'https://grotec-dev-project.onrender.com/api/v1';
 
-export const API_BASE_URL: string = (() => {
+const CUSTOM_API_STORAGE_KEY = 'grotec_custom_api_url';
+
+export function getCustomApiUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(CUSTOM_API_STORAGE_KEY);
+}
+
+export function getApiBaseUrl(): string {
+  const customUrl = typeof window !== 'undefined' ? localStorage.getItem(CUSTOM_API_STORAGE_KEY) : null;
+  if (customUrl && (customUrl.startsWith('http://') || customUrl.startsWith('https://'))) {
+    return customUrl.trim().replace(/\/+$/, '');
+  }
   const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
   if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
     return envUrl;
+  }
+  // Mobile app (Capacitor/Android/iOS native WebView):
+  if (
+    isNativeApp() ||
+    (typeof window !== 'undefined' &&
+      (window.location.protocol === 'capacitor:' ||
+        window.location.protocol === 'file:' ||
+        window.location.hostname === 'localhost' && !window.location.port))
+  ) {
+    return CLOUD_BACKEND_API;
   }
   // The Vite dev server always proxies /api (vite.config.ts), whatever host or port it is opened on
   if (import.meta.env.DEV) {
@@ -45,23 +66,131 @@ export const API_BASE_URL: string = (() => {
   ) {
     return '/api/v1';
   }
-  // Mobile app (Capacitor/Android/iOS), Vercel production web, or standalone installs:
-  // Route to the live cloud backend API on Render
+  // Standalone web or Vercel production web:
   return CLOUD_BACKEND_API;
-})();
+}
+
+export function setCustomApiUrl(url: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (!url || !url.trim()) {
+    localStorage.removeItem(CUSTOM_API_STORAGE_KEY);
+  } else {
+    const formatted = url.trim().replace(/\/+$/, '');
+    localStorage.setItem(CUSTOM_API_STORAGE_KEY, formatted);
+  }
+  api.defaults.baseURL = getApiBaseUrl();
+}
+
+export const API_BASE_URL: string = getApiBaseUrl();
+
+import { Capacitor, CapacitorHttp, type HttpResponse } from '@capacitor/core';
+import type { AxiosAdapter, AxiosResponse } from 'axios';
+
+export function isNativeMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (Capacitor.isNativePlatform()) return true;
+  } catch {
+    // ignore
+  }
+  return window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !window.location.port);
+}
+
+export const capacitorNativeAdapter: AxiosAdapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+  let url = config.url || '';
+  if (config.baseURL && !url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `${config.baseURL.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
+  }
+
+  const headers: Record<string, string> = {};
+  if (config.headers) {
+    for (const [k, v] of Object.entries(config.headers)) {
+      if (v !== undefined && v !== null && typeof v !== 'function') {
+        headers[k] = String(v);
+      }
+    }
+  }
+
+  let data = config.data;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      // keep raw string
+    }
+  }
+
+  const method = (config.method || 'get').toUpperCase();
+  const res: HttpResponse = await CapacitorHttp.request({
+    url,
+    method,
+    headers,
+    data,
+    params: config.params as any,
+    connectTimeout: config.timeout || 15000,
+    readTimeout: config.timeout || 15000,
+  });
+
+  const response: AxiosResponse = {
+    data: res.data,
+    status: res.status,
+    statusText: String(res.status),
+    headers: (res.headers || {}) as any,
+    config,
+    request: {},
+  };
+
+  if (res.status >= 200 && res.status < 400) {
+    return response;
+  }
+
+  const err: any = new Error(`Request failed with status code ${res.status}`);
+  err.response = response;
+  err.status = res.status;
+  err.config = config;
+  err.isAxiosError = true;
+  return Promise.reject(err);
+};
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true, // refresh token lives in the httpOnly cookie
+  baseURL: getApiBaseUrl(),
+  adapter: isNativeMobile() ? capacitorNativeAdapter : undefined,
 });
 
 api.interceptors.request.use((config) => {
+  if (isNativeMobile()) {
+    config.adapter = capacitorNativeAdapter;
+  }
+  const currentBase = getApiBaseUrl();
+  config.baseURL = currentBase;
   const token = getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   const tenantId = getTenantId();
   if (tenantId) config.headers['x-tenant-id'] = tenantId;
   return config;
 });
+
+export async function checkServerHealth(targetUrl?: string): Promise<{ ok: boolean; latency: number; dbStatus?: string; message?: string }> {
+  const base = (targetUrl || getApiBaseUrl()).replace(/\/+$/, '');
+  const start = performance.now();
+  try {
+    const res = await api.get(`${base}/health`, {
+      timeout: 8000,
+      validateStatus: () => true,
+    });
+    const latency = Math.round(performance.now() - start);
+    if (res.status >= 200 && res.status < 400) {
+      return { ok: true, latency, dbStatus: res.data?.db || 'up', message: `Connected (${latency}ms)` };
+    }
+    return { ok: false, latency, message: `Server error HTTP ${res.status}` };
+  } catch (err: any) {
+    return {
+      ok: false,
+      latency: Math.round(performance.now() - start),
+      message: err.code === 'ECONNABORTED' ? 'Connection timed out' : 'Server unreachable (Check internet connection)',
+    };
+  }
+}
 
 interface RefreshResponse {
   accessToken: string;
@@ -72,8 +201,9 @@ let refreshInFlight: Promise<string> | null = null;
 /** Uses the httpOnly refresh cookie to mint a fresh access token (single-flight). */
 async function refreshAccessToken(): Promise<string> {
   if (!refreshInFlight) {
-    refreshInFlight = axios
-      .post<RefreshResponse>(`${API_BASE_URL}/auth/refresh`, undefined, { withCredentials: true })
+    const base = getApiBaseUrl();
+    refreshInFlight = api
+      .post<RefreshResponse>(`${base}/auth/refresh`, undefined)
       .then((res) => {
         const token = res.data.accessToken;
         setAccessToken(token);

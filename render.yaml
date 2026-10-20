@@ -30,7 +30,7 @@ services:
       - key: JWT_REFRESH_SECRET
         sync: false
       - key: CORS_ORIGINS
-        value: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000,https://*.vercel.app,https://*.onrender.com
+        value: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000,https://*.vercel.app,https://*.onrender.com,https://localhost,capacitor://localhost,http://localhost
       - key: DIALER_PROVIDER
         value: mock
       - key: FOUNDER_EMAIL

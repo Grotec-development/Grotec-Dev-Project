@@ -49,7 +49,30 @@ let AttendanceService = class AttendanceService {
                 conditions.push({
                     OR: [
                         { employeeId: actor.id },
-                        { employee: { role: { code: { in: ['AGENT', 'STAFF', 'DELIVERY'] } } } },
+                        { employee: { role: { code: { notIn: ['FOUNDER', 'SUPER_ADMIN', 'MANAGER'] } } } },
+                    ],
+                });
+            }
+        }
+        else if (actor.roleCode === 'TEAM_LEADER' || actor.roleCode === 'GROUP_LEADER') {
+            if (filters.employeeId) {
+                if (filters.employeeId !== actor.id) {
+                    const target = await this.prisma.employee.findUnique({
+                        where: { id: filters.employeeId },
+                        include: { role: true },
+                    });
+                    if (!target || !outranks(actor.roleCode, target.role.code)) {
+                        throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only view attendance for roles strictly below your rank (PRD §5.1.2)');
+                    }
+                }
+                conditions.push({ employeeId: filters.employeeId });
+            }
+            else {
+                conditions.push({
+                    OR: [
+                        { employeeId: actor.id },
+                        { employee: { reportingManagerId: actor.id } },
+                        { employee: { role: { code: { in: ['AGENT', 'FSE'] } } } },
                     ],
                 });
             }
@@ -225,7 +248,30 @@ let AttendanceService = class AttendanceService {
                 conditions.push({
                     OR: [
                         { employeeId: actor.id },
-                        { employee: { role: { code: { in: ['AGENT', 'STAFF', 'DELIVERY'] } } } },
+                        { employee: { role: { code: { notIn: ['FOUNDER', 'SUPER_ADMIN', 'MANAGER'] } } } },
+                    ],
+                });
+            }
+        }
+        else if (actor.roleCode === 'TEAM_LEADER' || actor.roleCode === 'GROUP_LEADER') {
+            if (query.employeeId) {
+                if (query.employeeId !== actor.id) {
+                    const target = await this.prisma.employee.findUnique({
+                        where: { id: query.employeeId },
+                        include: { role: true },
+                    });
+                    if (!target || !outranks(actor.roleCode, target.role.code)) {
+                        throw ApiError.forbidden('ROLE_HIERARCHY_FORBIDDEN', 'You can only view attendance summary for roles strictly below your rank (PRD §5.1.2)');
+                    }
+                }
+                conditions.push({ employeeId: query.employeeId });
+            }
+            else {
+                conditions.push({
+                    OR: [
+                        { employeeId: actor.id },
+                        { employee: { reportingManagerId: actor.id } },
+                        { employee: { role: { code: { in: ['AGENT', 'FSE'] } } } },
                     ],
                 });
             }

@@ -14,10 +14,16 @@ let HttpExceptionFilter = HttpExceptionFilter_1 = class HttpExceptionFilter {
     }
     catch(exception, host) {
         const ctx = host.switchToHttp();
+        const request = ctx.getRequest();
         const response = ctx.getResponse();
         const envelope = this.toEnvelope(exception);
         if (envelope.error.code === 'INTERNAL_ERROR' || envelope.error.code === 'DB_ERROR') {
             this.logger.error(exception instanceof Error ? exception.stack ?? exception.message : String(exception));
+        }
+        const origin = request.headers?.origin;
+        if (origin && typeof response.setHeader === 'function') {
+            response.setHeader('Access-Control-Allow-Origin', origin);
+            response.setHeader('Access-Control-Allow-Credentials', 'true');
         }
         response.status(this.statusOf(exception)).json(envelope);
     }

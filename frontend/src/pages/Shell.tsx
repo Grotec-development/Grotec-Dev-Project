@@ -31,6 +31,7 @@ import {
   Truck,
   Navigation,
   AlertTriangle,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 import { cx } from '../components/ui';
@@ -43,6 +44,9 @@ import { NotificationCenter } from '../components/NotificationCenter';
 import { PageHead } from '../components/PageHead';
 import { Breadcrumb, type BreadcrumbItem } from '../components/Breadcrumb';
 import { GrotecLogo } from '../components/GrotecLogo';
+import { NetworkStatusIndicator } from '../components/NetworkStatusIndicator';
+import { ServerConfigModal } from '../components/ServerConfigModal';
+import { AppUpdateModal } from '../components/AppUpdateModal';
 import { tenantsApi } from '../lib/api';
 
 interface NavItem {
@@ -409,6 +413,8 @@ export function Shell() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tenantName, setTenantName] = useState<string>('GROTEC Agrotech');
+  const [serverModalOpen, setServerModalOpen] = useState(false);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarPinned((prev) => {
@@ -522,8 +528,9 @@ export function Shell() {
       {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-slate-900/60 z-40 md:hidden backdrop-blur-xs transition-opacity duration-200 cursor-pointer"
           onClick={() => setMobileMenuOpen(false)}
+          onTouchEnd={() => setMobileMenuOpen(false)}
           aria-hidden="true"
         />
       )}
@@ -546,10 +553,9 @@ export function Shell() {
         className={cx(
           'fixed inset-y-0 left-0 flex flex-col border-r border-slate-200/90 bg-white z-50 transition-all duration-200 ease-in-out pt-[var(--sat)]',
           mobileMenuOpen
-            ? 'w-60 translate-x-0 shadow-2xl'
-            : isNavExpanded
-            ? 'w-60 translate-x-0 shadow-xl'
-            : 'w-16 -translate-x-full md:translate-x-0 shadow-xs',
+            ? 'w-64 translate-x-0 shadow-2xl'
+            : '-translate-x-full md:translate-x-0',
+          isNavExpanded ? 'md:w-60 md:shadow-xl' : 'md:w-16 md:shadow-xs',
         )}
         aria-label="Main navigation"
       >
@@ -586,10 +592,10 @@ export function Shell() {
                 <ChevronRight className="h-4 w-4" />
               )}
             </button>
-            {/* Mobile Close Button */}
+            {/* Mobile Close Button (Touch optimized min 44x44px) */}
             <button
               type="button"
-              className="md:hidden p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              className="md:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 active:bg-slate-200 touch-manipulation cursor-pointer"
               onClick={() => setMobileMenuOpen(false)}
               aria-label="Close menu"
             >
@@ -774,14 +780,14 @@ export function Shell() {
         {/* Top Header Bar */}
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/90 bg-white/95 px-4 md:px-6 backdrop-blur shadow-xs">
           <div className="flex min-w-0 items-center gap-3">
-            {/* Hamburger Button on Mobile */}
+            {/* Hamburger Button on Mobile (Touch optimized min 44x44px) */}
             <button
               type="button"
-              className="md:hidden p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              className="md:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 active:bg-slate-200 touch-manipulation cursor-pointer"
               onClick={() => setMobileMenuOpen((o) => !o)}
               aria-label="Toggle navigation menu"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-6 w-6" />
             </button>
             <div className="md:hidden shrink-0">
               <GrotecLogo to="/dashboard" size="xs" variant="mark-only" />
@@ -854,9 +860,31 @@ export function Shell() {
                         type="button"
                         onClick={() => {
                           setUserMenuOpen(false);
+                          setUpdateModalOpen(true);
+                        }}
+                        className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Download App Update (APK)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setServerModalOpen(true);
+                        }}
+                        className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Settings className="h-3.5 w-3.5 text-slate-400" />
+                        <span>Server & Network Settings</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
                           void logout();
                         }}
-                        className="w-full text-left px-3.5 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer font-medium"
+                        className="w-full text-left px-3.5 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer font-medium border-t border-slate-100 mt-1"
                       >
                         <LogOut className="h-3.5 w-3.5 text-red-500" />
                         <span>Sign Out</span>
@@ -868,6 +896,8 @@ export function Shell() {
             </div>
           </div>
         </header>
+
+        <NetworkStatusIndicator />
 
         <AssistantProvider>
           <Suspense
@@ -885,21 +915,26 @@ export function Shell() {
         {/* Native Mobile Bottom Navigation Bar */}
         <nav
           aria-label="Mobile Bottom Navigation"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200/90 px-1 py-1 shadow-lg grid grid-cols-5 items-center justify-items-center"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-2 py-1 shadow-lg grid grid-cols-5 items-center justify-items-center"
           style={{ paddingBottom: 'calc(0.45rem + var(--sab, 0px))' }}
         >
           <NavLink
             to="/dashboard"
+            onClick={() => {
+              if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate(12); } catch { /* ignore */ }
+              }
+            }}
             className={({ isActive }) =>
               cx(
-                'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                'flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold transition-all touch-tactile',
                 isActive
-                  ? 'text-emerald-700 font-bold'
+                  ? 'text-emerald-700 font-bold bg-emerald-50/90 shadow-2xs ring-1 ring-emerald-500/10'
                   : 'text-slate-500 hover:text-slate-800'
               )
             }
           >
-            <LayoutDashboard className="h-5 w-5 mb-0.5" />
+            <LayoutDashboard className="h-4.5 w-4.5 mb-0.5" />
             <span>Home</span>
           </NavLink>
 
@@ -907,46 +942,61 @@ export function Shell() {
             <>
               <NavLink
                 to="/delivery"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(12); } catch { /* ignore */ }
+                  }
+                }}
                 className={({ isActive }) =>
                   cx(
-                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    'flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold transition-all touch-tactile',
                     isActive
-                      ? 'text-emerald-700 font-bold'
+                      ? 'text-emerald-700 font-bold bg-emerald-50/90 shadow-2xs ring-1 ring-emerald-500/10'
                       : 'text-slate-500 hover:text-slate-800'
                   )
                 }
               >
-                <Navigation className="h-5 w-5 mb-0.5" />
+                <Navigation className="h-4.5 w-4.5 mb-0.5" />
                 <span>Deliveries</span>
               </NavLink>
 
               <NavLink
                 to="/delivery/fleet"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(12); } catch { /* ignore */ }
+                  }
+                }}
                 className={({ isActive }) =>
                   cx(
-                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    'flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold transition-all touch-tactile',
                     isActive
-                      ? 'text-emerald-700 font-bold'
+                      ? 'text-emerald-700 font-bold bg-emerald-50/90 shadow-2xs ring-1 ring-emerald-500/10'
                       : 'text-slate-500 hover:text-slate-800'
                   )
                 }
               >
-                <Truck className="h-5 w-5 mb-0.5" />
+                <Truck className="h-4.5 w-4.5 mb-0.5" />
                 <span>Fleet</span>
               </NavLink>
 
               <NavLink
                 to="/customers"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(12); } catch { /* ignore */ }
+                  }
+                }}
                 className={({ isActive }) =>
                   cx(
-                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    'flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold transition-all touch-tactile',
                     isActive
-                      ? 'text-emerald-700 font-bold'
+                      ? 'text-emerald-700 font-bold bg-emerald-50/90 shadow-2xs ring-1 ring-emerald-500/10'
                       : 'text-slate-500 hover:text-slate-800'
                   )
                 }
               >
-                <Users className="h-5 w-5 mb-0.5" />
+                <Users className="h-4.5 w-4.5 mb-0.5" />
                 <span>Farmers</span>
               </NavLink>
             </>
@@ -954,46 +1004,61 @@ export function Shell() {
             <>
               <NavLink
                 to="/agent"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(12); } catch { /* ignore */ }
+                  }
+                }}
                 className={({ isActive }) =>
                   cx(
-                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    'flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold transition-all touch-tactile',
                     isActive
-                      ? 'text-emerald-700 font-bold'
+                      ? 'text-emerald-700 font-bold bg-emerald-50/90 shadow-2xs ring-1 ring-emerald-500/10'
                       : 'text-slate-500 hover:text-slate-800'
                   )
                 }
               >
-                <Phone className="h-5 w-5 mb-0.5" />
+                <Phone className="h-4.5 w-4.5 mb-0.5" />
                 <span>Calling</span>
               </NavLink>
 
               <NavLink
                 to="/customers"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(12); } catch { /* ignore */ }
+                  }
+                }}
                 className={({ isActive }) =>
                   cx(
-                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    'flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold transition-all touch-tactile',
                     isActive
-                      ? 'text-emerald-700 font-bold'
+                      ? 'text-emerald-700 font-bold bg-emerald-50/90 shadow-2xs ring-1 ring-emerald-500/10'
                       : 'text-slate-500 hover:text-slate-800'
                   )
                 }
               >
-                <Users className="h-5 w-5 mb-0.5" />
+                <Users className="h-4.5 w-4.5 mb-0.5" />
                 <span>Farmers</span>
               </NavLink>
 
               <NavLink
                 to="/action-center"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(12); } catch { /* ignore */ }
+                  }
+                }}
                 className={({ isActive }) =>
                   cx(
-                    'flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold transition',
+                    'flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold transition-all touch-tactile',
                     isActive
-                      ? 'text-emerald-700 font-bold'
+                      ? 'text-emerald-700 font-bold bg-emerald-50/90 shadow-2xs ring-1 ring-emerald-500/10'
                       : 'text-slate-500 hover:text-slate-800'
                   )
                 }
               >
-                <Briefcase className="h-5 w-5 mb-0.5" />
+                <Briefcase className="h-4.5 w-4.5 mb-0.5" />
                 <span>Actions</span>
               </NavLink>
             </>
@@ -1001,14 +1066,23 @@ export function Shell() {
 
           <button
             type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center py-1 w-full rounded-lg text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition"
+            onClick={() => {
+              if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate(12); } catch { /* ignore */ }
+              }
+              setMobileMenuOpen(true);
+            }}
+            className="flex flex-col items-center justify-center py-1.5 w-full rounded-xl text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition-all touch-tactile"
           >
-            <Menu className="h-5 w-5 mb-0.5" />
+            <Menu className="h-4.5 w-4.5 mb-0.5" />
             <span>More</span>
           </button>
         </nav>
       </main>
+
+      {/* Global Modals */}
+      <AppUpdateModal isOpen={updateModalOpen} onClose={() => setUpdateModalOpen(false)} />
+      <ServerConfigModal isOpen={serverModalOpen} onClose={() => setServerModalOpen(false)} />
     </div>
   );
 }

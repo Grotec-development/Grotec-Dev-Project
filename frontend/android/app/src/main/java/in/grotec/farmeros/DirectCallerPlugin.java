@@ -25,6 +25,10 @@ import com.getcapacitor.annotation.PermissionCallback;
         @Permission(
             alias = "phoneState",
             strings = { Manifest.permission.READ_PHONE_STATE }
+        ),
+        @Permission(
+            alias = "storage",
+            strings = { Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE }
         )
     }
 )
@@ -90,6 +94,33 @@ public class DirectCallerPlugin extends Plugin {
     private void callPermissionsCallback(PluginCall call) {
         JSObject ret = new JSObject();
         boolean granted = getPermissionState("callPhone") == PermissionState.GRANTED;
+        ret.put("granted", granted);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void checkDownloadPermissions(PluginCall call) {
+        JSObject ret = new JSObject();
+        boolean granted = getPermissionState("storage") == PermissionState.GRANTED;
+        ret.put("granted", granted);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void requestDownloadPermissions(PluginCall call) {
+        if (getPermissionState("storage") != PermissionState.GRANTED) {
+            requestPermissionForAlias("storage", call, "downloadPermissionsCallback");
+        } else {
+            JSObject ret = new JSObject();
+            ret.put("granted", true);
+            call.resolve(ret);
+        }
+    }
+
+    @PermissionCallback
+    private void downloadPermissionsCallback(PluginCall call) {
+        JSObject ret = new JSObject();
+        boolean granted = getPermissionState("storage") == PermissionState.GRANTED;
         ret.put("granted", granted);
         call.resolve(ret);
     }

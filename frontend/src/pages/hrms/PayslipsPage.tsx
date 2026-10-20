@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { api } from '../../lib/api';
+import { requestDownloadPermissions } from '../../lib/native-calling';
 import {
   Alert,
   Badge,
@@ -64,7 +65,10 @@ export function PayslipsPage() {
     void fetchPayslips();
   }, [routeLineItemId]);
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    try {
+      await requestDownloadPermissions();
+    } catch {}
     window.print();
   };
 

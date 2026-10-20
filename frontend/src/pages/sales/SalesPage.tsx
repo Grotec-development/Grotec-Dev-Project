@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
+import { requestDownloadPermissions } from '../../lib/native-calling';
 import { formatDate } from '../../lib/format';
 import { Button, Card, Field, Input, Select, Spinner } from '../../components/ui';
 import { POLL_INTERVAL_LISTS } from '../../lib/polling';
@@ -461,7 +462,12 @@ export function SalesPage() {
                   </Button>
                   <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => window.print()}
+                      onClick={async () => {
+                        try {
+                          await requestDownloadPermissions();
+                        } catch {}
+                        window.print();
+                      }}
                       className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-1.5"
                     >
                       <Printer className="h-3.5 w-3.5" /> Print / Save PDF

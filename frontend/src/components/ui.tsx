@@ -35,8 +35,8 @@ export function Button({ variant = 'primary', size = 'md', loading = false, disa
   return (
     <button
       className={cx(
-        'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-        size === 'xs' ? 'px-2 py-1 text-[11px]' : size === 'sm' ? 'px-2.5 py-1.5 text-xs' : 'px-3.5 py-2 text-sm',
+        'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-all duration-100 touch-manipulation select-none active:scale-[0.98] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+        size === 'xs' ? 'px-2.5 py-1 text-[11px] min-h-[28px]' : size === 'sm' ? 'px-3 py-1.5 text-xs min-h-[34px]' : 'px-4 py-2 text-sm min-h-[42px]',
         buttonVariants[variant],
         className,
       )}

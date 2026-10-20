@@ -129,12 +129,10 @@ class SyncEngine {
 
   public async checkServerConnectivityAndSync(): Promise<boolean> {
     try {
-      // Test real HTTP reachability
-      const res = await fetch('/api/v1/auth/me', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-        },
+      // Test real HTTP reachability against active API base URL
+      const res = await api.get('/health', {
+        timeout: 5000,
+        validateStatus: () => true,
       });
 
       const serverReachable = res.status < 500;

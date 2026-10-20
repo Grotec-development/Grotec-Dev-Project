@@ -38,8 +38,14 @@ import type {
   DynamicBiResponse,
   Page,
 } from '../lib/types';
+import { requestDownloadPermissions } from '../lib/native-calling';
 
-function triggerCsvDownload(csvData: string, filename: string) {
+async function triggerCsvDownload(csvData: string, filename: string) {
+  try {
+    await requestDownloadPermissions();
+  } catch (err) {
+    console.warn('[Download] Permission check warning:', err);
+  }
   const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

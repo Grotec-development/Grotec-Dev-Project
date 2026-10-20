@@ -45,7 +45,7 @@ export async function configureApp(app, options = {}) {
         if (ALLOWED_ORIGIN_REGEX.test(requestOrigin)) return true;
         try {
             const url = new URL(requestOrigin);
-            if (url.hostname.endsWith('.vercel.app') || url.hostname.endsWith('.onrender.com')) {
+            if (url.hostname.endsWith('.vercel.app') || url.hostname.endsWith('.onrender.com') || url.hostname.endsWith('grotec.in')) {
                 return true;
             }
         } catch {

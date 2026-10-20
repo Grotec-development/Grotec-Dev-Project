@@ -1114,7 +1114,7 @@ async function seedPhase2(founderId) {
         const route = await prisma.deliveryRoute.upsert({
             where: { code: r.code },
             update: { name: r.name, description: r.description, scheduleDays: r.scheduleDays, isActive: true },
-            create: { code: r.code, name: r.name, description: r.description, scheduleDays: r.scheduleDays, isActive: true, tenantId },
+            create: { code: r.code, name: r.name, description: r.description, scheduleDays: r.scheduleDays, isActive: true },
         });
 
         for (const [district, towns] of r.districts) {

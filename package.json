@@ -25,6 +25,7 @@
     "test:api": "npm run test --workspace @grotec/backend",
     "test:web": "npm run test --workspace @grotec/frontend",
     "lint": "eslint .",
+    "build:apk": "bash scripts/build-android.sh",
     "adb:devices": "PATH=\"$HOME/.android-sdk/platform-tools:$PATH\" adb devices",
     "adb:install": "PATH=\"$HOME/.android-sdk/platform-tools:$PATH\" adb install -r grotec-farmeros.apk"
   },

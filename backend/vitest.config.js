@@ -25,7 +25,9 @@ export default defineConfig({
     test: {
         environment: 'node',
         setupFiles: ['./test/setup.js'],
-        include: hasTestDb ? ['src/**/*.spec.js', 'test/**/*.e2e-spec.js'] : ['src/**/*.spec.js'],
+        include: hasTestDb
+            ? ['src/**/*.spec.js', 'test/**/*.e2e-spec.js']
+            : ['src/**/*.spec.js', '!src/qa-*.spec.js'],
         globalSetup: hasTestDb ? ['test/global-setup.js'] : [],
         hookTimeout: 120_000,
         testTimeout: 30_000,

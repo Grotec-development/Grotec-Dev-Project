@@ -1,21 +1,35 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# GROTEC FarmerOS — Android R8 / ProGuard Optimization Rules
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep Capacitor Core & Plugins
+-keep class com.getcapacitor.** { *; }
+-keep interface com.getcapacitor.** { *; }
+-keep class * extends com.getcapacitor.Plugin { *; }
+-keepclassmembers class * extends com.getcapacitor.Plugin {
+    public <methods>;
+}
+-keep public class * extends com.getcapacitor.BridgeActivity
+-keep class * implements com.getcapacitor.PluginMethod { *; }
+-dontwarn com.getcapacitor.**
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep JavaScript Interface annotations and methods for WebView bridge
+-keepattributes *Annotation*
+-keepattributes JavascriptInterface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# AndroidX WebKit
+-dontwarn androidx.webkit.**
+-keep class androidx.webkit.** { *; }
+
+# Cordova compatibility plugins
+-dontwarn org.apache.cordova.**
+-keep class org.apache.cordova.** { *; }
+
+# Native methods
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# Preserve line numbers for crash debugging
+-keepattributes SourceFile,LineNumberTable

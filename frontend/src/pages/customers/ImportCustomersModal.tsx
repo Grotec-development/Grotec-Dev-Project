@@ -15,6 +15,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
+import { requestDownloadPermissions } from '../../lib/native-calling';
 import type { ImportParseResult, ImportPreviewResult, ImportRowItem, ImportExecuteResult } from '../../lib/types';
 import { Alert, Button, Card, Field, Select, Spinner, cx } from '../../components/ui';
 
@@ -88,7 +89,10 @@ export function ImportCustomersModal({ open, onClose }: ImportCustomersModalProp
     onClose();
   }
 
-  function downloadSampleTemplate() {
+  async function downloadSampleTemplate() {
+    try {
+      await requestDownloadPermissions();
+    } catch {}
     const csvContent =
       'Full Name,Phone 1,Phone 2,Phone 3,State,District,Taluk,Village,Pincode,Soil Type,Language\n' +
       'Karthikeyan S,9876543101,,,Tamil Nadu,Dharmapuri,Palacode,Palacode,636808,Red loam,ta\n' +

@@ -12,6 +12,8 @@ export interface DirectCallerPlugin {
   directCall(options: { number: string }): Promise<{ success: boolean; message?: string }>;
   checkCallPermissions(): Promise<{ granted: boolean }>;
   requestCallPermissions(): Promise<{ granted: boolean }>;
+  checkDownloadPermissions(): Promise<{ granted: boolean }>;
+  requestDownloadPermissions(): Promise<{ granted: boolean }>;
   addListener(
     eventName: 'callStateChanged',
     listenerFunc: (state: { state: 'RINGING' | 'OFFHOOK' | 'IDLE' }) => void
@@ -73,6 +75,36 @@ export async function requestCallingPermissions(): Promise<boolean> {
   } catch (err) {
     console.warn('[NativeCalling] Error requesting permissions, fallback to system dialer:', err);
     return false;
+  }
+}
+
+/**
+ * Checks and requests Android runtime permissions for downloads and updates (storage / notifications).
+ */
+export async function requestDownloadPermissions(): Promise<boolean> {
+  if (!isNativeApp()) {
+    // Browser prompts user directly on download
+    return true;
+  }
+
+  try {
+    const check = await DirectCaller.checkDownloadPermissions();
+    if (check.granted) return true;
+    const result = await DirectCaller.requestDownloadPermissions();
+    return result.granted;
+  } catch (err) {
+    console.warn('[NativeCalling] Error requesting download permissions:', err);
+    return true;
+  }
+}
+
+export async function checkDownloadPermissions(): Promise<boolean> {
+  if (!isNativeApp()) return true;
+  try {
+    const res = await DirectCaller.checkDownloadPermissions();
+    return res.granted;
+  } catch {
+    return true;
   }
 }
 
