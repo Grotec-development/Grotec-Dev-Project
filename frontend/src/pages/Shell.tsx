@@ -32,6 +32,7 @@ import {
   Navigation,
   AlertTriangle,
   Download,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { cx } from '../components/ui';
@@ -61,6 +62,7 @@ interface NavItem {
 const CRM_NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'customer.read' },
   { to: '/agent', label: 'Agent Calling', icon: Phone, permission: 'call.read' },
+  { to: '/ai-calling', label: 'AI Voice Calling', icon: Sparkles, badge: 'Vapi AI', permission: 'call.read' },
   { to: '/action-center', label: 'Action Center', icon: Briefcase, permission: 'call.read' },
   { to: '/customers', label: 'Farmers', icon: Users, permission: 'customer.read' },
   { to: '/relationship', label: 'Relationship Manager', icon: Contact, permission: 'relationship.read' },
@@ -82,6 +84,8 @@ const CRM_NAV_ITEMS: NavItem[] = [
 const AGENT_PRIMARY_NAV = new Set([
   '/dashboard',
   '/agent',
+  '/ai-calling',
+  '/ai-calling-demo',
   '/action-center',
   '/customers',
   '/tickets',
@@ -92,6 +96,8 @@ const AGENT_PRIMARY_NAV = new Set([
 const TEAM_LEADER_PRIMARY_NAV = new Set([
   '/dashboard',
   '/agent',
+  '/ai-calling',
+  '/ai-calling-demo',
   '/action-center',
   '/customers',
   '/relationship',
@@ -304,6 +310,8 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
     '/dashboard': { title: homeTitle, description: homeDesc, crumbs: [{ label: 'Home', href: '/' }, { label: homeTitle }] },
     '/agent': { title: 'Agent Calling Workspace', description: 'Telecaller agent calling workspace — keypad phone dialing, Windows Phone Link, and live farmer note-taking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }] },
     '/calling': { title: 'Active Outbound Call', description: 'Live outbound calling and customer note-taking session.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }, { label: 'Active Call' }] },
+    '/ai-calling': { title: 'AI Voice Calling (Vapi AI)', description: 'Autonomous conversational AI voice calling for farmer advisory, pest diagnosis, and crop input ordering.', crumbs: [{ label: 'Home', href: '/' }, { label: 'AI Voice Calling' }] },
+    '/ai-calling-demo': { title: 'AI Voice Calling (Presentation Demo)', description: 'Presentation demo showing autonomous Tamil & English conversational voice calling with real-time agronomic data extraction.', crumbs: [{ label: 'Home', href: '/' }, { label: 'AI Voice Calling', href: '/ai-calling' }, { label: 'Demo' }] },
     '/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Action Center' }] },
     '/hrms/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations', href: '/hrms' }, { label: 'Action Center' }] },
     '/customers': { title: 'Farmer Directory', description: 'Farmer master — search by name, phone, district, or crop.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Farmer Directory' }] },

@@ -40,6 +40,7 @@ const SupportTicketsPage = lazy(() => import('./pages/tickets/SupportTicketsPage
 const RegionalRoutesPage = lazy(() => import('./pages/dispatch/RegionalRoutesView').then((m) => ({ default: m.RegionalRoutesView })));
 const FleetManagementView = lazy(() => import('./pages/delivery/FleetManagementView').then((m) => ({ default: m.FleetManagementView })));
 const ManagerDeliveryConsole = lazy(() => import('./pages/delivery/ManagerDeliveryConsole').then((m) => ({ default: m.ManagerDeliveryConsole })));
+const AiVoiceCallingPage = lazy(() => import('./pages/calling/AiVoiceCallingPage').then((m) => ({ default: m.AiVoiceCallingPage })));
 
 import { DedicatedAgentCallingWorkspace } from './pages/calling/DedicatedAgentCallingWorkspace';
 
@@ -54,6 +55,8 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'agent', element: <RequirePermission anyOf={['call.read']}><DedicatedAgentCallingWorkspace /></RequirePermission> },
       { path: 'calling', element: <RequirePermission anyOf={['call.read']}><DedicatedAgentCallingWorkspace /></RequirePermission> },
+      { path: 'ai-calling', element: <RequirePermission anyOf={['call.read']}><AiVoiceCallingPage /></RequirePermission> },
+      { path: 'ai-calling-demo', element: <RequirePermission anyOf={['call.read']}><AiVoiceCallingPage /></RequirePermission> },
       { path: 'agent-advanced', element: <Navigate to="/agent" replace /> },
       { path: 'action-center', element: <ActionCenterPage /> },
       { path: 'customers', element: <RequirePermission anyOf={['customer.read']}><CustomersPage /></RequirePermission> },
