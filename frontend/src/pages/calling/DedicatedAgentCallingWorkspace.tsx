@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
@@ -153,7 +153,9 @@ export function DedicatedAgentCallingWorkspace() {
   const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!workStarted);
 
   // 2. 5-Minute In-Between Call Timer, Audio Alert & Auto-Dial Engine
+  // Timer runs strictly AFTER a call has ended till the start of the next call
   const [inBetweenSeconds, setInBetweenSeconds] = useState(CALL_TIMEOUT_SECONDS);
+  const [isBetweenCallsTimerActive, setIsBetweenCallsTimerActive] = useState<boolean>(false);
   const [showIdleAlert, setShowIdleAlert] = useState(false);
   const [autoDialSeconds, setAutoDialSeconds] = useState<number | null>(null);
   const [autoDialEnabled, setAutoDialEnabled] = useState(true);
@@ -173,6 +175,7 @@ export function DedicatedAgentCallingWorkspace() {
   const [callDuration, setCallDuration] = useState(0);
   const [activePhoneDialed, setActivePhoneDialed] = useState<string>('');
   const [isMuted, setIsMuted] = useState(false);
+  const callConnectedRef = useRef<boolean>(false);
 
   // Keypad dialer state
   const [showKeypad, setShowKeypad] = useState(false);
@@ -378,20 +381,16 @@ export function DedicatedAgentCallingWorkspace() {
     setShowTalukEditor(false);
   }, [currentCustomer]);
 
-  // Reset timer & outcomes whenever customer changes
-  // Reset timer & outcomes whenever customer changes
+  // Reset form outcomes whenever customer changes (without disrupting ongoing calls)
   useEffect(() => {
-    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    if (callActive) return;
     setShowIdleAlert(false);
     setAutoDialSeconds(null);
     setOutcome('');
     setNotes('');
     setCallbackDateTime('');
-    setCallActive(false);
-    setActiveCallId(null);
-    setCallDuration(0);
     setDialedNumber('');
-  }, [currentIndex, currentCustomer?.id]);
+  }, [currentIndex, currentCustomer?.id, callActive]);
 
   // In-call duration timer (counts UP while call is live)
   useEffect(() => {
@@ -403,9 +402,9 @@ export function DedicatedAgentCallingWorkspace() {
   }, [callActive]);
 
   // 5-Minute In-Between Call Countdown Loop
-  // Counts down strictly when no call is active and agent is not on break
+  // Counts down strictly AFTER a call ends till the start of the next call, and when agent is not on break
   useEffect(() => {
-    if (!workStarted || callActive || isOnBreak) return;
+    if (!workStarted || callActive || isOnBreak || !isBetweenCallsTimerActive) return;
 
     const interval = setInterval(() => {
       setInBetweenSeconds((prev) => {
@@ -422,11 +421,11 @@ export function DedicatedAgentCallingWorkspace() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [workStarted, callActive, isOnBreak, autoDialEnabled, currentCustomer?.primaryPhone]);
+  }, [workStarted, callActive, isOnBreak, isBetweenCallsTimerActive, autoDialEnabled, currentCustomer?.primaryPhone]);
 
   // Auto-Dial Countdown Loop when 5-minute interval expires
   useEffect(() => {
-    if (autoDialSeconds === null || !currentCustomer?.primaryPhone || callActive || isOnBreak) return;
+    if (autoDialSeconds === null || !currentCustomer?.primaryPhone || callActive || isOnBreak || !isBetweenCallsTimerActive) return;
 
     if (autoDialSeconds <= 0) {
       setAutoDialSeconds(null);
@@ -439,7 +438,7 @@ export function DedicatedAgentCallingWorkspace() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [autoDialSeconds, currentCustomer, callActive, isOnBreak]);
+  }, [autoDialSeconds, currentCustomer, callActive, isOnBreak, isBetweenCallsTimerActive]);
 
   // Employee Break Countdown Loop
   useEffect(() => {
@@ -481,6 +480,7 @@ export function DedicatedAgentCallingWorkspace() {
     setBreakTotalSeconds(0);
     setBreakRemainingSeconds(0);
     setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setIsBetweenCallsTimerActive(true);
     setBreakToast('Break ended. You are back in active calling mode.');
     setTimeout(() => setBreakToast(null), 4000);
   };
@@ -488,6 +488,7 @@ export function DedicatedAgentCallingWorkspace() {
   const handleStartWork = () => {
     setWorkStarted(true);
     setShowWelcomeModal(false);
+    setIsBetweenCallsTimerActive(false);
     setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
     setShowIdleAlert(false);
     setAutoDialSeconds(null);
@@ -499,8 +500,14 @@ export function DedicatedAgentCallingWorkspace() {
   // Subscribe to device telephony state (Android/iOS SIM or native phone calls)
   useEffect(() => {
     const unsubscribe = subscribeToCallState((state) => {
-      if (state === 'IDLE' && callActive) {
-        void handleEndCall();
+      if (state === 'RINGING' || state === 'OFFHOOK') {
+        callConnectedRef.current = true;
+      } else if (state === 'IDLE') {
+        // Only trigger call termination if call was previously ringing or connected
+        if (callActive && callConnectedRef.current) {
+          callConnectedRef.current = false;
+          void handleEndCall();
+        }
       }
     });
     return () => {
@@ -525,10 +532,12 @@ export function DedicatedAgentCallingWorkspace() {
       setBreakRemainingSeconds(0);
     }
 
+    callConnectedRef.current = false;
     setActivePhoneDialed(phoneToDial);
     setCallActive(true);
     setCallDuration(0);
-    // Reset in-between call countdown and hide idle alerts
+    // Reset in-between call countdown and stop between-calls timer while call is active
+    setIsBetweenCallsTimerActive(false);
     setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
     setShowIdleAlert(false);
     setAutoDialSeconds(null);
@@ -558,9 +567,11 @@ export function DedicatedAgentCallingWorkspace() {
   // End Call Handler
   const handleEndCall = async () => {
     if (!callActive) return;
+    callConnectedRef.current = false;
     setCallActive(false);
 
-    // Resets 5-minute countdown between calls when call ends
+    // Starts 5-minute countdown between calls strictly after call ends
+    setIsBetweenCallsTimerActive(true);
     setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
     setShowIdleAlert(false);
     setAutoDialSeconds(null);
@@ -584,6 +595,7 @@ export function DedicatedAgentCallingWorkspace() {
     try {
       // If call is still active when agent finishes, end it cleanly
       if (callActive) {
+        callConnectedRef.current = false;
         setCallActive(false);
         if (activeCallId) {
           try {
@@ -640,6 +652,8 @@ export function DedicatedAgentCallingWorkspace() {
           setCurrentIndex(0);
         }
       }
+      // Start 5-minute countdown for the next customer
+      setIsBetweenCallsTimerActive(true);
       setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
       setShowIdleAlert(false);
       setAutoDialSeconds(null);
@@ -803,23 +817,33 @@ export function DedicatedAgentCallingWorkspace() {
               <Sparkles className="h-3.5 w-3.5 text-emerald-300" /> Start Work / பணியைத் தொடங்கு
             </Button>
           ) : (
-            /* D. Work active & between calls: 5-Minute in-between countdown */
+            /* D. Work active: either between calls countdown or ready to dial */
             <>
-              <div
-                className={cx(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs font-bold shadow-xs transition-colors',
-                  inBetweenSeconds <= 20
-                    ? 'bg-red-50 border-red-300 text-red-700 animate-pulse'
-                    : inBetweenSeconds <= 60
-                    ? 'bg-amber-50 border-amber-300 text-amber-800'
-                    : 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                )}
-                title="5-minute interval between calls. Dial next farmer before timer expires to stay active!"
-              >
-                <Clock className={cx('h-3.5 w-3.5', inBetweenSeconds <= 20 ? 'text-red-600' : 'text-emerald-700')} />
-                <span>{formatCountdown(inBetweenSeconds)}</span>
-                <span className="text-[10px] font-sans font-medium opacity-80">(Next Call Due)</span>
-              </div>
+              {isBetweenCallsTimerActive ? (
+                <div
+                  className={cx(
+                    'flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs font-bold shadow-xs transition-colors',
+                    inBetweenSeconds <= 20
+                      ? 'bg-red-50 border-red-300 text-red-700 animate-pulse'
+                      : inBetweenSeconds <= 60
+                      ? 'bg-amber-50 border-amber-300 text-amber-800'
+                      : 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  )}
+                  title="5-minute interval between calls. Dial next farmer before timer expires to stay active!"
+                >
+                  <Clock className={cx('h-3.5 w-3.5', inBetweenSeconds <= 20 ? 'text-red-600' : 'text-emerald-700')} />
+                  <span>{formatCountdown(inBetweenSeconds)}</span>
+                  <span className="text-[10px] font-sans font-medium opacity-80">(Next Call Due)</span>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 font-sans text-xs font-bold shadow-xs"
+                  title="Ready to dial next customer. 5-minute timer starts after call ends."
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  <span>Ready to Dial</span>
+                </div>
+              )}
 
               {/* Break Selection Menu Toggle & Button */}
               <div className="relative">
@@ -948,7 +972,7 @@ export function DedicatedAgentCallingWorkspace() {
       )}
 
       {/* 5-Minute In-Between Call Alert Banner with Auto-Dial Engine */}
-      {!callActive && !isOnBreak && workStarted && inBetweenSeconds === 0 && (
+      {!callActive && !isOnBreak && workStarted && isBetweenCallsTimerActive && inBetweenSeconds === 0 && (
         <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-xs text-red-950 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-md animate-in fade-in">
           <div className="flex items-start sm:items-center gap-3">
             <div className="h-9 w-9 rounded-full bg-red-100 flex items-center justify-center shrink-0 border border-red-200">
@@ -1207,11 +1231,18 @@ export function DedicatedAgentCallingWorkspace() {
                         {formatDuration(callDuration)}
                       </span>
                     </div>
-                  ) : (
+                  ) : isBetweenCallsTimerActive ? (
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Next Call Due</span>
                       <span className={cx('font-mono text-xs font-extrabold', inBetweenSeconds <= 30 ? 'text-red-600 animate-pulse' : 'text-slate-700')}>
                         {formatCountdown(inBetweenSeconds)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Status</span>
+                      <span className="font-mono text-xs font-bold text-emerald-700">
+                        Ready to Dial
                       </span>
                     </div>
                   )}

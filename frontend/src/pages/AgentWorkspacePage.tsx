@@ -489,13 +489,19 @@ export function AgentWorkspacePage() {
   };
 
   // Initialize native permissions & telephony listeners if running as mobile/tablet app
+  const nativeCallConnectedRef = useRef(false);
   useEffect(() => {
     if (!isNativeApp()) return;
     void requestCallingPermissions();
     const unsubscribe = subscribeToCallState((callState) => {
-      if (callState === 'IDLE' && activeCall && !isWrapUp) {
-        setIsWrapUp(true);
-        telephonyAudio.stopRingback();
+      if (callState === 'RINGING' || callState === 'OFFHOOK') {
+        nativeCallConnectedRef.current = true;
+      } else if (callState === 'IDLE' && activeCall && !isWrapUp) {
+        if (nativeCallConnectedRef.current) {
+          nativeCallConnectedRef.current = false;
+          setIsWrapUp(true);
+          telephonyAudio.stopRingback();
+        }
       }
     });
     return () => unsubscribe();
