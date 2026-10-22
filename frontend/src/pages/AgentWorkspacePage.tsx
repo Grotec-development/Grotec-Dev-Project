@@ -36,6 +36,7 @@ import {
   BarChart2,
   Award,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { api, errorMessage, messagingApi } from '../lib/api';
 import type { Call, CallContext, CustomerDetail, CustomerSummary, Page, QueueItem, KnowledgeGuidance } from '../lib/types';
@@ -3211,10 +3212,11 @@ export function AgentWorkspacePage() {
               <p className="text-xs font-semibold text-slate-700">Select Break Type:</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Tea Break', mins: '15 mins', icon: Coffee },
-                  { label: 'Lunch Break', mins: '30 mins', icon: Coffee },
-                  { label: 'Bio / Rest', mins: '10 mins', icon: Pause },
-                  { label: 'Team Meeting', mins: '30 mins', icon: Users },
+                  { label: 'Restroom Break (10m)', mins: '10 mins', icon: Pause },
+                  { label: 'Restroom Break (15m)', mins: '15 mins', icon: Pause },
+                  { label: 'Tea / Coffee Break (10m)', mins: '10 mins', icon: Coffee },
+                  { label: 'Personal Relaxation (20m)', mins: '20 mins', icon: Sparkles },
+                  { label: 'Lunch Break (30m)', mins: '30 mins', icon: Coffee },
                 ].map((b) => (
                   <button
                     key={b.label}
