@@ -309,10 +309,10 @@ describe('Role-Based Navigation Visibility (Manager, Founder, Agent)', () => {
   });
 });
 
-describe('Telecalling Workspace 5-Minute Timer & Extension Workflow', () => {
+describe('Telecalling Workspace 5-Minute In-Between Call Interval & Employee Breaks', () => {
   const CALL_TIMEOUT_SECONDS = 300; // 5 minutes default
 
-  it('initializes call timer with 5 minutes (300 seconds)', () => {
+  it('initializes in-between call interval with 5 minutes (300 seconds)', () => {
     expect(CALL_TIMEOUT_SECONDS).toBe(300);
     const formatCountdown = (secs: number) => {
       const m = Math.floor(secs / 60);
@@ -322,66 +322,85 @@ describe('Telecalling Workspace 5-Minute Timer & Extension Workflow', () => {
     expect(formatCountdown(CALL_TIMEOUT_SECONDS)).toBe('05:00');
   });
 
-  it('only decrements timer when callActive is true', () => {
-    let timeLeft = 300;
-    const tick = (callActive: boolean) => {
-      if (callActive && timeLeft > 0) {
-        timeLeft -= 1;
+  it('only decrements in-between timer when workStarted is true, call is NOT active, and NOT on break', () => {
+    let inBetweenSeconds = 300;
+    const tick = (workStarted: boolean, callActive: boolean, isOnBreak: boolean) => {
+      if (workStarted && !callActive && !isOnBreak && inBetweenSeconds > 0) {
+        inBetweenSeconds -= 1;
       }
-      return timeLeft;
+      return inBetweenSeconds;
     };
 
-    // When call is not active, timer must NOT decrement
-    expect(tick(false)).toBe(300);
-    expect(tick(false)).toBe(300);
+    // When call is active, in-between timer must NOT decrement
+    expect(tick(true, true, false)).toBe(300);
 
-    // When call starts, timer decrements
-    expect(tick(true)).toBe(299);
-    expect(tick(true)).toBe(298);
+    // When on break, in-between timer must NOT decrement
+    expect(tick(true, false, true)).toBe(300);
+
+    // When shift not started, timer must NOT decrement
+    expect(tick(false, false, false)).toBe(300);
+
+    // When between calls, timer decrements smoothly
+    expect(tick(true, false, false)).toBe(299);
+    expect(tick(true, false, false)).toBe(298);
   });
 
-  it('triggers extension modal when timer expires (reaches 0)', () => {
-    let timeLeft = 1;
-    let showTimeoutAlert = false;
-    let showExtensionModal = false;
+  it('triggers idle alert and auto-dial countdown when in-between timer expires (reaches 0)', () => {
+    let inBetweenSeconds = 1;
+    let showIdleAlert = false;
+    let autoDialSeconds: number | null = null;
+    const autoDialEnabled = true;
 
-    const tick = (callActive: boolean) => {
-      if (!callActive || timeLeft <= 0) return;
-      if (timeLeft <= 1) {
-        timeLeft = 0;
-        showTimeoutAlert = true;
-        showExtensionModal = true;
+    const tick = (workStarted: boolean, callActive: boolean, isOnBreak: boolean) => {
+      if (!workStarted || callActive || isOnBreak || inBetweenSeconds <= 0) return;
+      if (inBetweenSeconds <= 1) {
+        inBetweenSeconds = 0;
+        showIdleAlert = true;
+        if (autoDialEnabled) {
+          autoDialSeconds = 10;
+        }
       } else {
-        timeLeft -= 1;
+        inBetweenSeconds -= 1;
       }
     };
 
-    tick(true);
-    expect(timeLeft).toBe(0);
-    expect(showTimeoutAlert).toBe(true);
-    expect(showExtensionModal).toBe(true);
+    tick(true, false, false);
+    expect(inBetweenSeconds).toBe(0);
+    expect(showIdleAlert).toBe(true);
+    expect(autoDialSeconds).toBe(10);
   });
 
-  it('extends call timer accurately and resets alert flags', () => {
-    let timeLeft = 0;
-    let showTimeoutAlert = true;
-    let showExtensionModal = true;
+  it('resets in-between timer whenever a call is placed or ended', () => {
+    let inBetweenSeconds = 45;
+    let showIdleAlert = true;
+    let autoDialSeconds: number | null = 5;
 
-    const handleExtendCall = (minutes: number) => {
-      timeLeft += minutes * 60;
-      showTimeoutAlert = false;
-      showExtensionModal = false;
+    const handleStartCall = () => {
+      inBetweenSeconds = CALL_TIMEOUT_SECONDS;
+      showIdleAlert = false;
+      autoDialSeconds = null;
     };
 
-    // Extend by 2 minutes
-    handleExtendCall(2);
-    expect(timeLeft).toBe(120);
-    expect(showTimeoutAlert).toBe(false);
-    expect(showExtensionModal).toBe(false);
+    handleStartCall();
+    expect(inBetweenSeconds).toBe(300);
+    expect(showIdleAlert).toBe(false);
+    expect(autoDialSeconds).toBeNull();
+  });
 
-    // Extend further by 5 minutes
-    handleExtendCall(5);
-    expect(timeLeft).toBe(420); // 120 + 300
+  it('provides exact employee break categories: Restroom (10-15m), Tea/Coffee (10m), Personal Relaxation (20m), Lunch (30m)', () => {
+    const breakCategories = [
+      { type: 'Restroom Break (10m)', minutes: 10 },
+      { type: 'Restroom Break (15m)', minutes: 15 },
+      { type: 'Tea / Coffee Break (10m)', minutes: 10 },
+      { type: 'Personal Relaxation (20m)', minutes: 20 },
+      { type: 'Lunch Break (30m)', minutes: 30 },
+    ];
+
+    expect(breakCategories.find((b) => b.type.includes('Restroom') && b.minutes === 10)).toBeDefined();
+    expect(breakCategories.find((b) => b.type.includes('Restroom') && b.minutes === 15)).toBeDefined();
+    expect(breakCategories.find((b) => b.type.includes('Tea') && b.minutes === 10)).toBeDefined();
+    expect(breakCategories.find((b) => b.type.includes('Relaxation') && b.minutes === 20)).toBeDefined();
+    expect(breakCategories.find((b) => b.type.includes('Lunch') && b.minutes === 30)).toBeDefined();
   });
 
   it('formats call outcome payload properly on finish & save', () => {

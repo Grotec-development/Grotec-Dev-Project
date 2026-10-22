@@ -417,7 +417,7 @@ let AuthService = class AuthService {
         return Number(this.config.get('ACCESS_TOKEN_TTL_SECONDS') ?? 900);
     }
     idleTimeoutSeconds() {
-        return Number(this.config.get('SESSION_IDLE_TIMEOUT_SECONDS') ?? 900);
+        return Number(this.config.get('SESSION_IDLE_TIMEOUT_SECONDS') ?? 2700);
     }
     refreshExpiry() {
         const days = Number(this.config.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);

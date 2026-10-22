@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw, Upload, Users, Trash2, Eye, MapPin, Phone, AlertTriangle } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, RotateCcw, Upload, Users, Trash2, Eye, MapPin, Phone, AlertTriangle, ShieldAlert, CopyCheck } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { ApiErrorBody, CustomerSummary, Page } from '../../lib/types';
 import { formatE164 } from '../../lib/format';
@@ -17,7 +17,12 @@ import { POLL_INTERVAL_LISTS } from '../../lib/polling';
 export function CustomersPage() {
   const { hasPermission, user } = useAuth();
   const queryClient = useQueryClient();
-  const [q, setQ] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQ = searchParams.get('q') || '';
+  const [q, setQ] = useState(initialQ);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [duplicateOnly, setDuplicateOnly] = useState(false);
+  const [isSupervisedDelete, setIsSupervisedDelete] = useState(false);
   const [district, setDistrict] = useState('');
   const [missingTalukOnly, setMissingTalukOnly] = useState(false);
   const [crop, setCrop] = useState('');
@@ -27,8 +32,15 @@ export function CustomersPage() {
   const [showImport, setShowImport] = useState(false);
   const [showSegments, setShowSegments] = useState(false);
   const [page, setPage] = useState(1);
-  const [customerToDelete, setCustomerToDelete] = useState<{ id: string; fullName: string } | null>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<{ id: string; fullName: string; farmerCode?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const currentParam = searchParams.get('q') || '';
+    if (currentParam !== q) {
+      setQ(currentParam);
+    }
+  }, [searchParams]);
 
   const availableDistricts = useMemo(() => getDistricts('Tamil Nadu'), []);
 
@@ -99,18 +111,46 @@ export function CustomersPage() {
     });
   }, [data]);
 
+  const duplicateMap = useMemo(() => {
+    const phoneCounts: Record<string, number> = {};
+    const nameDistrictCounts: Record<string, number> = {};
+    farmerList.forEach((f) => {
+      if (f.primaryPhone) {
+        phoneCounts[f.primaryPhone] = (phoneCounts[f.primaryPhone] || 0) + 1;
+      }
+      const key = `${(f.fullName || '').toLowerCase().trim()}::${(f.district || '').toLowerCase().trim()}`;
+      if (f.fullName) {
+        nameDistrictCounts[key] = (nameDistrictCounts[key] || 0) + 1;
+      }
+    });
+    return { phoneCounts, nameDistrictCounts };
+  }, [farmerList]);
+
+  const isDuplicateFarmer = (f: any) => {
+    const hasPhoneDup = Boolean(f.primaryPhone && (duplicateMap.phoneCounts[f.primaryPhone] || 0) > 1);
+    const key = `${(f.fullName || '').toLowerCase().trim()}::${(f.district || '').toLowerCase().trim()}`;
+    const hasNameDup = Boolean((duplicateMap.nameDistrictCounts[key] || 0) > 1);
+    return hasPhoneDup || hasNameDup;
+  };
+
+  const duplicateCount = useMemo(() => {
+    return farmerList.filter((f) => isDuplicateFarmer(f)).length;
+  }, [farmerList, duplicateMap]);
+
   const filteredFarmerList = useMemo(() => {
     return farmerList.filter((f) => {
       if (crop && !f.crops.toLowerCase().includes(crop.toLowerCase())) return false;
+      if (duplicateOnly && !isDuplicateFarmer(f)) return false;
       return true;
     });
-  }, [farmerList, crop]);
+  }, [farmerList, crop, duplicateOnly, duplicateMap]);
 
-  const hasActiveFilters = Boolean(q || district || missingTalukOnly || crop || (status && status !== 'ACTIVE'));
+  const hasActiveFilters = Boolean(q || district || missingTalukOnly || crop || duplicateOnly || (status && status !== 'ACTIVE'));
   const activeFilterText = [
     q ? `search "${q}"` : '',
     district ? `district "${district}"` : '',
     missingTalukOnly ? 'missing taluk only' : '',
+    duplicateOnly ? 'supervised duplicates only' : '',
     crop ? `crop "${crop}"` : '',
     status && status !== 'ACTIVE' ? `status "${status}"` : '',
   ]
@@ -121,6 +161,7 @@ export function CustomersPage() {
     setQ('');
     setDistrict('');
     setMissingTalukOnly(false);
+    setDuplicateOnly(false);
     setCrop('');
     setStatus('ACTIVE');
     setPage(1);
@@ -206,6 +247,33 @@ export function CustomersPage() {
             <span>Missing Taluk</span>
           </button>
 
+          {/* Supervised Duplicate Detection Quick Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setDuplicateOnly((prev) => !prev);
+              setPage(1);
+            }}
+            className={cx(
+              'rounded-md px-2.5 py-1.5 text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer',
+              duplicateOnly
+                ? 'bg-rose-100 border-rose-300 text-rose-900 shadow-2xs font-bold'
+                : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-100'
+            )}
+            title="Filter duplicate farmer entries for supervised review and deletion"
+          >
+            <ShieldAlert className={cx('h-3.5 w-3.5', duplicateOnly ? 'text-rose-700' : 'text-slate-400')} />
+            <span>Supervised Duplicates</span>
+            {duplicateCount > 0 && (
+              <span className={cx(
+                'rounded-full px-1.5 py-0.2 text-[10px] font-bold',
+                duplicateOnly ? 'bg-rose-200 text-rose-900' : 'bg-rose-100 text-rose-700'
+              )}>
+                {duplicateCount}
+              </span>
+            )}
+          </button>
+
           {/* Crop Dropdown */}
           <select
             value={crop}
@@ -257,7 +325,7 @@ export function CustomersPage() {
             <option value="CLIENT">Clients</option>
           </select>
 
-          {/* Search Input */}
+          {/* Search Input with Autocomplete Dropdown */}
           <div className="relative min-w-56 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
@@ -268,9 +336,74 @@ export function CustomersPage() {
               onChange={(e) => {
                 setQ(e.target.value);
                 setPage(1);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (q.trim()) setShowSearchDropdown(true);
               }}
               aria-label="Search farmers"
             />
+            {showSearchDropdown && q.trim().length > 0 && (
+              <div className="absolute left-0 right-0 mt-1 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl z-50 text-xs">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center border-b border-slate-100">
+                  <span>Farmer Search Index</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSearchDropdown(false)}
+                    className="text-slate-400 hover:text-slate-600 text-[10px]"
+                  >
+                    Close
+                  </button>
+                </div>
+                {farmerList.filter(f => 
+                  f.fullName.toLowerCase().includes(q.toLowerCase()) || 
+                  (f.farmerCode && f.farmerCode.toLowerCase().includes(q.toLowerCase())) ||
+                  (f.primaryPhone && f.primaryPhone.includes(q)) ||
+                  (f.district && f.district.toLowerCase().includes(q.toLowerCase()))
+                ).slice(0, 6).length === 0 ? (
+                  <div className="px-3 py-2 text-slate-500 text-center text-xs">
+                    No matching indexed farmers
+                  </div>
+                ) : (
+                  farmerList
+                    .filter(f => 
+                      f.fullName.toLowerCase().includes(q.toLowerCase()) || 
+                      (f.farmerCode && f.farmerCode.toLowerCase().includes(q.toLowerCase())) ||
+                      (f.primaryPhone && f.primaryPhone.includes(q)) ||
+                      (f.district && f.district.toLowerCase().includes(q.toLowerCase()))
+                    )
+                    .slice(0, 6)
+                    .map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setQ(f.fullName);
+                          setShowSearchDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between border-b border-slate-100 last:border-0 transition cursor-pointer"
+                      >
+                        <div>
+                          <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                            <span>{f.fullName}</span>
+                            {f.farmerCode && (
+                              <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
+                                #{f.farmerCode}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            {f.primaryPhone && <span>{f.primaryPhone}</span>}
+                            {f.district && <span>• {f.district}</span>}
+                            {f.crops && <span className="text-emerald-700 font-medium">• {f.crops}</span>}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-brand-600 font-semibold shrink-0 ml-2">Select</span>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
           </div>
           {isFetching ? <span className="text-[11px] text-slate-400">refreshing…</span> : null}
         </div>
@@ -332,84 +465,107 @@ export function CustomersPage() {
                     </TD>
                   </tr>
                 ) : (
-                  filteredFarmerList.map((farmer) => (
-                    <tr key={farmer.id} className="hover:bg-slate-50/70 transition-colors">
-                      <TD>
-                        <Link
-                          to={`/customers/${farmer.id}`}
-                          className="font-bold text-slate-900 hover:text-brand-700 hover:underline"
-                        >
-                          {farmer.fullName}
-                        </Link>
-                      </TD>
-                      <TD>
-                        <span className={cx(
-                          'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase',
-                          farmer.relationshipStage === 'CLIENT'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : farmer.relationshipStage === 'LEAD'
-                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                            : 'bg-slate-100 text-slate-700 border border-slate-200'
-                        )}>
-                          {farmer.relationshipStage || 'PROSPECT'}
-                        </span>
-                      </TD>
-                      <TD className="font-mono text-[11px] text-slate-600">
-                        <div className="flex items-center gap-1">
-                          <span>{farmer.primaryPhone ? formatE164(farmer.primaryPhone) : '—'}</span>
-                          {farmer.phoneCount > 1 && (
-                            <span className="rounded bg-slate-100 px-1 py-0.2 text-[9px] font-sans font-medium text-slate-500">
-                              +{farmer.phoneCount - 1}
+                  filteredFarmerList.map((farmer) => {
+                    const isDup = isDuplicateFarmer(farmer);
+                    return (
+                      <tr key={farmer.id} className={cx('hover:bg-slate-50/70 transition-colors', isDup && 'bg-rose-50/30')}>
+                        <TD>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Link
+                              to={`/customers/${farmer.id}`}
+                              className="font-bold text-slate-900 hover:text-brand-700 hover:underline"
+                            >
+                              {farmer.fullName}
+                            </Link>
+                            {farmer.farmerCode && (
+                              <span className="font-mono text-xs font-semibold text-slate-500">
+                                ({farmer.farmerCode})
+                              </span>
+                            )}
+                            {isDup && (
+                              <span className="inline-flex items-center gap-1 rounded bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.2 text-[10px] font-bold" title="Flagged as duplicate record for supervised cleanup">
+                                <ShieldAlert className="h-3 w-3 text-rose-600" /> Duplicate Flag
+                              </span>
+                            )}
+                          </div>
+                        </TD>
+                        <TD>
+                          <span className={cx(
+                            'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase',
+                            farmer.relationshipStage === 'CLIENT'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : farmer.relationshipStage === 'LEAD'
+                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          )}>
+                            {farmer.relationshipStage || 'PROSPECT'}
+                          </span>
+                        </TD>
+                        <TD className="font-mono text-[11px] text-slate-600">
+                          <div className="flex items-center gap-1">
+                            <span>{farmer.primaryPhone ? formatE164(farmer.primaryPhone) : '—'}</span>
+                            {farmer.phoneCount > 1 && (
+                              <span className="rounded bg-slate-100 px-1 py-0.2 text-[9px] font-sans font-medium text-slate-500">
+                                +{farmer.phoneCount - 1}
+                              </span>
+                            )}
+                          </div>
+                        </TD>
+                        <TD className="text-slate-700 font-medium">{farmer.district || '—'}</TD>
+                        <TD>
+                          {farmer.taluk ? (
+                            <span className="text-slate-700">{farmer.taluk}</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                              Missing Taluk
                             </span>
                           )}
-                        </div>
-                      </TD>
-                      <TD className="text-slate-700 font-medium">{farmer.district || '—'}</TD>
-                      <TD>
-                        {farmer.taluk ? (
-                          <span className="text-slate-700">{farmer.taluk}</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
-                            Missing Taluk
-                          </span>
-                        )}
-                      </TD>
-                      <TD className="text-slate-700 font-medium">{farmer.crops || '—'}</TD>
-                      <TD className="text-slate-500 text-[11px]">{farmer.lastContact}</TD>
-                      <TD>
-                        <StatusBadge status={farmer.status} />
-                      </TD>
-                      <TD className="text-slate-700 font-semibold">{farmer.rm || '—'}</TD>
-                      <TD className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link
-                            to={`/agent?customerId=${farmer.id}&name=${encodeURIComponent(farmer.fullName)}`}
-                            className="rounded p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition"
-                            title="Call Farmer in Calling Workspace"
-                          >
-                            <Phone className="h-3.5 w-3.5" />
-                          </Link>
-                          <Link
-                            to={`/customers/${farmer.id}`}
-                            className="rounded p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                            title="View Customer Profile"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Link>
-                          {canDelete && (
-                            <button
-                              type="button"
-                              onClick={() => setCustomerToDelete({ id: farmer.id, fullName: farmer.fullName })}
-                              className="rounded p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-                              title="Delete Customer"
+                        </TD>
+                        <TD className="text-slate-700 font-medium">{farmer.crops || '—'}</TD>
+                        <TD className="text-slate-500 text-[11px]">{farmer.lastContact}</TD>
+                        <TD>
+                          <StatusBadge status={farmer.status} />
+                        </TD>
+                        <TD className="text-slate-700 font-semibold">{farmer.rm || '—'}</TD>
+                        <TD className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Link
+                              to={`/agent?customerId=${farmer.id}&name=${encodeURIComponent(farmer.fullName)}`}
+                              className="rounded p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition"
+                              title="Call Farmer in Calling Workspace"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </TD>
-                    </tr>
-                  ))
+                              <Phone className="h-3.5 w-3.5" />
+                            </Link>
+                            <Link
+                              to={`/customers/${farmer.id}`}
+                              className="rounded p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                              title="View Customer Profile"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Link>
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustomerToDelete({ id: farmer.id, fullName: farmer.fullName, farmerCode: farmer.farmerCode || undefined });
+                                  setIsSupervisedDelete(isDup);
+                                }}
+                                className={cx(
+                                  'rounded p-1 transition cursor-pointer',
+                                  isDup
+                                    ? 'text-rose-600 hover:text-white hover:bg-rose-600 ring-1 ring-rose-200'
+                                    : 'text-slate-400 hover:text-red-600 hover:bg-red-50'
+                                )}
+                                title={isDup ? 'Delete Duplicate Under Management Supervision' : 'Delete Customer'}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </TD>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </Table>
@@ -418,20 +574,36 @@ export function CustomersPage() {
 
         <ConfirmModal
           isOpen={Boolean(customerToDelete)}
-          onClose={() => setCustomerToDelete(null)}
+          onClose={() => {
+            setCustomerToDelete(null);
+            setIsSupervisedDelete(false);
+          }}
           onConfirm={handleDeleteCustomer}
-          title={`Permanently Delete Customer`}
+          title={isSupervisedDelete ? 'Supervised Duplicate Removal' : 'Permanently Delete Customer'}
           variant="danger"
-          confirmLabel="Permanently Delete"
+          confirmLabel={isSupervisedDelete ? 'Delete Duplicate Under Supervision' : 'Permanently Delete'}
           isLoading={isDeleting}
           description={
             <div className="space-y-2 text-xs">
-              <p className="font-semibold text-slate-800">
-                Are you sure you want to permanently delete this customer?
-              </p>
-              <p className="text-slate-500 leading-relaxed">
-                This will permanently remove <strong>{customerToDelete?.fullName}</strong> and all linked history, notes, calls, follow-ups, and orders from the database. This action cannot be undone.
-              </p>
+              {isSupervisedDelete ? (
+                <>
+                  <div className="p-2.5 rounded bg-rose-50 border border-rose-200 text-rose-800 font-medium">
+                    <strong>Supervised Deduplication Action:</strong> You are removing the duplicate record for <strong>{customerToDelete?.fullName}</strong> {customerToDelete?.farmerCode ? `(#${customerToDelete.farmerCode})` : ''}.
+                  </div>
+                  <p className="text-slate-600 leading-relaxed">
+                    This deletion is performed under management oversight by <strong>{user?.fullName || 'Supervisor'}</strong> to eliminate duplicate data. Linked records and activity will be cleaned up, leaving the canonical master profile intact.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-slate-800">
+                    Are you sure you want to permanently delete this customer?
+                  </p>
+                  <p className="text-slate-500 leading-relaxed">
+                    This will permanently remove <strong>{customerToDelete?.fullName}</strong> and all linked history, notes, calls, follow-ups, and orders from the database. This action cannot be undone.
+                  </p>
+                </>
+              )}
             </div>
           }
         />

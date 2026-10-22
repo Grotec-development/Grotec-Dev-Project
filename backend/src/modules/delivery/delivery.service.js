@@ -292,7 +292,7 @@ let DeliveryService = class DeliveryService {
 
             await this.audit.record(tx, {
                 actorId: actor.id,
-                entityType: AuditEntityType.PAYMENT,
+                entityType: AuditEntityType.PAYMENT || 'PAYMENT',
                 entityId: payment.id,
                 entityLabel: payment.paymentNumber,
                 action: 'payment.submitted_for_approval',
@@ -377,34 +377,36 @@ let DeliveryService = class DeliveryService {
 
                 // Update invoice and order balances
                 const order = payment.order;
-                const paymentAmt = Number(payment.amount);
-                const newPaid = (order.advancePaidAmount || 0) + paymentAmt;
-                const isFullyPaid = newPaid >= Number(order.totalAmount);
+                if (order) {
+                    const paymentAmt = Number(payment.amount);
+                    const newPaid = Number(order.advancePaidAmount || 0) + paymentAmt;
+                    const isFullyPaid = newPaid >= Number(order.totalAmount);
 
-                await tx.salesOrder.update({
-                    where: { id: order.id },
-                    data: {
-                        advancePaidAmount: newPaid,
-                        paymentStatus: isFullyPaid ? 'PAID' : 'PARTIALLY_PAID',
-                    },
-                });
-
-                if (order.invoice) {
-                    const currentInvPaid = (order.invoice.paidAmount || 0) + paymentAmt;
-                    const newOutstanding = Math.max(0, Number(order.invoice.total) - currentInvPaid);
-                    await tx.invoice.update({
-                        where: { id: order.invoice.id },
+                    await tx.salesOrder.update({
+                        where: { id: order.id },
                         data: {
-                            paidAmount: currentInvPaid,
-                            outstandingAmount: newOutstanding,
-                            status: newOutstanding === 0 ? 'PAID' : 'PARTIALLY_PAID',
+                            advancePaidAmount: newPaid,
+                            paymentStatus: isFullyPaid ? 'PAID' : 'PARTIALLY_PAID',
                         },
                     });
+
+                    if (order.invoice) {
+                        const currentInvPaid = Number(order.invoice.paidAmount || 0) + paymentAmt;
+                        const newOutstanding = Math.max(0, Number(order.invoice.total) - currentInvPaid);
+                        await tx.invoice.update({
+                            where: { id: order.invoice.id },
+                            data: {
+                                paidAmount: currentInvPaid,
+                                outstandingAmount: newOutstanding,
+                                status: newOutstanding === 0 ? 'PAID' : 'PARTIALLY_PAID',
+                            },
+                        });
+                    }
                 }
 
                 await this.audit.record(tx, {
                     actorId: actor.id,
-                    entityType: AuditEntityType.PAYMENT,
+                    entityType: AuditEntityType.PAYMENT || 'PAYMENT',
                     entityId: paymentId,
                     entityLabel: payment.paymentNumber,
                     action: 'payment.approved',
@@ -425,7 +427,7 @@ let DeliveryService = class DeliveryService {
 
                 await this.audit.record(tx, {
                     actorId: actor.id,
-                    entityType: AuditEntityType.PAYMENT,
+                    entityType: AuditEntityType.PAYMENT || 'PAYMENT',
                     entityId: paymentId,
                     entityLabel: payment.paymentNumber,
                     action: 'payment.rejected',

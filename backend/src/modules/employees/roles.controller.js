@@ -49,8 +49,9 @@ let RolesController = class RolesController {
     }
 
     async updateRolePermissions(actor, id, body) {
-        if (!isTopTier(actor.roleCode)) {
-            throw ApiError.forbidden('FORBIDDEN', 'Only Founder or Super Admin can modify role permissions');
+        const canModify = isTopTier(actor.roleCode) || actor.roleCode === 'MANAGER';
+        if (!canModify) {
+            throw ApiError.forbidden('FORBIDDEN', 'Only Founder or Manager can modify role permissions');
         }
         const role = await this.prisma.role.findUnique({ where: { id } });
         if (!role) {

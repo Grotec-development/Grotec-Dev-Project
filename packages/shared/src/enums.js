@@ -128,6 +128,7 @@ export const AuditEntityType = {
   TRIP_STOP: 'TRIP_STOP',
   QUANTITY_EXCEPTION: 'QUANTITY_EXCEPTION',
   EMPLOYEE_REQUEST: 'EMPLOYEE_REQUEST',
+  PAYMENT: 'PAYMENT',
 };
 
 export const AuditAction = {

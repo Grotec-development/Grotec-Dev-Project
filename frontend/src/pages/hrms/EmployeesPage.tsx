@@ -35,7 +35,10 @@ import {
 } from '../../components/ui';
 
 export function EmployeesPage() {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canAccessExEmployees = user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || user?.roleCode === 'SUPER_ADMIN';
+  const [currentTab, setCurrentTab] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
+
   const [employees, setEmployees] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +83,7 @@ export function EmployeesPage() {
           params: {
             q: search || undefined,
             status: statusFilter || undefined,
+            archived: currentTab === 'ARCHIVED' ? 'true' : undefined,
             pageSize: 100,
           },
         }),
@@ -99,7 +103,17 @@ export function EmployeesPage() {
 
   useEffect(() => {
     void fetchEmployees();
-  }, [search, statusFilter]);
+  }, [search, statusFilter, currentTab]);
+
+  const handlePermanentRemove = async (emp: any) => {
+    if (!window.confirm(`Are you sure you want to permanently remove/relieve ${emp.fullName}? They will be removed from the active directory and archived into Ex-Employees History.`)) return;
+    try {
+      await api.delete(`/employees/${emp.id}`);
+      void fetchEmployees();
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || 'Failed to remove employee');
+    }
+  };
 
   const handleOpenAddModal = () => {
     setFormData({
@@ -214,6 +228,37 @@ export function EmployeesPage() {
 
       {error && <Alert tone="error">{error}</Alert>}
 
+      {/* Tabs for Manager / Founder */}
+      {canAccessExEmployees && (
+        <div className="flex border-b border-slate-200">
+          <button
+            type="button"
+            onClick={() => setCurrentTab('ACTIVE')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+              currentTab === 'ACTIVE'
+                ? 'border-brand-600 text-brand-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Active Staff Directory
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentTab('ARCHIVED')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+              currentTab === 'ARCHIVED'
+                ? 'border-brand-600 text-brand-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <UserX className="h-4 w-4 text-amber-600" />
+            Ex-Employees & History
+            <span className="ml-1 text-[10px]"><Badge tone="slate">Founder & Manager Only</Badge></span>
+          </button>
+        </div>
+      )}
+
       {/* Filters Bar */}
       <Card className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -236,26 +281,41 @@ export function EmployeesPage() {
               ))}
             </Select>
           </div>
-          <div>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-            </Select>
-          </div>
+          {currentTab === 'ACTIVE' && (
+            <div>
+              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">All Statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </Select>
+            </div>
+          )}
         </div>
       </Card>
 
       {/* Employee List Table */}
       <Card>
         <CardHeader
-          title={`All Employees (${filteredEmployees.length})`}
+          title={
+            currentTab === 'ACTIVE'
+              ? `Active Staff Directory (${filteredEmployees.length})`
+              : `Ex-Employees History (${filteredEmployees.length})`
+          }
         />
+        {currentTab === 'ARCHIVED' && (
+          <p className="px-5 pb-2 text-xs text-slate-500">
+            Permanently relieved staff records. Work history, call recordings, orders, and audits remain strictly preserved.
+          </p>
+        )}
         {loading && employees.length === 0 ? (
           <Spinner label="Loading employees…" />
         ) : filteredEmployees.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-500">No employees match the selected criteria</div>
-        ) : (
+          <div className="py-12 text-center text-sm text-slate-500">
+            {currentTab === 'ACTIVE'
+              ? 'No active employees match the selected criteria'
+              : 'No archived ex-employees found'}
+          </div>
+        ) : currentTab === 'ACTIVE' ? (
           <Table>
             <THead>
               <tr>
@@ -292,7 +352,7 @@ export function EmployeesPage() {
                     <StatusBadge status={emp.status} />
                   </TD>
                   <TD>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <Link
                         to={`/hrms/employees/${emp.id}`}
                         className="text-xs font-medium text-brand-600 hover:text-brand-800"
@@ -303,12 +363,69 @@ export function EmployeesPage() {
                         <button
                           type="button"
                           onClick={() => handleToggleActive(emp)}
-                          className="text-xs text-slate-500 hover:text-red-600"
+                          className="text-xs text-slate-500 hover:text-slate-800"
                         >
                           {emp.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
                         </button>
                       )}
+                      {canAccessExEmployees && (
+                        <button
+                          type="button"
+                          onClick={() => handlePermanentRemove(emp)}
+                          className="text-xs font-medium text-rose-600 hover:text-rose-800"
+                          title="Relieve/Remove staff permanently to Ex-Employees History"
+                        >
+                          Relieve / Remove
+                        </button>
+                      )}
                     </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <Table>
+            <THead>
+              <tr>
+                <TH>Code</TH>
+                <TH>Former Staff & Email</TH>
+                <TH>Department & Role</TH>
+                <TH>Relieved Date</TH>
+                <TH>Historical Work Records</TH>
+                <TH>Actions</TH>
+              </tr>
+            </THead>
+            <tbody>
+              {filteredEmployees.map((emp) => (
+                <tr key={emp.id} className="hover:bg-slate-50 bg-slate-50/50">
+                  <TD className="font-mono text-xs text-slate-500 font-semibold">
+                    {emp.employeeCode || '—'}
+                  </TD>
+                  <TD>
+                    <div className="font-medium text-slate-800">{emp.fullName}</div>
+                    <div className="text-xs text-slate-400">{emp.email}</div>
+                  </TD>
+                  <TD>
+                    <div className="text-xs text-slate-700">{emp.department || 'General'}</div>
+                    <div className="text-xs text-slate-400">{emp.role?.name || emp.role?.code}</div>
+                  </TD>
+                  <TD className="text-xs text-slate-600">
+                    {emp.deletedAt ? new Date(emp.deletedAt).toLocaleDateString() : 'Archived'}
+                  </TD>
+                  <TD>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Preserved: Calls, Orders & Audit Records
+                    </span>
+                  </TD>
+                  <TD>
+                    <Link
+                      to={`/hrms/employees/${emp.id}`}
+                      className="text-xs font-semibold text-brand-600 hover:text-brand-800"
+                    >
+                      View History & Records →
+                    </Link>
                   </TD>
                 </tr>
               ))}

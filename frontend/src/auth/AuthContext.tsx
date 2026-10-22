@@ -4,15 +4,9 @@ import { api, clearAccessToken, clearTenantId, errorMessage, getAccessToken, set
 import { setLogoutReason } from '../lib/idleReason';
 import type { AppUser } from '../lib/types';
 
-// Matches the backend's SESSION_IDLE_TIMEOUT_SECONDS default (see
-// backend/src/modules/auth/auth.service.js#idleTimeoutSeconds). Kept in sync
-// manually since the two run in different processes; if the backend default
-// or env var ever changes, update this to match so the two mechanisms agree
-// on what "idle" means. The frontend timer is the primary, accurate signal
-// (real DOM interaction); the backend check is a backstop for when the tab
-// never gets to run its own timer (sleep, crash, lost network).
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
-const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'mousedown', 'wheel', 'touchstart'] as const;
+// Inactivity timeout: 45 minutes of no user interaction.
+const IDLE_TIMEOUT_MS = 45 * 60 * 1000;
+const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'mousedown', 'wheel', 'touchstart', 'scroll', 'click'] as const;
 
 export type AuthStatus = 'loading' | 'anon' | 'authed';
 

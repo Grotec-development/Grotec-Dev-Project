@@ -48,6 +48,7 @@ import { SoilTypesModule } from './modules/soil-types/soil-types.module';
 import { SupportTicketsModule } from './modules/support-tickets/support-tickets.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { SalesModule } from './modules/sales/sales.module';
+import { AiCallingModule } from './modules/ai-calling/ai-calling.module';
 
 let AppModule = class AppModule {
 };
@@ -96,6 +97,7 @@ AppModule = __decorate([
             SupportTicketsModule,
             RoutesModule,
             SalesModule,
+            AiCallingModule,
         ],
         providers: [
             { provide: APP_GUARD, useClass: AuthGuard },

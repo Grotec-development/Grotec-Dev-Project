@@ -31,17 +31,101 @@ import {
   Tag,
   Truck,
   Plus,
+  Coffee,
+  Pause,
+  Play,
+  Sparkles,
+  UserCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Call, CustomerDetail, QueueItem } from '../../lib/types';
 import { formatE164, formatDate } from '../../lib/format';
 import { getDistricts, getTaluks } from '../../lib/location-data';
+import { initiateDirectCall, subscribeToCallState } from '../../lib/native-calling';
 import { Button, Card, Field, Input, Select, cx } from '../../components/ui';
 import { LocationSelector } from '../../components/LocationSelector';
 import { InCallOrderModal } from './InCallOrderModal';
 import { InCallTicketModal } from './InCallTicketModal';
 
-const CALL_TIMEOUT_SECONDS = 300; // 5 minutes default per call operation
+const CALL_TIMEOUT_SECONDS = 300; // 5-minute interval between calls
+
+export const BREAK_OPTIONS = [
+  {
+    id: 'restroom-10',
+    title: 'Restroom Break',
+    tamilTitle: 'ஓய்வறை நேரம் (10 நிமிடம்)',
+    durationMinutes: 10,
+    desc: 'Quick 10-minute bio / restroom break',
+    icon: Pause,
+    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
+  },
+  {
+    id: 'restroom-15',
+    title: 'Restroom Break',
+    tamilTitle: 'ஓய்வறை நேரம் (15 நிமிடம்)',
+    durationMinutes: 15,
+    desc: 'Standard 15-minute bio / restroom break',
+    icon: Pause,
+    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
+  },
+  {
+    id: 'tea-coffee-10',
+    title: 'Tea / Coffee Break',
+    tamilTitle: 'தேநீர் / காபி இடைவேளை (10 நிமிடம்)',
+    durationMinutes: 10,
+    desc: '10-minute refreshment tea or coffee pause',
+    icon: Coffee,
+    badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
+  },
+  {
+    id: 'relaxation-20',
+    title: 'Personal Relaxation',
+    tamilTitle: 'தனிப்பட்ட மன அமைதி (20 நிமிடம்)',
+    durationMinutes: 20,
+    desc: '20-minute rest & mental relaxation to stay fresh',
+    icon: Sparkles,
+    badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+  },
+  {
+    id: 'lunch-30',
+    title: 'Lunch Break',
+    tamilTitle: 'மதிய உணவு இடைவேளை (30 நிமிடம்)',
+    durationMinutes: 30,
+    desc: '30-minute afternoon lunch and meal pause',
+    icon: Coffee,
+    badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  },
+];
+
+function playChime(type: 'alert' | 'start') {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'alert') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.45);
+    } else {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    }
+  } catch {}
+}
 
 export function DedicatedAgentCallingWorkspace() {
   const queryClient = useQueryClient();
@@ -58,13 +142,30 @@ export function DedicatedAgentCallingWorkspace() {
   const [queueMode, setQueueMode] = useState<'ALL' | 'SCHEDULED'>('ALL');
   const [queueSearch, setQueueSearch] = useState<string>('');
 
-  // 5-Minute Call Timer state
-  const [timeLeft, setTimeLeft] = useState(CALL_TIMEOUT_SECONDS);
-  const [isTimerPaused, setIsTimerPaused] = useState(false);
-  const [showTimeoutAlert, setShowTimeoutAlert] = useState(false);
-  const [showExtensionModal, setShowExtensionModal] = useState(false);
-  const [customExtensionMinutes, setCustomExtensionMinutes] = useState(5);
-  const [extensionToast, setExtensionToast] = useState<string | null>(null);
+  // 1. Welcome to Work & Session Uptime
+  const [workStarted, setWorkStarted] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('grotec_calling_work_started') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!workStarted);
+
+  // 2. 5-Minute In-Between Call Timer, Audio Alert & Auto-Dial Engine
+  const [inBetweenSeconds, setInBetweenSeconds] = useState(CALL_TIMEOUT_SECONDS);
+  const [showIdleAlert, setShowIdleAlert] = useState(false);
+  const [autoDialSeconds, setAutoDialSeconds] = useState<number | null>(null);
+  const [autoDialEnabled, setAutoDialEnabled] = useState(true);
+
+  // 3. Employee Break Controller (10-15m restroom, 10m tea/coffee, 20m relaxation, 30m lunch)
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [breakType, setBreakType] = useState<string>('');
+  const [breakTotalSeconds, setBreakTotalSeconds] = useState(0);
+  const [breakRemainingSeconds, setBreakRemainingSeconds] = useState(0);
+  const [showBreakMenu, setShowBreakMenu] = useState(false);
+  const [showBreakModal, setShowBreakModal] = useState(false);
+  const [breakToast, setBreakToast] = useState<string | null>(null);
 
   // Call simulation / state
   const [callActive, setCallActive] = useState(false);
@@ -278,11 +379,11 @@ export function DedicatedAgentCallingWorkspace() {
   }, [currentCustomer]);
 
   // Reset timer & outcomes whenever customer changes
+  // Reset timer & outcomes whenever customer changes
   useEffect(() => {
-    setTimeLeft(CALL_TIMEOUT_SECONDS);
-    setIsTimerPaused(false);
-    setShowTimeoutAlert(false);
-    setShowExtensionModal(false);
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setShowIdleAlert(false);
+    setAutoDialSeconds(null);
     setOutcome('');
     setNotes('');
     setCallbackDateTime('');
@@ -292,16 +393,28 @@ export function DedicatedAgentCallingWorkspace() {
     setDialedNumber('');
   }, [currentIndex, currentCustomer?.id]);
 
-  // Call Countdown Timer Loop - Only counts down when a call is started (callActive is true)!
+  // In-call duration timer (counts UP while call is live)
   useEffect(() => {
-    if (!callActive || isTimerPaused || timeLeft <= 0 || !currentCustomer) return;
+    if (!callActive) return;
+    const interval = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [callActive]);
+
+  // 5-Minute In-Between Call Countdown Loop
+  // Counts down strictly when no call is active and agent is not on break
+  useEffect(() => {
+    if (!workStarted || callActive || isOnBreak) return;
 
     const interval = setInterval(() => {
-      setTimeLeft((prev) => {
+      setInBetweenSeconds((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
-          setShowTimeoutAlert(true);
-          setShowExtensionModal(true); // Pop up on screen for extension
+          setShowIdleAlert(true);
+          playChime('alert');
+          if (autoDialEnabled && currentCustomer?.primaryPhone) {
+            setAutoDialSeconds(10);
+          }
           return 0;
         }
         return prev - 1;
@@ -309,15 +422,90 @@ export function DedicatedAgentCallingWorkspace() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [callActive, timeLeft, isTimerPaused, currentCustomer]);
+  }, [workStarted, callActive, isOnBreak, autoDialEnabled, currentCustomer?.primaryPhone]);
 
-  // In-call duration timer
+  // Auto-Dial Countdown Loop when 5-minute interval expires
   useEffect(() => {
-    if (!callActive) return;
-    const interval = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
+    if (autoDialSeconds === null || !currentCustomer?.primaryPhone || callActive || isOnBreak) return;
+
+    if (autoDialSeconds <= 0) {
+      setAutoDialSeconds(null);
+      void handleStartCall(currentCustomer.primaryPhone);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setAutoDialSeconds((prev) => (prev !== null ? prev - 1 : null));
     }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [autoDialSeconds, currentCustomer, callActive, isOnBreak]);
+
+  // Employee Break Countdown Loop
+  useEffect(() => {
+    if (!isOnBreak || breakRemainingSeconds <= 0) return;
+
+    const interval = setInterval(() => {
+      setBreakRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          setIsOnBreak(false);
+          setBreakType('');
+          setBreakTotalSeconds(0);
+          setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+          playChime('alert');
+          setBreakToast('Your break has ended. Welcome back to active work!');
+          setTimeout(() => setBreakToast(null), 5000);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
     return () => clearInterval(interval);
+  }, [isOnBreak, breakRemainingSeconds]);
+
+  const startBreak = (type: string, minutes: number) => {
+    setIsOnBreak(true);
+    setBreakType(type);
+    setBreakTotalSeconds(minutes * 60);
+    setBreakRemainingSeconds(minutes * 60);
+    setShowBreakMenu(false);
+    setShowBreakModal(false);
+    setShowIdleAlert(false);
+    setAutoDialSeconds(null);
+  };
+
+  const endBreak = () => {
+    setIsOnBreak(false);
+    setBreakType('');
+    setBreakTotalSeconds(0);
+    setBreakRemainingSeconds(0);
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setBreakToast('Break ended. You are back in active calling mode.');
+    setTimeout(() => setBreakToast(null), 4000);
+  };
+
+  const handleStartWork = () => {
+    setWorkStarted(true);
+    setShowWelcomeModal(false);
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setShowIdleAlert(false);
+    setAutoDialSeconds(null);
+    try {
+      sessionStorage.setItem('grotec_calling_work_started', 'true');
+    } catch {}
+  };
+
+  // Subscribe to device telephony state (Android/iOS SIM or native phone calls)
+  useEffect(() => {
+    const unsubscribe = subscribeToCallState((state) => {
+      if (state === 'IDLE' && callActive) {
+        void handleEndCall();
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
   }, [callActive]);
 
   // Start Call Handler
@@ -330,15 +518,27 @@ export function DedicatedAgentCallingWorkspace() {
       return;
     }
 
+    if (isOnBreak) {
+      setIsOnBreak(false);
+      setBreakType('');
+      setBreakTotalSeconds(0);
+      setBreakRemainingSeconds(0);
+    }
+
     setActivePhoneDialed(phoneToDial);
     setCallActive(true);
     setCallDuration(0);
-    // Start fresh 5-minute timer when call is started
-    setTimeLeft(CALL_TIMEOUT_SECONDS);
-    setIsTimerPaused(false);
-    setShowTimeoutAlert(false);
-    setShowExtensionModal(false);
+    // Reset in-between call countdown and hide idle alerts
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setShowIdleAlert(false);
+    setAutoDialSeconds(null);
     setIsMuted(false);
+    playChime('start');
+
+    // Trigger direct native SIM dialing on Android/iOS or tel: dialer on web
+    try {
+      void initiateDirectCall(phoneToDial);
+    } catch {}
 
     try {
       const res = await api.post<Call>('/calls', {
@@ -359,8 +559,11 @@ export function DedicatedAgentCallingWorkspace() {
   const handleEndCall = async () => {
     if (!callActive) return;
     setCallActive(false);
-    setShowExtensionModal(false);
-    setShowTimeoutAlert(false);
+
+    // Resets 5-minute countdown between calls when call ends
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setShowIdleAlert(false);
+    setAutoDialSeconds(null);
 
     if (activeCallId) {
       try {
@@ -370,29 +573,6 @@ export function DedicatedAgentCallingWorkspace() {
       } catch {
         // Silently end
       }
-    }
-  };
-
-  // Extend Call Duration Handler
-  const handleExtendCall = (additionalMinutes: number) => {
-    const additionalSecs = Math.max(1, additionalMinutes) * 60;
-    setTimeLeft((prev) => prev + additionalSecs);
-    setShowTimeoutAlert(false);
-    setShowExtensionModal(false);
-    setExtensionToast(`Call timer extended by +${additionalMinutes} minute${additionalMinutes > 1 ? 's' : ''}.`);
-    setTimeout(() => setExtensionToast(null), 5000);
-  };
-
-  // Finish call from Extension Modal and proceed to save outcome
-  const handleFinishAndSaveOutcome = async () => {
-    setShowExtensionModal(false);
-    setShowTimeoutAlert(false);
-    if (callActive) {
-      await handleEndCall();
-    }
-    const outcomeEl = document.getElementById('record-call-outcome-section');
-    if (outcomeEl) {
-      outcomeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
@@ -460,6 +640,9 @@ export function DedicatedAgentCallingWorkspace() {
           setCurrentIndex(0);
         }
       }
+      setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+      setShowIdleAlert(false);
+      setAutoDialSeconds(null);
     } catch (err) {
       alert(errorMessage(err) || 'Failed to save call outcome. Data preserved.');
     } finally {
@@ -475,6 +658,9 @@ export function DedicatedAgentCallingWorkspace() {
       void queueQuery.refetch();
       setCurrentIndex(0);
     }
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setShowIdleAlert(false);
+    setAutoDialSeconds(null);
   };
 
   // Inline Taluk Quick Save
@@ -586,40 +772,111 @@ export function DedicatedAgentCallingWorkspace() {
           </div>
         </div>
 
-        {/* Timer & Queue Actions */}
-        <div className="flex items-center gap-2.5">
-          <div
-            className={cx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs font-bold shadow-xs transition-colors',
-              !callActive
-                ? 'bg-slate-50 border-slate-200 text-slate-600'
-                : timeLeft <= 30
-                ? 'bg-red-50 border-red-300 text-red-700 animate-pulse'
-                : timeLeft <= 60
-                ? 'bg-amber-50 border-amber-300 text-amber-800'
-                : 'bg-emerald-50 border-emerald-300 text-emerald-800'
-            )}
-            title={callActive ? 'Active Call Timer (5m allocation)' : 'Call Timer: Starts 5 mins on call start'}
-          >
-            <Clock className={cx('h-3.5 w-3.5', !callActive ? 'text-slate-400' : timeLeft <= 30 ? 'text-red-600' : 'text-emerald-700')} />
-            <span>{formatCountdown(timeLeft)}</span>
-            {!callActive ? (
-              <span className="text-[10px] font-sans font-medium text-slate-400">(Ready)</span>
-            ) : (
-              <span className="text-[10px] font-sans font-medium opacity-80">(Live)</span>
-            )}
-          </div>
-
-          {callActive && (
+        {/* Timer, Breaks & Queue Actions */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* A. If Agent is on break */}
+          {isOnBreak ? (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-900 font-mono text-xs font-bold shadow-xs animate-pulse">
+              <Coffee className="h-3.5 w-3.5 text-amber-700" />
+              <span>{breakType}: {formatCountdown(breakRemainingSeconds)}</span>
+              <button
+                type="button"
+                onClick={endBreak}
+                className="ml-1 text-[11px] font-sans font-extrabold text-white bg-amber-600 hover:bg-amber-700 px-2 py-0.5 rounded cursor-pointer transition"
+              >
+                Resume Work
+              </button>
+            </div>
+          ) : callActive ? (
+            /* B. If call is live — purely active call talk time, no 5m countdown cutoff */
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 font-mono text-xs font-bold shadow-xs">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>Live Call: {formatDuration(callDuration)}</span>
+            </div>
+          ) : !workStarted ? (
+            /* C. If shift work not yet started */
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => setShowExtensionModal(true)}
-              className="text-xs gap-1 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold"
-              title="Need more time? Extend call duration"
+              onClick={() => setShowWelcomeModal(true)}
+              className="text-xs gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-sm"
             >
-              <Plus className="h-3.5 w-3.5 text-amber-700" /> Extend
+              <Sparkles className="h-3.5 w-3.5 text-emerald-300" /> Start Work / பணியைத் தொடங்கு
             </Button>
+          ) : (
+            /* D. Work active & between calls: 5-Minute in-between countdown */
+            <>
+              <div
+                className={cx(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs font-bold shadow-xs transition-colors',
+                  inBetweenSeconds <= 20
+                    ? 'bg-red-50 border-red-300 text-red-700 animate-pulse'
+                    : inBetweenSeconds <= 60
+                    ? 'bg-amber-50 border-amber-300 text-amber-800'
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                )}
+                title="5-minute interval between calls. Dial next farmer before timer expires to stay active!"
+              >
+                <Clock className={cx('h-3.5 w-3.5', inBetweenSeconds <= 20 ? 'text-red-600' : 'text-emerald-700')} />
+                <span>{formatCountdown(inBetweenSeconds)}</span>
+                <span className="text-[10px] font-sans font-medium opacity-80">(Next Call Due)</span>
+              </div>
+
+              {/* Break Selection Menu Toggle & Button */}
+              <div className="relative">
+                <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 shadow-2xs overflow-hidden">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowBreakModal(true)}
+                    className="text-xs gap-1.5 text-slate-700 hover:text-slate-900 px-2.5 py-1.5 font-bold cursor-pointer hover:bg-slate-100"
+                    title="Open Employee Break Selection Modal"
+                  >
+                    <Coffee className="h-3.5 w-3.5 text-amber-600" /> Break / இடைவேளை
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setShowBreakMenu((prev) => !prev)}
+                    className="px-1.5 py-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-l border-slate-200 transition cursor-pointer"
+                    title="Quick Break Options"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </div>
+                {showBreakMenu && (
+                  <div className="absolute right-0 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50 text-xs animate-in fade-in slide-in-from-top-1">
+                    <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      <span>Employee Breaks / இடைவேளை</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowBreakMenu(false);
+                          setShowBreakModal(true);
+                        }}
+                        className="text-emerald-700 hover:underline cursor-pointer lowercase font-medium"
+                      >
+                        view all
+                      </button>
+                    </div>
+                    {BREAK_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => startBreak(`${opt.title} (${opt.durationMinutes}m)`, opt.durationMinutes)}
+                        className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-amber-50/60 flex items-center justify-between transition cursor-pointer text-slate-800 font-medium"
+                      >
+                        <span className="flex items-center gap-2">
+                          <opt.icon className="h-3.5 w-3.5 text-amber-700" />
+                          <span>{opt.title}</span>
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {opt.durationMinutes} min
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           <Button
@@ -643,45 +900,130 @@ export function DedicatedAgentCallingWorkspace() {
         </div>
       </div>
 
-      {/* Extension Toast Notification */}
-      {extensionToast && (
-        <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
-            <span className="font-semibold">{extensionToast}</span>
+      {/* Employee Active Break Banner */}
+      {isOnBreak && (
+        <div className="rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-4 text-amber-950 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="h-11 w-11 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 border border-amber-300 text-amber-800 shadow-xs">
+              <Coffee className="h-6 w-6 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-amber-950 text-sm">
+                  Break in Progress: {breakType}
+                </span>
+                <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                  Calling Paused
+                </span>
+              </div>
+              <p className="text-amber-800 text-xs mt-0.5">
+                Take your time to refresh. The telecalling queue and 5-minute interval timer are paused during your break.
+              </p>
+              {breakTotalSeconds > 0 && (
+                <div className="mt-2 w-48 sm:w-64 bg-amber-200/60 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-amber-600 h-1.5 rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, ((breakTotalSeconds - breakRemainingSeconds) / breakTotalSeconds) * 100))}%`,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
-          <button onClick={() => setExtensionToast(null)} className="text-emerald-700 hover:text-emerald-900">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block">Time Remaining</span>
+              <span className="font-mono text-base font-black text-amber-950">{formatCountdown(breakRemainingSeconds)}</span>
+            </div>
+            <Button
+              size="sm"
+              onClick={endBreak}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-xs gap-1.5 cursor-pointer"
+            >
+              <Play className="h-3.5 w-3.5 fill-current" /> Resume Calling / பணிக்குத் திரும்பு
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Near-Expiry Warning Banner */}
-      {callActive && timeLeft <= 30 && timeLeft > 0 && !showExtensionModal && (
-        <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-900 flex items-center justify-between shadow-xs animate-pulse">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
-            <span className="font-semibold">
-              Warning: 5-minute call time limit expiring in {timeLeft}s! Need more time with {currentCustomer?.fullName}?
-            </span>
+      {/* 5-Minute In-Between Call Alert Banner with Auto-Dial Engine */}
+      {!callActive && !isOnBreak && workStarted && inBetweenSeconds === 0 && (
+        <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-xs text-red-950 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-md animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-red-100 flex items-center justify-center shrink-0 border border-red-200">
+              <AlertTriangle className="h-5 w-5 text-red-600 animate-bounce" />
+            </div>
+            <div>
+              <p className="font-extrabold text-red-900 text-sm">
+                5-Minute Interval Reached — Time to Place Your Next Call!
+              </p>
+              <p className="text-red-700 text-xs mt-0.5">
+                {autoDialSeconds !== null && currentCustomer?.primaryPhone ? (
+                  <span>
+                    Auto-dialing next farmer <strong className="text-red-900 font-bold">{currentCustomer.fullName}</strong> ({currentCustomer.primaryPhone}) in <span className="font-mono text-sm font-extrabold text-red-900">{autoDialSeconds}s</span>…
+                  </span>
+                ) : (
+                  'Stay engaged and connect with the next farmer in the telecalling queue.'
+                )}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => handleExtendCall(2)}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-1 px-2.5"
-            >
-              +2 Mins
-            </Button>
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            {currentCustomer?.primaryPhone && (
+              <Button
+                size="sm"
+                onClick={() => void handleStartCall(currentCustomer.primaryPhone)}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-1.5 text-xs shadow-xs"
+              >
+                <Phone className="h-3.5 w-3.5" /> Dial Now ({currentCustomer.fullName})
+              </Button>
+            )}
+            {autoDialSeconds !== null && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAutoDialSeconds(null)}
+                className="text-xs border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-semibold"
+              >
+                Pause Auto-Dial
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setShowExtensionModal(true)}
-              className="border-red-300 bg-white text-red-800 font-bold text-xs py-1 px-2.5"
+              onClick={() => {
+                setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+                setShowIdleAlert(false);
+                setAutoDialSeconds(null);
+              }}
+              className="text-xs border-red-300 text-red-800 hover:bg-red-100 font-semibold"
             >
-              Extend Options
+              Reset Timer (+5m)
             </Button>
+            <label className="flex items-center gap-1.5 text-[11px] text-red-800 font-medium cursor-pointer ml-1 select-none">
+              <input
+                type="checkbox"
+                checked={autoDialEnabled}
+                onChange={(e) => setAutoDialEnabled(e.target.checked)}
+                className="rounded border-red-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5 cursor-pointer"
+              />
+              Auto-dial on expiry
+            </label>
           </div>
+        </div>
+      )}
+
+      {/* Break Toast Notification */}
+      {breakToast && (
+        <div className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-xs text-blue-900 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-blue-700 shrink-0" />
+            <span className="font-semibold">{breakToast}</span>
+          </div>
+          <button onClick={() => setBreakToast(null)} className="text-blue-700 hover:text-blue-900">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -859,24 +1201,19 @@ export function DedicatedAgentCallingWorkspace() {
                     </h3>
                   </div>
                   {callActive ? (
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Timer Left</span>
-                        <span className={cx('font-mono text-xs font-extrabold', timeLeft <= 30 ? 'text-red-600 animate-pulse' : timeLeft <= 60 ? 'text-amber-700' : 'text-emerald-700')}>
-                          {formatCountdown(timeLeft)}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Duration</span>
-                        <span className="font-mono text-xs font-extrabold text-slate-800">
-                          {formatDuration(callDuration)}
-                        </span>
-                      </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Duration</span>
+                      <span className="font-mono text-sm font-extrabold text-emerald-800">
+                        {formatDuration(callDuration)}
+                      </span>
                     </div>
                   ) : (
-                    <span className="text-[11px] font-semibold text-slate-400">
-                      Timer: 5:00
-                    </span>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-none">Next Call Due</span>
+                      <span className={cx('font-mono text-xs font-extrabold', inBetweenSeconds <= 30 ? 'text-red-600 animate-pulse' : 'text-slate-700')}>
+                        {formatCountdown(inBetweenSeconds)}
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -895,17 +1232,6 @@ export function DedicatedAgentCallingWorkspace() {
                       >
                         {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                         <span>{isMuted ? 'Unmute' : 'Mute'}</span>
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowExtensionModal(true)}
-                        className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold gap-1"
-                        title="Extend call duration"
-                      >
-                        <Plus className="h-4 w-4 text-amber-700" />
-                        <span>Extend</span>
                       </Button>
 
                       <Button
@@ -1466,151 +1792,164 @@ export function DedicatedAgentCallingWorkspace() {
         </div>
       )}
 
-      {/* Call Timer Extension Pop-up Modal */}
-      {showExtensionModal && (
+      {/* Dedicated Employee Break Selection Modal */}
+      {showBreakModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs animate-in fade-in duration-200"
           role="dialog"
           aria-modal="true"
         >
-          <Card className="w-full max-w-md shadow-2xl border-slate-200 overflow-hidden bg-white">
-            <div
-              className={cx(
-                'flex items-center justify-between px-5 py-4 border-b',
-                timeLeft <= 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50/70 border-emerald-200'
-              )}
-            >
+          <Card className="w-full max-w-lg shadow-2xl border-slate-200 overflow-hidden bg-white rounded-2xl">
+            <div className="bg-gradient-to-r from-amber-700 via-amber-600 to-orange-700 p-5 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div
-                  className={cx(
-                    'flex h-9 w-9 items-center justify-center rounded-lg font-bold shadow-xs',
-                    timeLeft <= 0 ? 'bg-red-600 text-white' : 'bg-emerald-700 text-white'
-                  )}
-                >
-                  {timeLeft <= 0 ? <AlertTriangle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-xs shadow-inner">
+                  <Coffee className="h-5 w-5 text-amber-100" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">
-                    {timeLeft <= 0 ? '5-Minute Call Time Limit Reached' : 'Extend Call Duration'}
+                  <h3 className="text-base font-extrabold tracking-tight">
+                    Take a Break / பணியாளர் ஓய்வு இடைவேளை
                   </h3>
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    {timeLeft <= 0
-                      ? 'The default 5 minutes allocation has elapsed.'
-                      : `${formatCountdown(timeLeft)} remaining on current allocation.`}
+                  <p className="text-xs text-amber-100 font-medium">
+                    Scheduled pauses for telecalling team health &amp; productivity
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setShowExtensionModal(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700 transition"
+                onClick={() => setShowBreakModal(false)}
+                className="rounded-lg p-1.5 text-white/80 hover:bg-white/20 hover:text-white transition cursor-pointer"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
-              {/* Call Details Summary */}
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-1.5">
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Farmer:</span>
-                  <span className="font-bold text-slate-900">{currentCustomer?.fullName || '—'}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Phone:</span>
-                  <span className="font-mono font-semibold text-slate-800">
-                    {formatE164(activePhoneDialed || currentCustomer?.primaryPhone || '')}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Total Elapsed Talk Time:</span>
-                  <span className="font-mono font-bold text-emerald-800">{formatDuration(callDuration)}</span>
-                </div>
-              </div>
+            <div className="p-5 space-y-3.5 text-xs">
+              <p className="text-slate-600 text-xs">
+                Select your break category. The outbound telecalling queue and 5-minute interval timer will be paused while you are on break.
+              </p>
 
-              {/* Extension Duration Options */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Select Extension Time
-                </label>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {BREAK_OPTIONS.map((opt) => (
                   <button
+                    key={opt.id}
                     type="button"
-                    onClick={() => handleExtendCall(2)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100 hover:border-emerald-500 transition text-emerald-900 font-bold group shadow-xs"
+                    onClick={() => startBreak(`${opt.title} (${opt.durationMinutes}m)`, opt.durationMinutes)}
+                    className="flex flex-col items-start p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50/50 hover:shadow-sm transition text-left cursor-pointer group bg-slate-50/60"
                   >
-                    <span className="text-base font-extrabold group-hover:scale-105 transition">+2 min</span>
-                    <span className="text-[10px] text-emerald-700 font-medium">Quick Chat</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleExtendCall(5)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 transition font-bold group shadow-sm"
-                  >
-                    <span className="text-base font-extrabold group-hover:scale-105 transition">+5 min</span>
-                    <span className="text-[10px] text-emerald-100 font-medium">Recommended</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleExtendCall(10)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100 hover:border-emerald-500 transition text-emerald-900 font-bold group shadow-xs"
-                  >
-                    <span className="text-base font-extrabold group-hover:scale-105 transition">+10 min</span>
-                    <span className="text-[10px] text-emerald-700 font-medium">Advisory Deep-dive</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Custom Extension Input */}
-              <div className="flex items-center gap-2 pt-1">
-                <div className="flex-1">
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      value={customExtensionMinutes}
-                      onChange={(e) => setCustomExtensionMinutes(Math.max(1, parseInt(e.target.value) || 1))}
-                      placeholder="Minutes"
-                      className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 font-medium">
-                      minutes
+                    <div className="flex items-center justify-between w-full mb-1.5">
+                      <opt.icon className="h-4 w-4 text-amber-700 group-hover:scale-110 transition-transform" />
+                      <span className={cx('text-[10px] font-extrabold px-2 py-0.5 rounded-full border', opt.badgeColor)}>
+                        {opt.durationMinutes} Mins
+                      </span>
+                    </div>
+                    <span className="font-bold text-slate-900 text-xs group-hover:text-amber-900 transition-colors">
+                      {opt.title}
                     </span>
+                    <span className="text-[10px] text-emerald-800 font-semibold mb-1">
+                      {opt.tamilTitle}
+                    </span>
+                    <span className="text-[11px] text-slate-500 leading-snug">
+                      {opt.desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Timers auto-resume upon expiry or when you click Resume.</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBreakModal(false)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 4. Professional Welcome to Work Modal (PDF Page 4) */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true">
+          <Card className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            {/* Header with vibrant green gradient */}
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 p-6 text-white text-center relative">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shadow-inner mb-3">
+                <Sprout className="h-8 w-8 text-emerald-200" />
+              </div>
+              <h2 className="text-xl font-extrabold tracking-tight">வணக்கம்! Welcome to Work</h2>
+              <p className="text-xs text-emerald-200 font-medium mt-1">
+                GROTEC Farmer Telecalling &amp; Organic Agronomy Advisory
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs text-slate-700">
+              {/* Bilingual Motivation in Tamil & English */}
+              <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2 leading-relaxed">
+                <p className="font-semibold text-emerald-950 text-sm">
+                  விவசாயிகளின் வளர்ச்சிக்கு உங்களின் பணி மகத்தானது!
+                </p>
+                <p className="text-emerald-900 text-[11px] leading-relaxed">
+                  க்ரோடெக் வேளாண் ஆலோசனை மையத்திற்கு அன்புடன் வரவேற்கிறோம். தமிழ்நாட்டு விவசாயிகளுக்கு தரமான இயற்கை உரங்கள், பயிர் ஊட்டச்சத்து மற்றும் அதிக மகசூல் பெற உங்கள் கனிவான வழிகாட்டுதல் மிக அவசியமானது.
+                </p>
+                <div className="border-t border-emerald-200/80 pt-2 text-slate-600 text-[11px] leading-relaxed">
+                  Welcome to GROTEC Farmer Care! Every call is an opportunity to uplift farmer livelihoods through organic solutions and trusted relationship management.
+                </div>
+              </div>
+
+              {/* Core Principles */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Today's Operational Focus
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <UserCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">Warm Tamil Greeting</p>
+                      <p className="text-slate-500">Greet politely, listen to crop symptoms</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <Sprout className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">Bio-Fertilizer Focus</p>
+                      <p className="text-slate-500">Recommend Bio-Jeevan, Ultra Action +</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <Clock className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">5-Min Cadence</p>
+                      <p className="text-slate-500">Maintain smooth tempo between calls</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <Coffee className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">Scheduled Breaks</p>
+                      <p className="text-slate-500">Take timely tea &amp; restroom breaks</p>
+                    </div>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleExtendCall(customExtensionMinutes)}
-                  className="font-bold text-xs border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-900"
-                >
-                  Apply Custom
-                </Button>
               </div>
 
-              <div className="border-t border-slate-100 pt-3 flex flex-col gap-2">
+              {/* Action Button */}
+              <div className="pt-2">
                 <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleFinishAndSaveOutcome()}
-                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 text-xs border-slate-300 flex items-center justify-center gap-1.5"
+                  size="md"
+                  onClick={handleStartWork}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm py-3 rounded-xl shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <PhoneOff className="h-3.5 w-3.5 text-red-600" />
-                  <span>Finish Call &amp; Record Outcome</span>
+                  <Sparkles className="h-4 w-4 text-emerald-200" />
+                  <span>Start Work / பணியைத் தொடங்கு</span>
                 </Button>
-
-                {timeLeft > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowExtensionModal(false)}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 font-medium text-center py-1"
-                  >
-                    Dismiss &amp; Continue Existing Timer
-                  </button>
-                )}
+                <p className="text-center text-[10px] text-slate-400 mt-2">
+                  Clicking will start your active session and initiate the 5-minute call cadence.
+                </p>
               </div>
             </div>
           </Card>

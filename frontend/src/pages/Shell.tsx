@@ -32,6 +32,7 @@ import {
   Navigation,
   AlertTriangle,
   Download,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { cx } from '../components/ui';
@@ -47,7 +48,7 @@ import { GrotecLogo } from '../components/GrotecLogo';
 import { NetworkStatusIndicator } from '../components/NetworkStatusIndicator';
 import { ServerConfigModal } from '../components/ServerConfigModal';
 import { AppUpdateModal } from '../components/AppUpdateModal';
-import { tenantsApi } from '../lib/api';
+import { api, tenantsApi } from '../lib/api';
 
 interface NavItem {
   to: string;
@@ -61,6 +62,7 @@ interface NavItem {
 const CRM_NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'customer.read' },
   { to: '/agent', label: 'Agent Calling', icon: Phone, permission: 'call.read' },
+  { to: '/ai-calling', label: 'AI Voice Calling', icon: Sparkles, badge: 'Vapi AI', permission: 'call.read' },
   { to: '/action-center', label: 'Action Center', icon: Briefcase, permission: 'call.read' },
   { to: '/customers', label: 'Farmers', icon: Users, permission: 'customer.read' },
   { to: '/relationship', label: 'Relationship Manager', icon: Contact, permission: 'relationship.read' },
@@ -82,6 +84,8 @@ const CRM_NAV_ITEMS: NavItem[] = [
 const AGENT_PRIMARY_NAV = new Set([
   '/dashboard',
   '/agent',
+  '/ai-calling',
+  '/ai-calling-demo',
   '/action-center',
   '/customers',
   '/tickets',
@@ -92,6 +96,8 @@ const AGENT_PRIMARY_NAV = new Set([
 const TEAM_LEADER_PRIMARY_NAV = new Set([
   '/dashboard',
   '/agent',
+  '/ai-calling',
+  '/ai-calling-demo',
   '/action-center',
   '/customers',
   '/relationship',
@@ -304,6 +310,8 @@ function getPageMeta(pathname: string, roleCode?: string): PageMeta {
     '/dashboard': { title: homeTitle, description: homeDesc, crumbs: [{ label: 'Home', href: '/' }, { label: homeTitle }] },
     '/agent': { title: 'Agent Calling Workspace', description: 'Telecaller agent calling workspace — keypad phone dialing, Windows Phone Link, and live farmer note-taking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }] },
     '/calling': { title: 'Active Outbound Call', description: 'Live outbound calling and customer note-taking session.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Agent Calling', href: '/agent' }, { label: 'Active Call' }] },
+    '/ai-calling': { title: 'AI Voice Calling (Vapi AI)', description: 'Autonomous conversational AI voice calling for farmer advisory, pest diagnosis, and crop input ordering.', crumbs: [{ label: 'Home', href: '/' }, { label: 'AI Voice Calling' }] },
+    '/ai-calling-demo': { title: 'AI Voice Calling (Presentation Demo)', description: 'Presentation demo showing autonomous Tamil & English conversational voice calling with real-time agronomic data extraction.', crumbs: [{ label: 'Home', href: '/' }, { label: 'AI Voice Calling', href: '/ai-calling' }, { label: 'Demo' }] },
     '/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Action Center' }] },
     '/hrms/action-center': { title: 'Action Center', description: 'Quick employee requests, administrative self-service, and submission tracking.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Operations', href: '/hrms' }, { label: 'Action Center' }] },
     '/customers': { title: 'Farmer Directory', description: 'Farmer master — search by name, phone, district, or crop.', crumbs: [{ label: 'Home', href: '/' }, { label: 'Farmer Directory' }] },
@@ -411,6 +419,33 @@ export function Shell() {
   const [hoverSuppressed, setHoverSuppressed] = useState(false);
   const [sidebarFocused, setSidebarFocused] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+
+  useEffect(() => {
+    const q = globalSearch.trim();
+    if (q.length < 2) {
+      setSearchSuggestions([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await api.get('/customers', {
+          params: { q, pageSize: 6 },
+        });
+        setSearchSuggestions(res.data?.items || []);
+        setShowSearchDropdown(true);
+      } catch {
+        setSearchSuggestions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [globalSearch]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tenantName, setTenantName] = useState<string>('GROTEC Agrotech');
   const [serverModalOpen, setServerModalOpen] = useState(false);
@@ -814,14 +849,75 @@ export function Shell() {
                 placeholder="Search farmers, crops, advisories..."
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
+                onFocus={() => {
+                  if (globalSearch.trim().length >= 2 && searchSuggestions.length > 0) {
+                    setShowSearchDropdown(true);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && globalSearch.trim()) {
+                    setShowSearchDropdown(false);
                     navigate(`/customers?q=${encodeURIComponent(globalSearch.trim())}`);
                   }
                 }}
                 className="w-full rounded-md border border-slate-200 bg-slate-50/70 pl-8 pr-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
                 aria-label="Search farmers, crops, advisories"
               />
+              {showSearchDropdown && (
+                <div className="absolute left-0 right-0 mt-1.5 max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1.5 shadow-xl z-50 text-xs">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                    <span>Farmer Directory Index</span>
+                    {searchLoading && <span className="text-brand-600 animate-pulse">Searching…</span>}
+                  </div>
+                  {searchSuggestions.length === 0 ? (
+                    <div className="px-3 py-3 text-slate-500 text-center">
+                      {searchLoading ? 'Looking up farmers…' : 'No matching farmers found'}
+                    </div>
+                  ) : (
+                    searchSuggestions.map((f: any) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setShowSearchDropdown(false);
+                          setGlobalSearch('');
+                          navigate(`/customers/${f.id}`);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between border-b border-slate-100 last:border-0 transition cursor-pointer"
+                      >
+                        <div>
+                          <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                            <span>{f.fullName}</span>
+                            {f.farmerCode && (
+                              <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1 py-0.2 rounded">
+                                #{f.farmerCode}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            {f.primaryPhone && <span>{f.primaryPhone}</span>}
+                            {f.district && <span>• {f.district}</span>}
+                            {f.crops && <span className="text-emerald-700 font-medium">• {f.crops}</span>}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-brand-600 font-semibold shrink-0 ml-2">View →</span>
+                      </button>
+                    ))
+                  )}
+                  <div className="px-2 pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSearchDropdown(false);
+                        navigate(`/customers?q=${encodeURIComponent(globalSearch.trim())}`);
+                      }}
+                      className="w-full text-center py-1.5 text-[11px] font-semibold text-brand-700 hover:text-brand-900 hover:bg-brand-50 rounded transition"
+                    >
+                      View all results in Farmer Directory →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 relative">
               <NotificationCenter />

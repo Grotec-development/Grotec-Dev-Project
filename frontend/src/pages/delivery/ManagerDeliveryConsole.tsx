@@ -29,6 +29,7 @@ export function ManagerDeliveryConsole() {
   const [isSlipOpen, setIsSlipOpen] = useState(false);
   const [rejectionModalPayment, setRejectionModalPayment] = useState<any | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [toastNotification, setToastNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // 1. Fetch pending payments awaiting manager review
   const { data: pendingPayments = [], isLoading: isPaymentsLoading } = useQuery({
@@ -61,15 +62,21 @@ export function ManagerDeliveryConsole() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       setRejectionModalPayment(null);
       setRejectionReason('');
-      alert('Payment submission decision successfully recorded in authoritative ledger.');
+      setToastNotification({
+        type: 'success',
+        message: 'Payment collection decision successfully recorded and posted to the ledger.',
+      });
+      setTimeout(() => setToastNotification(null), 5000);
     },
     onError: (err: any) => {
-      alert(err?.response?.data?.error?.message || 'Failed to review payment');
+      const msg = err?.response?.data?.error?.message || err?.message || 'Failed to review payment';
+      setToastNotification({ type: 'error', message: msg });
+      setTimeout(() => setToastNotification(null), 7000);
     },
   });
 
   const handleApprove = (payment: any) => {
-    if (confirm(`Approve payment of ₹${formatNumber(payment.amount)} for Order ${payment.order?.orderNumber}?`)) {
+    if (confirm(`Approve payment of ₹${formatNumber(payment.amount)} for Order ${payment.order?.orderNumber || payment.paymentNumber}?`)) {
       reviewPaymentMutation.mutate({ paymentId: payment.id, action: 'APPROVE' });
     }
   };
@@ -155,6 +162,32 @@ export function ManagerDeliveryConsole() {
           </Link>
         </div>
       </div>
+
+      {toastNotification && (
+        <div
+          className={`rounded-xl border p-3.5 text-xs font-semibold flex items-center justify-between shadow-xs transition-all ${
+            toastNotification.type === 'success'
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+              : 'border-red-300 bg-red-50 text-red-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {toastNotification.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-red-700 shrink-0" />
+            )}
+            <span>{toastNotification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastNotification(null)}
+            className="text-slate-400 hover:text-slate-600 text-xs px-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

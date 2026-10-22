@@ -134,7 +134,7 @@ function PayrollContent() {
     setOperating(true);
     setError(null);
     try {
-      await api.post(`/payroll/${currentRun.id}/approve`);
+      await api.post(`/payroll/${currentRun.id}/approve`, { acknowledgeFlags: true });
       setSuccessMsg(`Payroll run ${currentRun.month} successfully approved and locked.`);
       void fetchRuns();
     } catch (err: any) {

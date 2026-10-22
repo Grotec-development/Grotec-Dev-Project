@@ -378,3 +378,117 @@ export const tenantsApi = {
     api.post<TenantInfo>('/tenants', data),
 };
 
+// --- VAPI AI VOICE CALLING API ---
+export interface AiCallingConfig {
+  isLiveConfigured: boolean;
+  mode: 'LIVE_TELEPHONY' | 'PRESENTATION_DEMO_READY';
+  hasApiKey: boolean;
+  hasAssistantId: boolean;
+  hasPhoneNumberId: boolean;
+  demoModeAvailable: boolean;
+  defaultVoice: string;
+  model: string;
+  supportedLanguages: Array<{ code: string; name: string; isDefault: boolean }>;
+  assistantProfile: {
+    name: string;
+    organization: string;
+    headquarters: string;
+    scope: string;
+  };
+}
+
+export interface EligibleFarmer {
+  id: string;
+  farmerCode: string | null;
+  fullName: string;
+  status: string;
+  relationshipStage: string;
+  contactStatus: string;
+  primaryPhone: string | null;
+  additionalPhones: string[];
+  location: string;
+  crops: string[];
+}
+
+export interface StartAiCallPayload {
+  customerId?: string;
+  phoneNumber?: string;
+  language?: 'ta' | 'en' | 'bilingual';
+  topic?: string;
+  simulated?: boolean;
+  farmerName?: string;
+}
+
+export interface DemoScenario {
+  topic: string;
+  crop: string;
+  issue: string;
+  recommendedProducts: string[];
+  dosage: string;
+  expectedAmount: number;
+  transcript: Array<{
+    speaker: 'AI_ASSISTANT' | 'FARMER';
+    text: string;
+    en: string;
+  }>;
+}
+
+export interface AiCallResponse {
+  id: string;
+  isSimulated: boolean;
+  providerCallId: string;
+  status: string;
+  farmerName: string;
+  farmerCode?: string;
+  phoneNumber: string;
+  scenario?: DemoScenario;
+  message: string;
+}
+
+export interface AiCallStatusResponse {
+  id: string;
+  provider: string;
+  providerCallId: string;
+  status: string;
+  phoneNumber: string;
+  customer?: { id: string; fullName: string; farmerCode: string; relationshipStage: string } | null;
+  cropInterest?: string | null;
+  productInterest?: string | null;
+  expectedBookingAmount?: number | null;
+  outcome?: string | null;
+  nextAction?: string | null;
+  startedAt: string;
+  connectedAt?: string | null;
+  endedAt?: string | null;
+  notes: Array<{ id: string; content: string; createdAt: string }>;
+  followUp?: { id: string; dueAt: string; notes: string } | null;
+}
+
+export interface AiCallHistoryItem {
+  id: string;
+  provider: string;
+  phoneNumber: string;
+  farmerCode?: string;
+  farmerName?: string;
+  cropInterest?: string;
+  productInterest?: string;
+  expectedBookingAmount?: number | null;
+  status: string;
+  outcome?: string;
+  startedAt: string;
+  endedAt?: string;
+  agentName?: string;
+  latestNote?: string;
+}
+
+export const aiCallingApi = {
+  getConfig: () => api.get<AiCallingConfig>('/ai-calling/config'),
+  getFarmers: (search?: string) => api.get<EligibleFarmer[]>('/ai-calling/farmers', { params: { search } }),
+  startCall: (payload: StartAiCallPayload) => api.post<AiCallResponse>('/ai-calling/call', payload),
+  getStatus: (id: string) => api.get<AiCallStatusResponse>(`/ai-calling/call/${id}`),
+  completeCall: (id: string, data: any) => api.post<any>(`/ai-calling/call/${id}/complete`, data),
+  confirmOrder: (data: any) => api.post<any>('/ai-calling/confirm-order', data),
+  getHistory: () => api.get<AiCallHistoryItem[]>('/ai-calling/history'),
+};
+
+
