@@ -22,7 +22,8 @@ export function TeamPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const canCreate = hasPermission('employee.create');
-  const canManageEmployees = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
+  const canManageEmployees = user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || user?.roleCode === 'SUPER_ADMIN';
+  const canAccessRoles = canManageEmployees;
 
   const { data, isError, error } = useQuery({
     queryKey: ['employees'],
@@ -241,7 +242,7 @@ export function TeamPage() {
         </div>
       )}
 
-      <RolesPermissionsCard />
+      {canAccessRoles ? <RolesPermissionsCard /> : null}
 
       {showCreate ? <CreateEmployeeModal onClose={() => setShowCreate(false)} /> : null}
     </div>
@@ -257,19 +258,23 @@ interface RoleOption {
 
 /**
  * Interactive Roles & Permissions Configuration Panel:
- * Allows Super Admin & Founders to dynamically assign permissions
- * stored in the database without code changes or redeployment.
+ * Accessible strictly to Founder & Manager to view and modify
+ * permissions stored in the database. Hidden from Team Leaders and Telecallers.
  */
 function RolesPermissionsCard() {
   const { user } = useAuth();
   const [editingRole, setEditingRole] = useState<RoleOption | null>(null);
 
+  const canAccess = user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || user?.roleCode === 'SUPER_ADMIN';
+  if (!canAccess) return null;
+
   const { data, isError, error } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => (await api.get<RoleOption[]>('/roles')).data,
+    enabled: canAccess,
   });
 
-  const canEditPermissions = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
+  const canEditPermissions = canAccess;
 
   return (
     <Card className="mt-6">

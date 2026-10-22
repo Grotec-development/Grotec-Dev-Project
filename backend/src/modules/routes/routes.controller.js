@@ -43,6 +43,10 @@ let RoutesController = class RoutesController {
     async confirmCustomerDelivery(actor, orderId, body) {
         return this.routes.confirmCustomerDelivery(actor, orderId, body);
     }
+
+    async confirmCustomerDeliveryAlias(actor, orderId, body) {
+        return this.routes.confirmCustomerDelivery(actor, orderId, body);
+    }
 };
 
 __decorate([
@@ -101,6 +105,17 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], RoutesController.prototype, "confirmCustomerDelivery", null);
+
+__decorate([
+    Post('confirm-delivery/:orderId'),
+    HttpCode(200),
+    __param(0, CurrentEmployee()),
+    __param(1, Param('orderId')),
+    __param(2, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], RoutesController.prototype, "confirmCustomerDeliveryAlias", null);
 
 RoutesController = __decorate([
     Controller('routes'),

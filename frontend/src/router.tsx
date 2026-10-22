@@ -4,7 +4,7 @@ import { Shell } from './pages/Shell';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RouteErrorBoundary } from './components/RouteErrorBoundary';
-import { RequirePermission } from './components/RequirePermission';
+import { RequirePermission, RequireEmployeeProfileAccess, MyProfileRedirect } from './components/RequirePermission';
 
 // Route-level code splitting: each page ships as its own chunk so a phone on
 // cellular data only downloads the page it's actually visiting, not all ~28
@@ -71,7 +71,8 @@ export const router = createBrowserRouter([
       { path: 'hrms', element: <RequirePermission anyOf={['hrms.read']}><HrmsDashboardPage /></RequirePermission> },
       { path: 'hrms/dashboard', element: <RequirePermission anyOf={['hrms.read']}><HrmsDashboardPage /></RequirePermission> },
       { path: 'hrms/employees', element: <RequirePermission anyOf={['employee.read', 'hrms.employee.read']}><EmployeesPage /></RequirePermission> },
-      { path: 'hrms/employees/:id', element: <RequirePermission anyOf={['employee.read', 'hrms.employee.read']}><EmployeeProfilePage /></RequirePermission> },
+      { path: 'hrms/employees/:id', element: <RequireEmployeeProfileAccess><EmployeeProfilePage /></RequireEmployeeProfileAccess> },
+      { path: 'profile', element: <MyProfileRedirect /> },
       { path: 'hrms/attendance', element: <RequirePermission anyOf={['attendance.read', 'attendance.approve', 'hrms.attendance.read', 'hrms.attendance.manage']}><AttendancePage /></RequirePermission> },
       { path: 'hrms/leave', element: <RequirePermission anyOf={['leave.read', 'leave.apply', 'leave.approve', 'hrms.leave.read', 'hrms.leave.manage']}><LeavePage /></RequirePermission> },
       { path: 'hrms/action-center', element: <ActionCenterPage /> },

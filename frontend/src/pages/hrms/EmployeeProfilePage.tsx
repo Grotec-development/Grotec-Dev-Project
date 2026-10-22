@@ -40,6 +40,7 @@ import {
   TH,
   THead,
   Table,
+  cx,
 } from '../../components/ui';
 
 type ProfileTab =
@@ -53,7 +54,9 @@ type ProfileTab =
 
 export function EmployeeProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const isSelf = !!(user?.id && id === user.id);
+  const canManageEmployees = user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || user?.roleCode === 'SUPER_ADMIN';
 
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
   const [profile, setProfile] = useState<any>(null);
@@ -226,10 +229,10 @@ export function EmployeeProfilePage() {
     <div className="space-y-6 p-6">
       {/* Back Link */}
       <Link
-        to="/hrms/employees"
+        to={canManageEmployees ? '/hrms/employees' : '/agent'}
         className="inline-flex items-center text-xs font-medium text-slate-500 hover:text-slate-800"
       >
-        ← Back to Employee Directory
+        ← {canManageEmployees ? 'Back to Employee Directory' : 'Back to Calling Workspace'}
       </Link>
 
       {/* Header Profile Card */}
@@ -248,6 +251,9 @@ export function EmployeeProfilePage() {
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-slate-900">{overview.fullName}</h1>
                 <StatusBadge status={overview.status} />
+                {isSelf && !canManageEmployees && (
+                  <Badge tone="blue">Personal Profile & Performance</Badge>
+                )}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                 <span className="font-mono font-semibold">{overview.employeeCode || 'No Code'}</span>
@@ -395,8 +401,13 @@ export function EmployeeProfilePage() {
           </Card>
 
           {overview.notes && (
-            <Card className="p-6 md:col-span-2">
-              <h2 className="text-sm font-semibold text-slate-800 mb-2">Internal HR Notes</h2>
+            <Card className={cx("p-6 md:col-span-2", isSelf && !canManageEmployees && "opacity-60 bg-slate-50/70 select-none border-dashed")}>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-slate-800">Internal HR Notes</h2>
+                {isSelf && !canManageEmployees && (
+                  <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Reference Only (Admin Managed)</span>
+                )}
+              </div>
               <p className="text-sm text-slate-600 leading-relaxed">{overview.notes}</p>
             </Card>
           )}

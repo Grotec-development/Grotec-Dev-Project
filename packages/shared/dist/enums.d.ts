@@ -102,6 +102,7 @@ export namespace AuditEntityType {
     let TRIP_STOP: string;
     let QUANTITY_EXCEPTION: string;
     let EMPLOYEE_REQUEST: string;
+    let PAYMENT: string;
 }
 export namespace AuditAction {
     export let LOGIN_SUCCESS: string;

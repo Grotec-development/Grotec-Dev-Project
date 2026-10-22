@@ -152,7 +152,7 @@ export function RegionalRoutesView() {
     setConfirmError(null);
 
     try {
-      await api.post(`/routes/confirm-delivery/${confirmOrderModal.id}`, {
+      await api.post(`/routes/orders/${confirmOrderModal.id}/confirm-delivery`, {
         outcome: confirmOutcome,
         plannedDeliveryDate: plannedDeliveryDate || undefined,
         notes: confirmNotes.trim() || undefined,

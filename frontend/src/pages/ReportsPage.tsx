@@ -175,7 +175,11 @@ export function ReportsPage() {
     enabled: activeTab === 'performance',
   });
 
-  const isLeaderboardAllowed = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
+  const isLeaderboardAllowed =
+    user?.roleCode === 'FOUNDER' ||
+    user?.roleCode === 'SUPER_ADMIN' ||
+    user?.roleCode === 'MANAGER' ||
+    user?.roleCode === 'TEAM_LEADER';
 
   // 1. Leaderboard Query (Founder & Super Admin only)
   const leaderboardQuery = useQuery({
@@ -289,7 +293,7 @@ export function ReportsPage() {
     }
   };
 
-  const isManagement = user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER';
+  const isManagement = user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || user?.roleCode === 'TEAM_LEADER' || user?.roleCode === 'SUPER_ADMIN';
 
   return (
     <>

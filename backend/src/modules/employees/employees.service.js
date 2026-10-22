@@ -65,7 +65,9 @@ let EmployeesService = class EmployeesService {
         this.audit = audit;
     }
     async list(actor, pagination, filters) {
-        const conditions = [{ deletedAt: null }];
+        const canManage = isTopTier(actor.roleCode) || actor.roleCode === 'MANAGER';
+        const isArchivedMode = canManage && (filters?.archived === 'true' || filters?.archived === true);
+        const conditions = isArchivedMode ? [{ deletedAt: { not: null } }] : [{ deletedAt: null }];
         if (isTopTier(actor.roleCode)) {
             // Full visibility
         }
@@ -721,8 +723,9 @@ let EmployeesService = class EmployeesService {
         });
     }
     async setActive(actor, id, active) {
-        if (!isTopTier(actor.roleCode)) {
-            throw ApiError.forbidden('FOUNDER_ONLY', 'Only the founder can activate or deactivate employees (PRD §5.1.2)');
+        const canManage = isTopTier(actor.roleCode) || actor.roleCode === 'MANAGER';
+        if (!canManage) {
+            throw ApiError.forbidden('FORBIDDEN', 'Only Founder or Manager can activate or deactivate employees');
         }
         const existing = await this.prisma.employee.findFirst({
             where: { id, deletedAt: null },
@@ -761,8 +764,9 @@ let EmployeesService = class EmployeesService {
         return redactEmployee(employee);
     }
     async delete(actor, id) {
-        if (!isTopTier(actor.roleCode)) {
-            throw ApiError.forbidden('FOUNDER_ONLY', 'Only Founder and Super Admin can permanently remove employees');
+        const canManage = isTopTier(actor.roleCode) || actor.roleCode === 'MANAGER';
+        if (!canManage) {
+            throw ApiError.forbidden('FORBIDDEN', 'Only Founder or Manager can permanently remove employees');
         }
         const existing = await this.prisma.employee.findFirst({
             where: { id, deletedAt: null },

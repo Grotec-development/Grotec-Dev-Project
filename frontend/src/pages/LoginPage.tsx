@@ -56,7 +56,9 @@ export function LoginPage() {
   const [serverModalOpen, setServerModalOpen] = useState(false);
   const [activeServer, setActiveServer] = useState(() => getCustomApiUrl());
   const [notice] = useState<string | null>(() =>
-    peekLogoutReason() === 'idle' ? 'You were signed out after 15 minutes of inactivity. Please sign in again.' : null,
+    peekLogoutReason() === 'idle'
+      ? 'You were logged out of your account due to inactivity for more than 45 minutes. Active work is never interrupted. Please sign in again.'
+      : null,
   );
   useEffect(() => {
     clearLogoutReason();

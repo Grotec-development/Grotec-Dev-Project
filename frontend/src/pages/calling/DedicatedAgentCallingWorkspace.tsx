@@ -31,6 +31,11 @@ import {
   Tag,
   Truck,
   Plus,
+  Coffee,
+  Pause,
+  Play,
+  Sparkles,
+  UserCheck,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import type { Call, CustomerDetail, QueueItem } from '../../lib/types';
@@ -58,7 +63,27 @@ export function DedicatedAgentCallingWorkspace() {
   const [queueMode, setQueueMode] = useState<'ALL' | 'SCHEDULED'>('ALL');
   const [queueSearch, setQueueSearch] = useState<string>('');
 
-  // 5-Minute Call Timer state
+  // 1. Welcome to Work & Session Uptime (PDF Page 4)
+  const [workStarted, setWorkStarted] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('grotec_calling_work_started') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(!workStarted);
+
+  // 2. 5-Minute In-Between Call Timer & Alert (PDF Page 3)
+  const [inBetweenSeconds, setInBetweenSeconds] = useState(CALL_TIMEOUT_SECONDS);
+  const [showIdleAlert, setShowIdleAlert] = useState(false);
+
+  // 3. Employee Break Controller (PDF Page 3)
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [breakType, setBreakType] = useState<string>('');
+  const [breakRemainingSeconds, setBreakRemainingSeconds] = useState(0);
+  const [showBreakMenu, setShowBreakMenu] = useState(false);
+
+  // 5-Minute Call Timer state (in-call allocation)
   const [timeLeft, setTimeLeft] = useState(CALL_TIMEOUT_SECONDS);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [showTimeoutAlert, setShowTimeoutAlert] = useState(false);
@@ -320,6 +345,67 @@ export function DedicatedAgentCallingWorkspace() {
     return () => clearInterval(interval);
   }, [callActive]);
 
+  // 5-Minute In-Between Call Countdown Loop (PDF Page 3)
+  // Counts down when no call is active to maintain telecaller engagement
+  useEffect(() => {
+    if (!workStarted || callActive || isOnBreak) return;
+
+    const interval = setInterval(() => {
+      setInBetweenSeconds((prev) => {
+        if (prev <= 1) {
+          setShowIdleAlert(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [workStarted, callActive, isOnBreak]);
+
+  // Employee Break Countdown Loop (PDF Page 3)
+  useEffect(() => {
+    if (!isOnBreak || breakRemainingSeconds <= 0) return;
+
+    const interval = setInterval(() => {
+      setBreakRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          setIsOnBreak(false);
+          setBreakType('');
+          setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+          alert(`Your break has ended. Welcome back to work!`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOnBreak, breakRemainingSeconds, breakType]);
+
+  const startBreak = (type: string, minutes: number) => {
+    setIsOnBreak(true);
+    setBreakType(type);
+    setBreakRemainingSeconds(minutes * 60);
+    setShowBreakMenu(false);
+  };
+
+  const endBreak = () => {
+    setIsOnBreak(false);
+    setBreakType('');
+    setBreakRemainingSeconds(0);
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+  };
+
+  const handleStartWork = () => {
+    setWorkStarted(true);
+    setShowWelcomeModal(false);
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    try {
+      sessionStorage.setItem('grotec_calling_work_started', 'true');
+    } catch {}
+  };
+
   // Start Call Handler
   const handleStartCall = async (phoneToDial: string) => {
     if (!currentCustomer || callActive) return;
@@ -333,6 +419,10 @@ export function DedicatedAgentCallingWorkspace() {
     setActivePhoneDialed(phoneToDial);
     setCallActive(true);
     setCallDuration(0);
+    // Reset in-between call countdown and hide idle alerts
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setShowIdleAlert(false);
+
     // Start fresh 5-minute timer when call is started
     setTimeLeft(CALL_TIMEOUT_SECONDS);
     setIsTimerPaused(false);
@@ -361,6 +451,10 @@ export function DedicatedAgentCallingWorkspace() {
     setCallActive(false);
     setShowExtensionModal(false);
     setShowTimeoutAlert(false);
+
+    // Resets 5-minute countdown between calls when call ends
+    setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+    setShowIdleAlert(false);
 
     if (activeCallId) {
       try {
@@ -586,40 +680,129 @@ export function DedicatedAgentCallingWorkspace() {
           </div>
         </div>
 
-        {/* Timer & Queue Actions */}
-        <div className="flex items-center gap-2.5">
-          <div
-            className={cx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs font-bold shadow-xs transition-colors',
-              !callActive
-                ? 'bg-slate-50 border-slate-200 text-slate-600'
-                : timeLeft <= 30
-                ? 'bg-red-50 border-red-300 text-red-700 animate-pulse'
-                : timeLeft <= 60
-                ? 'bg-amber-50 border-amber-300 text-amber-800'
-                : 'bg-emerald-50 border-emerald-300 text-emerald-800'
-            )}
-            title={callActive ? 'Active Call Timer (5m allocation)' : 'Call Timer: Starts 5 mins on call start'}
-          >
-            <Clock className={cx('h-3.5 w-3.5', !callActive ? 'text-slate-400' : timeLeft <= 30 ? 'text-red-600' : 'text-emerald-700')} />
-            <span>{formatCountdown(timeLeft)}</span>
-            {!callActive ? (
-              <span className="text-[10px] font-sans font-medium text-slate-400">(Ready)</span>
-            ) : (
-              <span className="text-[10px] font-sans font-medium opacity-80">(Live)</span>
-            )}
-          </div>
-
-          {callActive && (
+        {/* Timer, Breaks & Queue Actions */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* A. If Agent is on break */}
+          {isOnBreak ? (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-900 font-mono text-xs font-bold shadow-xs animate-pulse">
+              <Coffee className="h-3.5 w-3.5 text-amber-700" />
+              <span>{breakType}: {formatCountdown(breakRemainingSeconds)}</span>
+              <button
+                type="button"
+                onClick={endBreak}
+                className="ml-1 text-[11px] font-sans font-extrabold text-white bg-amber-600 hover:bg-amber-700 px-2 py-0.5 rounded cursor-pointer transition"
+              >
+                Resume Work
+              </button>
+            </div>
+          ) : callActive ? (
+            /* B. If call is live */
+            <>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 font-mono text-xs font-bold shadow-xs">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>Live: {formatDuration(callDuration)}</span>
+                <span className="text-slate-400">|</span>
+                <span className={timeLeft <= 30 ? 'text-red-600 font-extrabold animate-pulse' : ''}>
+                  Alloc: {formatCountdown(timeLeft)}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowExtensionModal(true)}
+                className="text-xs gap-1 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold"
+                title="Need more time? Extend call duration"
+              >
+                <Plus className="h-3.5 w-3.5 text-amber-700" /> Extend
+              </Button>
+            </>
+          ) : !workStarted ? (
+            /* C. If shift work not yet started */
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => setShowExtensionModal(true)}
-              className="text-xs gap-1 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold"
-              title="Need more time? Extend call duration"
+              onClick={() => setShowWelcomeModal(true)}
+              className="text-xs gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-sm"
             >
-              <Plus className="h-3.5 w-3.5 text-amber-700" /> Extend
+              <Sparkles className="h-3.5 w-3.5 text-emerald-300" /> Start Work / பணியைத் தொடங்கு
             </Button>
+          ) : (
+            /* D. Work active & between calls: 5-Minute in-between countdown */
+            <>
+              <div
+                className={cx(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-full border font-mono text-xs font-bold shadow-xs transition-colors',
+                  inBetweenSeconds <= 20
+                    ? 'bg-red-50 border-red-300 text-red-700 animate-pulse'
+                    : inBetweenSeconds <= 60
+                    ? 'bg-amber-50 border-amber-300 text-amber-800'
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                )}
+                title="5-minute interval between calls. Dial next farmer before timer expires to stay active!"
+              >
+                <Clock className={cx('h-3.5 w-3.5', inBetweenSeconds <= 20 ? 'text-red-600' : 'text-emerald-700')} />
+                <span>{formatCountdown(inBetweenSeconds)}</span>
+                <span className="text-[10px] font-sans font-medium opacity-80">(Next Call Due)</span>
+              </div>
+
+              {/* Break Selection Menu Toggle */}
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowBreakMenu((prev) => !prev)}
+                  className="text-xs gap-1.5 text-slate-700 hover:text-slate-900 border-slate-200 bg-slate-50 hover:bg-slate-100"
+                >
+                  <Coffee className="h-3.5 w-3.5 text-amber-600" /> Break
+                </Button>
+                {showBreakMenu && (
+                  <div className="absolute right-0 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl z-50 text-xs animate-in fade-in slide-in-from-top-1">
+                    <p className="px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Employee Breaks
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => startBreak('Restroom Break', 15)}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 flex items-center justify-between transition cursor-pointer text-slate-800 font-medium"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Pause className="h-3.5 w-3.5 text-slate-500" /> Restroom Break
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">10–15 min</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startBreak('Tea / Coffee Break', 10)}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 flex items-center justify-between transition cursor-pointer text-slate-800 font-medium"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Coffee className="h-3.5 w-3.5 text-amber-600" /> Tea / Coffee
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">10 min</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startBreak('Personal Relaxation', 20)}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 flex items-center justify-between transition cursor-pointer text-slate-800 font-medium"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-blue-600" /> Relaxation
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">20 min</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startBreak('Lunch Break', 30)}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 flex items-center justify-between transition cursor-pointer text-slate-800 font-medium border-t border-slate-100"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Coffee className="h-3.5 w-3.5 text-emerald-600" /> Lunch Break
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">30 min</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           <Button
@@ -642,6 +825,45 @@ export function DedicatedAgentCallingWorkspace() {
           </Button>
         </div>
       </div>
+
+      {/* 5-Minute In-Between Call Alert Banner (PDF Page 3) */}
+      {!callActive && !isOnBreak && workStarted && inBetweenSeconds === 0 && (
+        <div className="rounded-xl border border-red-300 bg-red-50 p-3.5 text-xs text-red-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md animate-pulse">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+            <div>
+              <p className="font-bold text-red-900 text-sm">
+                Idle Notice: 5-minute time between calls has elapsed!
+              </p>
+              <p className="text-red-700 text-xs">
+                Stay active and connect with the next farmer in the calling queue.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {currentCustomer?.primaryPhone && (
+              <Button
+                size="sm"
+                onClick={() => handleStartCall(currentCustomer.primaryPhone)}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-1 text-xs shadow-xs"
+              >
+                <Phone className="h-3.5 w-3.5" /> Dial Next Customer ({currentCustomer.fullName})
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setInBetweenSeconds(CALL_TIMEOUT_SECONDS);
+                setShowIdleAlert(false);
+              }}
+              className="text-xs border-red-300 text-red-800 hover:bg-red-100"
+            >
+              Reset Timer (+5m)
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Extension Toast Notification */}
       {extensionToast && (
@@ -1611,6 +1833,91 @@ export function DedicatedAgentCallingWorkspace() {
                     Dismiss &amp; Continue Existing Timer
                   </button>
                 )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 4. Professional Welcome to Work Modal (PDF Page 4) */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true">
+          <Card className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            {/* Header with vibrant green gradient */}
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 p-6 text-white text-center relative">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shadow-inner mb-3">
+                <Sprout className="h-8 w-8 text-emerald-200" />
+              </div>
+              <h2 className="text-xl font-extrabold tracking-tight">வணக்கம்! Welcome to Work</h2>
+              <p className="text-xs text-emerald-200 font-medium mt-1">
+                GROTEC Farmer Telecalling &amp; Organic Agronomy Advisory
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs text-slate-700">
+              {/* Bilingual Motivation in Tamil & English */}
+              <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2 leading-relaxed">
+                <p className="font-semibold text-emerald-950 text-sm">
+                  விவசாயிகளின் வளர்ச்சிக்கு உங்களின் பணி மகத்தானது!
+                </p>
+                <p className="text-emerald-900 text-[11px] leading-relaxed">
+                  க்ரோடெக் வேளாண் ஆலோசனை மையத்திற்கு அன்புடன் வரவேற்கிறோம். தமிழ்நாட்டு விவசாயிகளுக்கு தரமான இயற்கை உரங்கள், பயிர் ஊட்டச்சத்து மற்றும் அதிக மகசூல் பெற உங்கள் கனிவான வழிகாட்டுதல் மிக அவசியமானது.
+                </p>
+                <div className="border-t border-emerald-200/80 pt-2 text-slate-600 text-[11px] leading-relaxed">
+                  Welcome to GROTEC Farmer Care! Every call is an opportunity to uplift farmer livelihoods through organic solutions and trusted relationship management.
+                </div>
+              </div>
+
+              {/* Core Principles */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Today's Operational Focus
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <UserCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">Warm Tamil Greeting</p>
+                      <p className="text-slate-500">Greet politely, listen to crop symptoms</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <Sprout className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">Bio-Fertilizer Focus</p>
+                      <p className="text-slate-500">Recommend Bio-Jeevan, Ultra Action +</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <Clock className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">5-Min Cadence</p>
+                      <p className="text-slate-500">Maintain smooth tempo between calls</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <Coffee className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-slate-800">Scheduled Breaks</p>
+                      <p className="text-slate-500">Take timely tea &amp; restroom breaks</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <Button
+                  size="md"
+                  onClick={handleStartWork}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm py-3 rounded-xl shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="h-4 w-4 text-emerald-200" />
+                  <span>Start Work / பணியைத் தொடங்கு</span>
+                </Button>
+                <p className="text-center text-[10px] text-slate-400 mt-2">
+                  Clicking will start your active session and initiate the 5-minute call cadence.
+                </p>
               </div>
             </div>
           </Card>

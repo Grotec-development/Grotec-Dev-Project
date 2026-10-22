@@ -450,7 +450,7 @@ let ReportsService = class ReportsService {
     }
 
     async getLeaderboard(actor, query = {}) {
-        if (!isTopTier(actor.roleCode)) {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER' && actor.roleCode !== 'TEAM_LEADER') {
             throw ApiError.forbidden('LEADERBOARD_FORBIDDEN', 'Operational Leaderboard is restricted to Founder and Super Admin');
         }
         const period = query.period || 'month';
@@ -571,7 +571,7 @@ let ReportsService = class ReportsService {
     }
 
     async exportLeaderboardCsv(actor, query = {}) {
-        if (!isTopTier(actor.roleCode)) {
+        if (!isTopTier(actor.roleCode) && actor.roleCode !== 'MANAGER' && actor.roleCode !== 'TEAM_LEADER') {
             throw ApiError.forbidden('LEADERBOARD_EXPORT_FORBIDDEN', 'Leaderboard export is restricted to Founder and Super Admin');
         }
 
