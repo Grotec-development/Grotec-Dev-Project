@@ -266,13 +266,14 @@ function RolesPermissionsCard() {
   const [editingRole, setEditingRole] = useState<RoleOption | null>(null);
 
   const canAccess = user?.roleCode === 'FOUNDER' || user?.roleCode === 'MANAGER' || user?.roleCode === 'SUPER_ADMIN';
-  if (!canAccess) return null;
 
   const { data, isError, error } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => (await api.get<RoleOption[]>('/roles')).data,
     enabled: canAccess,
   });
+
+  if (!canAccess) return null;
 
   const canEditPermissions = canAccess;
 
