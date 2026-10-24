@@ -6,8 +6,7 @@ import { Alert, Button, Card, Field, Input, cx } from '../components/ui';
 import { PageHead } from '../components/PageHead';
 import { clearLogoutReason, peekLogoutReason } from '../lib/idleReason';
 import { DEMO_ACCOUNTS, DEMO_ALIASES, isDemoAccountsEnabled, type DemoAccount } from '../lib/demoAccounts';
-import { ServerConfigModal } from '../components/ServerConfigModal';
-import { getCustomApiUrl } from '../lib/api';
+
 
 const LOCAL_BUSINESS_LD = {
   '@context': 'https://schema.org',
@@ -53,8 +52,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [serverModalOpen, setServerModalOpen] = useState(false);
-  const [activeServer, setActiveServer] = useState(() => getCustomApiUrl());
+
   const [notice] = useState<string | null>(() =>
     peekLogoutReason() === 'idle'
       ? 'You were logged out of your account due to inactivity for more than 45 minutes. Active work is never interrupted. Please sign in again.'
@@ -318,19 +316,7 @@ export function LoginPage() {
                   }}
                 />
 
-                {/* Server Connection Indicator & Customizer for mobile APK & web */}
-                <div className="pt-2 flex items-center justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setServerModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 transition touch-manipulation cursor-pointer border border-slate-200"
-                    title="Configure backend API server endpoint"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>API Server: {activeServer ? 'Custom / LAN' : 'Website Cloud (Render)'}</span>
-                    <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">Settings</span>
-                  </button>
-                </div>
+
 
               </form>
 
@@ -455,19 +441,7 @@ export function LoginPage() {
 
             </form>
 
-            {/* Server Connection Indicator & Customizer for mobile APK & web */}
-            <div className="pt-1 flex items-center justify-center">
-              <button
-                type="button"
-                onClick={() => setServerModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium text-slate-500 bg-slate-100/90 hover:bg-slate-200 hover:text-slate-800 transition cursor-pointer border border-slate-200"
-                title="Configure backend API server endpoint"
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>API: {activeServer ? 'Custom / LAN' : 'Cloud (Render)'}</span>
-                <span className="text-[9px] text-emerald-800 font-bold bg-emerald-100 px-1 py-0.2 rounded">Configure</span>
-              </button>
-            </div>
+
 
             {/* Single small muted audit line beneath button */}
             <p className="text-center text-[10px] text-slate-400 leading-normal">
@@ -477,11 +451,7 @@ export function LoginPage() {
         </div>
       )}
 
-      <ServerConfigModal
-        isOpen={serverModalOpen}
-        onClose={() => setServerModalOpen(false)}
-        onSaved={() => setActiveServer(getCustomApiUrl())}
-      />
+
     </>
   );
 }

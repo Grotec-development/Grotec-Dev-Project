@@ -46,7 +46,7 @@ import { PageHead } from '../components/PageHead';
 import { Breadcrumb, type BreadcrumbItem } from '../components/Breadcrumb';
 import { GrotecLogo } from '../components/GrotecLogo';
 import { NetworkStatusIndicator } from '../components/NetworkStatusIndicator';
-import { ServerConfigModal } from '../components/ServerConfigModal';
+
 import { AppUpdateModal } from '../components/AppUpdateModal';
 import { api, tenantsApi } from '../lib/api';
 
@@ -450,7 +450,7 @@ export function Shell() {
   }, [globalSearch]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tenantName, setTenantName] = useState<string>('GROTEC Agrotech');
-  const [serverModalOpen, setServerModalOpen] = useState(false);
+
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
 
   const toggleSidebar = () => {
@@ -966,17 +966,7 @@ export function Shell() {
                         <Download className="h-3.5 w-3.5 text-emerald-600" />
                         <span>Download App Update (APK)</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          setServerModalOpen(true);
-                        }}
-                        className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Settings className="h-3.5 w-3.5 text-slate-400" />
-                        <span>Server & Network Settings</span>
-                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1181,7 +1171,7 @@ export function Shell() {
 
       {/* Global Modals */}
       <AppUpdateModal isOpen={updateModalOpen} onClose={() => setUpdateModalOpen(false)} />
-      <ServerConfigModal isOpen={serverModalOpen} onClose={() => setServerModalOpen(false)} />
+
     </div>
   );
 }

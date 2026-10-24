@@ -28,18 +28,24 @@ import { isNativeApp } from './native-calling';
 
 export const CLOUD_BACKEND_API = 'https://grotec-dev-project.onrender.com/api/v1';
 
-const CUSTOM_API_STORAGE_KEY = 'grotec_custom_api_url';
+// Automatically purge legacy custom server override so all clients connect to live production server
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('grotec_custom_api_url');
+  } catch {
+    // ignore
+  }
+}
 
 export function getCustomApiUrl(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(CUSTOM_API_STORAGE_KEY);
+  return null;
+}
+
+export function setCustomApiUrl(_url: string | null): void {
+  // Single live server mode only
 }
 
 export function getApiBaseUrl(): string {
-  const customUrl = typeof window !== 'undefined' ? localStorage.getItem(CUSTOM_API_STORAGE_KEY) : null;
-  if (customUrl && (customUrl.startsWith('http://') || customUrl.startsWith('https://'))) {
-    return customUrl.trim().replace(/\/+$/, '');
-  }
   const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
   if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
     return envUrl;
@@ -50,7 +56,7 @@ export function getApiBaseUrl(): string {
     (typeof window !== 'undefined' &&
       (window.location.protocol === 'capacitor:' ||
         window.location.protocol === 'file:' ||
-        window.location.hostname === 'localhost' && !window.location.port))
+        (window.location.hostname === 'localhost' && !window.location.port)))
   ) {
     return CLOUD_BACKEND_API;
   }
@@ -68,17 +74,6 @@ export function getApiBaseUrl(): string {
   }
   // Standalone web or Vercel production web:
   return CLOUD_BACKEND_API;
-}
-
-export function setCustomApiUrl(url: string | null): void {
-  if (typeof window === 'undefined') return;
-  if (!url || !url.trim()) {
-    localStorage.removeItem(CUSTOM_API_STORAGE_KEY);
-  } else {
-    const formatted = url.trim().replace(/\/+$/, '');
-    localStorage.setItem(CUSTOM_API_STORAGE_KEY, formatted);
-  }
-  api.defaults.baseURL = getApiBaseUrl();
 }
 
 export const API_BASE_URL: string = getApiBaseUrl();
