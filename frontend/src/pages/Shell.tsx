@@ -62,7 +62,6 @@ interface NavItem {
 const CRM_NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'customer.read' },
   { to: '/agent', label: 'Agent Calling', icon: Phone, permission: 'call.read' },
-  { to: '/ai-calling', label: 'AI Voice Calling', icon: Sparkles, badge: 'Vapi AI', permission: 'call.read' },
   { to: '/action-center', label: 'Action Center', icon: Briefcase, permission: 'call.read' },
   { to: '/customers', label: 'Farmers', icon: Users, permission: 'customer.read' },
   { to: '/relationship', label: 'Relationship Manager', icon: Contact, permission: 'relationship.read' },
@@ -84,8 +83,6 @@ const CRM_NAV_ITEMS: NavItem[] = [
 const AGENT_PRIMARY_NAV = new Set([
   '/dashboard',
   '/agent',
-  '/ai-calling',
-  '/ai-calling-demo',
   '/action-center',
   '/customers',
   '/tickets',
@@ -96,8 +93,6 @@ const AGENT_PRIMARY_NAV = new Set([
 const TEAM_LEADER_PRIMARY_NAV = new Set([
   '/dashboard',
   '/agent',
-  '/ai-calling',
-  '/ai-calling-demo',
   '/action-center',
   '/customers',
   '/relationship',
@@ -131,7 +126,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 // Phase 2 Factory, Supply Chain & Logistics items (PRD §18)
 const SUPPLY_CHAIN_NAV_ITEMS: NavItem[] = [
   { to: '/orders', label: 'Sales Orders', icon: ShoppingCart, permission: 'orders.read' },
-  { to: '/sales', label: 'Completed Sales & Invoices', icon: IndianRupee, permission: 'orders.read' },
+  { to: '/sales', label: 'Completed Sales & Invoices', icon: IndianRupee, permission: 'orders.manage' },
   { to: '/inventory', label: 'Inventory Ledger', icon: Boxes, permission: 'inventory.read' },
   { to: '/factory', label: 'Factory & Batches', icon: Factory, permission: 'production.read' },
   { to: '/dispatch', label: '4 Regional Routes & Dispatch', icon: Truck, permission: 'dispatch.read' },
@@ -145,7 +140,14 @@ function getHrmsNavItems(roleCode: string | undefined, hasPermission: (perm: str
   const isFounder = roleCode === 'FOUNDER' || roleCode === 'SUPER_ADMIN';
   const isManager = roleCode === 'MANAGER';
   const isTeamLeader = roleCode === 'TEAM_LEADER' || roleCode === 'GROUP_LEADER';
-  const isSelfOnly = roleCode === 'AGENT' || roleCode === 'DELIVERY';
+  const isAgent = roleCode === 'AGENT' || roleCode === 'FSE';
+  const isSelfOnly = isAgent || roleCode === 'DELIVERY';
+
+  // For Telecaller (AGENT), all HRMS and self-service features are consolidated
+  // directly inside the Action Center (/action-center) so everything is in one place.
+  if (isAgent) {
+    return [];
+  }
 
   const items: NavItem[] = [];
 
@@ -538,6 +540,7 @@ export function Shell() {
   const hrmsVisible = getHrmsNavItems(user.roleCode, hasPermission);
   const supplyVisible = SUPPLY_CHAIN_NAV_ITEMS.filter(
     (i) =>
+      !isAgent &&
       (!isDelivery || DELIVERY_PRIMARY_NAV.has(i.to)) &&
       (!isTeamLeader || TEAM_LEADER_PRIMARY_NAV.has(i.to)) &&
       (!i.permission || hasPermission(i.permission)),

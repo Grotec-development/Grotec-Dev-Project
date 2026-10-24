@@ -82,7 +82,7 @@ export function DashboardPage() {
     refetchInterval: POLL_INTERVAL_LIVE,
   });
 
-  // 5. Leaderboard (Founder & Manager oversight)
+  // 5. Leaderboard (Telecaller calling rankings)
   const leaderboardQuery = useQuery({
     queryKey: ['dashboard-leaderboard', leaderboardPeriod],
     queryFn: async () =>
@@ -91,9 +91,23 @@ export function DashboardPage() {
           params: { period: leaderboardPeriod },
         })
       ).data,
-    enabled: isFounder || isManager,
+    enabled: !isDelivery,
     refetchInterval: POLL_INTERVAL_REPORTS,
   });
+
+  const myRankInfo = useMemo(() => {
+    if (!leaderboardQuery.data?.leaderboard || !user) return null;
+    const list = leaderboardQuery.data.leaderboard;
+    const found = list.find((a: any) => a.agentId === user.id || a.fullName?.toLowerCase() === user.fullName?.toLowerCase());
+    if (!found) return null;
+    return {
+      rank: found.rank,
+      total: list.length,
+      callsDialed: found.callsDialed,
+      callsConnected: found.callsConnected,
+      conversionRate: found.conversionRate,
+    };
+  }, [leaderboardQuery.data, user]);
 
   const s = summaryQuery.data;
   const vehicles = vehiclesQuery.data || [];
@@ -512,22 +526,37 @@ export function DashboardPage() {
               </div>
             </div>
 
-            {/* Agent / Team Leader KPI 4: Open Leads Pipeline */}
-            <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs flex flex-col justify-between">
+            {/* Agent / Team Leader KPI 4: Calling Leaderboard & Rank */}
+            <div className="rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/70 via-white to-amber-50/30 p-4 shadow-xs flex flex-col justify-between hover:border-amber-400 transition">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Open Leads Pipeline</p>
-                <div className="mt-1 flex items-baseline justify-between">
-                  <span className="text-2xl font-black text-slate-900 leading-none">{formatNumber(s?.leads?.open ?? 0)}</span>
-                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                    +{formatNumber(s?.leads?.newThisWeek ?? 0)} This Week
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                    <Trophy className="h-3.5 w-3.5 text-amber-600" />
+                    <span>Calling Leaderboard</span>
+                  </p>
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded capitalize">
+                    {leaderboardPeriod}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-2">Fresh farmer prospect ingestion</p>
+                <div className="mt-1 flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-slate-900 leading-none">
+                    {myRankInfo ? `#${myRankInfo.rank}` : '#1 Ranked'}
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                    {myRankInfo ? `${myRankInfo.conversionRate}% Conv.` : `${formatNumber(s?.leads?.open ?? 0)} Open`}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-2">
+                  {myRankInfo ? `${myRankInfo.callsConnected} calls connected • rank ${myRankInfo.rank} of ${myRankInfo.total}` : 'Active telecaller performance'}
+                </p>
               </div>
-              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                <Link to="/leads" className="font-bold text-blue-700 hover:text-blue-800 flex items-center gap-0.5">
-                  <span>View leads</span>
+              <div className="mt-3 pt-2 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
+                <a href="#calling-leaderboard" className="font-bold text-amber-800 hover:text-amber-900 flex items-center gap-0.5">
+                  <span>View leaderboard</span>
                   <ChevronRight className="h-3 w-3" />
+                </a>
+                <Link to="/reports" className="font-bold text-slate-600 hover:text-slate-900">
+                  Full rankings &rarr;
                 </Link>
               </div>
             </div>
@@ -807,14 +836,14 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* 4. Operational Leaderboard (Founder & Manager exclusive) */}
-      {(isFounder || isManager) && (
-        <section className="pt-2">
+      {/* 4. Operational Telecaller Leaderboard */}
+      {!isDelivery && (
+        <section id="calling-leaderboard" className="pt-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-amber-500" />
-                <span>Operational Telecaller Leaderboard</span>
+                <span>Agent Calling Leaderboard &amp; Rankings</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Deterministic performance rankings based on verified CRM calls and conversions
@@ -862,17 +891,35 @@ export function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {(leaderboardQuery.data?.leaderboard || []).map((agent: any) => (
-                      <tr key={agent.agentId} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3 px-4 text-center font-bold text-slate-700">#{agent.rank}</td>
-                        <td className="py-3 px-4 font-bold text-slate-900">{agent.fullName}</td>
-                        <td className="py-3 px-4 text-right font-mono text-slate-800">{agent.callsDialed}</td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">{agent.callsConnected}</td>
-                        <td className="py-3 px-4 text-right font-mono text-slate-600">{agent.followUpsCompleted || 0}</td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{agent.leadsConverted || 0}</td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-800">{agent.conversionRate}%</td>
-                      </tr>
-                    ))}
+                    {(leaderboardQuery.data?.leaderboard || []).map((agent: any) => {
+                      const isMe = agent.agentId === user?.id || agent.fullName?.toLowerCase() === user?.fullName?.toLowerCase();
+                      return (
+                        <tr
+                          key={agent.agentId}
+                          className={cx(
+                            'transition-colors',
+                            isMe ? 'bg-emerald-50/90 font-bold border-l-4 border-l-emerald-600' : 'hover:bg-slate-50/60'
+                          )}
+                        >
+                          <td className="py-3 px-4 text-center font-bold text-slate-700">
+                            {agent.rank === 1 ? '🥇 #1' : agent.rank === 2 ? '🥈 #2' : agent.rank === 3 ? '🥉 #3' : `#${agent.rank}`}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-slate-900">{agent.fullName}</span>
+                            {isMe && (
+                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-200 text-emerald-800">
+                                You
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-800">{agent.callsDialed}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">{agent.callsConnected}</td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">{agent.followUpsCompleted || 0}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{agent.leadsConverted || 0}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-800">{agent.conversionRate}%</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -15,10 +15,16 @@ import {
   AlertCircle,
   ArrowRight,
   Filter,
+  ShieldCheck,
+  TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { api, errorMessage } from '../lib/api';
 import { formatDate } from '../lib/format';
+import { AttendancePage } from './hrms/AttendancePage';
+import { LeavePage } from './hrms/LeavePage';
+import { PayslipsPage } from './hrms/PayslipsPage';
+import { KpiPage } from './hrms/KpiPage';
 import {
   Alert,
   Badge,
@@ -76,22 +82,24 @@ interface QuickRequestModalProps {
   onSuccess: (msg: string) => void;
 }
 
+export type ActionCenterTab = 'actions' | 'attendance' | 'leave' | 'payslips' | 'kpi' | 'requests' | 'inbox';
+
 export function ActionCenterPage() {
   const { user, hasPermission } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isFounderOrAdmin = user?.roleCode === 'FOUNDER' || user?.roleCode === 'SUPER_ADMIN';
   const canManageRequests = hasPermission('request.manage') || isFounderOrAdmin;
-  const requestedTab = searchParams.get('tab') as 'actions' | 'requests' | 'inbox' | null;
-  const defaultTab = isFounderOrAdmin ? 'inbox' : 'actions';
-  const activeTab = requestedTab
+  const requestedTab = searchParams.get('tab') as ActionCenterTab | null;
+  const defaultTab: ActionCenterTab = isFounderOrAdmin ? 'inbox' : 'actions';
+  const activeTab: ActionCenterTab = requestedTab
     ? requestedTab === 'inbox' && !canManageRequests
       ? 'actions'
       : requestedTab === 'actions' && isFounderOrAdmin
       ? 'inbox'
       : requestedTab
     : defaultTab;
-  const setActiveTab = (tab: 'actions' | 'requests' | 'inbox') => {
+  const setActiveTab = (tab: ActionCenterTab) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('tab', tab);
@@ -205,35 +213,93 @@ export function ActionCenterPage() {
           </p>
         </div>
 
-        {/* Tab Toggle */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
+        {/* Unified Tab Bar */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-lg self-start sm:self-auto overflow-x-auto max-w-full">
           {!isFounderOrAdmin && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('actions')}
-              className={cx(
-                'px-4 py-1.5 rounded-md text-xs font-bold transition cursor-pointer',
-                activeTab === 'actions'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900',
-              )}
-            >
-              Quick Actions
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('actions')}
+                className={cx(
+                  'px-3.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap',
+                  activeTab === 'actions'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80 font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
+                )}
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>Quick Requests</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('attendance')}
+                className={cx(
+                  'px-3.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap',
+                  activeTab === 'attendance'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80 font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
+                )}
+              >
+                <Clock className="h-3.5 w-3.5" />
+                <span>My Attendance</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('leave')}
+                className={cx(
+                  'px-3.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap',
+                  activeTab === 'leave'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80 font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
+                )}
+              >
+                <Palmtree className="h-3.5 w-3.5" />
+                <span>My Leave</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('payslips')}
+                className={cx(
+                  'px-3.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap',
+                  activeTab === 'payslips'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80 font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
+                )}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>My Payslips</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('kpi')}
+                className={cx(
+                  'px-3.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap',
+                  activeTab === 'kpi'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80 font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
+                )}
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span>My Performance</span>
+              </button>
+            </>
           )}
           <button
             type="button"
             onClick={() => setActiveTab('requests')}
             className={cx(
-              'px-4 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5',
+              'px-3.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap',
               activeTab === 'requests'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900',
+                ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80 font-black'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
             )}
           >
+            <CheckCircle2 className="h-3.5 w-3.5" />
             <span>My Requests</span>
             {requests.filter((r) => (r.bucket ?? r.status) === 'PENDING').length > 0 && (
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              <span className="h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
+                {requests.filter((r) => (r.bucket ?? r.status) === 'PENDING').length}
+              </span>
             )}
           </button>
           {canManageRequests && (
@@ -241,11 +307,14 @@ export function ActionCenterPage() {
               type="button"
               onClick={() => setActiveTab('inbox')}
               className={cx(
-                'px-4 py-1.5 rounded-md text-xs font-bold transition cursor-pointer',
-                activeTab === 'inbox' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900',
+                'px-3.5 py-1.5 rounded-md text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap',
+                activeTab === 'inbox'
+                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80 font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
               )}
             >
-              {isFounderOrAdmin ? 'Approval Requests' : 'Team Requests'}
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>{isFounderOrAdmin ? 'Approval Requests' : 'Team Requests'}</span>
             </button>
           )}
         </div>
@@ -419,7 +488,35 @@ export function ActionCenterPage() {
         </div>
       )}
 
-      {/* TAB 2: MY REQUESTS */}
+      {/* TAB: MY ATTENDANCE */}
+      {activeTab === 'attendance' && !isFounderOrAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <AttendancePage />
+        </div>
+      )}
+
+      {/* TAB: MY LEAVE */}
+      {activeTab === 'leave' && !isFounderOrAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <LeavePage />
+        </div>
+      )}
+
+      {/* TAB: MY PAYSLIPS */}
+      {activeTab === 'payslips' && !isFounderOrAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <PayslipsPage />
+        </div>
+      )}
+
+      {/* TAB: MY KPI PERFORMANCE */}
+      {activeTab === 'kpi' && !isFounderOrAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <KpiPage />
+        </div>
+      )}
+
+      {/* TAB: MY REQUESTS */}
       {activeTab === 'requests' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs">

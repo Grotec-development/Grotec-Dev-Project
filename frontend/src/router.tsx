@@ -42,6 +42,16 @@ const FleetManagementView = lazy(() => import('./pages/delivery/FleetManagementV
 const ManagerDeliveryConsole = lazy(() => import('./pages/delivery/ManagerDeliveryConsole').then((m) => ({ default: m.ManagerDeliveryConsole })));
 const AiVoiceCallingPage = lazy(() => import('./pages/calling/AiVoiceCallingPage').then((m) => ({ default: m.AiVoiceCallingPage })));
 
+import { useAuth } from './auth/AuthContext';
+
+function AgentHrmsRedirect({ tab, children }: { tab: string; children: React.ReactElement }) {
+  const { user } = useAuth();
+  if (user?.roleCode === 'AGENT' || user?.roleCode === 'FSE') {
+    return <Navigate to={`/action-center?tab=${tab}`} replace />;
+  }
+  return children;
+}
+
 import { DedicatedAgentCallingWorkspace } from './pages/calling/DedicatedAgentCallingWorkspace';
 
 export const router = createBrowserRouter([
@@ -55,8 +65,8 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'agent', element: <RequirePermission anyOf={['call.read']}><DedicatedAgentCallingWorkspace /></RequirePermission> },
       { path: 'calling', element: <RequirePermission anyOf={['call.read']}><DedicatedAgentCallingWorkspace /></RequirePermission> },
-      { path: 'ai-calling', element: <RequirePermission anyOf={['call.read']}><AiVoiceCallingPage /></RequirePermission> },
-      { path: 'ai-calling-demo', element: <RequirePermission anyOf={['call.read']}><AiVoiceCallingPage /></RequirePermission> },
+      { path: 'ai-calling', element: <Navigate to="/agent" replace /> },
+      { path: 'ai-calling-demo', element: <Navigate to="/agent" replace /> },
       { path: 'agent-advanced', element: <Navigate to="/agent" replace /> },
       { path: 'action-center', element: <ActionCenterPage /> },
       { path: 'customers', element: <RequirePermission anyOf={['customer.read']}><CustomersPage /></RequirePermission> },
@@ -73,24 +83,24 @@ export const router = createBrowserRouter([
       { path: 'hrms/employees', element: <RequirePermission anyOf={['employee.read', 'hrms.employee.read']}><EmployeesPage /></RequirePermission> },
       { path: 'hrms/employees/:id', element: <RequireEmployeeProfileAccess><EmployeeProfilePage /></RequireEmployeeProfileAccess> },
       { path: 'profile', element: <MyProfileRedirect /> },
-      { path: 'hrms/attendance', element: <RequirePermission anyOf={['attendance.read', 'attendance.approve', 'hrms.attendance.read', 'hrms.attendance.manage']}><AttendancePage /></RequirePermission> },
-      { path: 'hrms/leave', element: <RequirePermission anyOf={['leave.read', 'leave.apply', 'leave.approve', 'hrms.leave.read', 'hrms.leave.manage']}><LeavePage /></RequirePermission> },
+      { path: 'hrms/attendance', element: <RequirePermission anyOf={['attendance.read', 'attendance.approve', 'hrms.attendance.read', 'hrms.attendance.manage']}><AgentHrmsRedirect tab="attendance"><AttendancePage /></AgentHrmsRedirect></RequirePermission> },
+      { path: 'hrms/leave', element: <RequirePermission anyOf={['leave.read', 'leave.apply', 'leave.approve', 'hrms.leave.read', 'hrms.leave.manage']}><AgentHrmsRedirect tab="leave"><LeavePage /></AgentHrmsRedirect></RequirePermission> },
       { path: 'hrms/action-center', element: <ActionCenterPage /> },
       { path: 'hrms/payroll', element: <RequirePermission anyOf={['payroll.manage', 'hrms.payroll.process', 'hrms.payroll.approve']}><PayrollPage /></RequirePermission> },
-      { path: 'hrms/payslips', element: <RequirePermission anyOf={['payroll.read', 'hrms.payroll.read']}><PayslipsPage /></RequirePermission> },
-      { path: 'hrms/payslips/:id', element: <RequirePermission anyOf={['payroll.read', 'hrms.payroll.read']}><PayslipsPage /></RequirePermission> },
-      { path: 'hrms/kpi', element: <RequirePermission anyOf={['kpi.read', 'kpi.manage', 'hrms.kpi.read', 'hrms.kpi.configure']}><KpiPage /></RequirePermission> },
+      { path: 'hrms/payslips', element: <RequirePermission anyOf={['payroll.read', 'hrms.payroll.read']}><AgentHrmsRedirect tab="payslips"><PayslipsPage /></AgentHrmsRedirect></RequirePermission> },
+      { path: 'hrms/payslips/:id', element: <RequirePermission anyOf={['payroll.read', 'hrms.payroll.read']}><AgentHrmsRedirect tab="payslips"><PayslipsPage /></AgentHrmsRedirect></RequirePermission> },
+      { path: 'hrms/kpi', element: <RequirePermission anyOf={['kpi.read', 'kpi.manage', 'hrms.kpi.read', 'hrms.kpi.configure']}><AgentHrmsRedirect tab="kpi"><KpiPage /></AgentHrmsRedirect></RequirePermission> },
       { path: 'reports', element: <RequirePermission anyOf={['call.read']}><ReportsPage /></RequirePermission> },
       { path: 'restricted', element: <RestrictedPage /> },
       // Phase 2 Factory, Supply Chain & Delivery
       { path: 'orders', element: <RequirePermission anyOf={['orders.read']}><OrdersPage /></RequirePermission> },
-      { path: 'sales', element: <RequirePermission anyOf={['orders.read']}><SalesPage /></RequirePermission> },
+      { path: 'sales', element: <RequirePermission anyOf={['orders.manage']}><SalesPage /></RequirePermission> },
       { path: 'inventory', element: <RequirePermission anyOf={['inventory.read']}><InventoryPage /></RequirePermission> },
       { path: 'factory', element: <RequirePermission anyOf={['production.read']}><FactoryPage /></RequirePermission> },
       { path: 'dispatch', element: <RequirePermission anyOf={['dispatch.read']}><DispatchPage /></RequirePermission> },
       { path: 'routes', element: <RequirePermission anyOf={['dispatch.read']}><RegionalRoutesPage /></RequirePermission> },
       { path: 'delivery/fleet', element: <RequirePermission anyOf={['dispatch.read', 'delivery.read', 'delivery.execute']}><FleetManagementView /></RequirePermission> },
-      { path: 'delivery/manager', element: <RequirePermission anyOf={['orders.read', 'orders.manage', 'dispatch.read']}><ManagerDeliveryConsole /></RequirePermission> },
+      { path: 'delivery/manager', element: <RequirePermission anyOf={['orders.manage', 'dispatch.read']}><ManagerDeliveryConsole /></RequirePermission> },
       { path: 'delivery/approvals', element: <Navigate to="/delivery/manager" replace /> },
       { path: 'fleet', element: <Navigate to="/delivery/fleet" replace /> },
       { path: 'tickets', element: <RequirePermission anyOf={['customer.read']}><SupportTicketsPage /></RequirePermission> },
